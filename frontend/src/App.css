@@ -1,0 +1,281 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+}
+
+.app-header {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+
+.app-header p {
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+/* 좌: 조건 / 중: 지도 / 우: 게시대 상세 */
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 250px 1fr 330px;
+  gap: 1px;
+  background: var(--border);
+}
+
+@media (max-width: 1024px) {
+  .app {
+    height: auto;
+  }
+
+  .app-body {
+    grid-template-columns: 1fr;
+  }
+
+  .map-view {
+    height: 70svh;
+  }
+}
+
+.panel {
+  background: var(--bg);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.panel h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.panel h3 {
+  margin: 18px 0 8px;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.placeholder,
+.hint,
+.notice {
+  font-size: 13px;
+}
+
+.notice {
+  margin-top: 16px;
+  opacity: 0.8;
+}
+
+.error {
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.banner {
+  padding: 8px 24px;
+  font-size: 13px;
+  background: #fef2f2;
+}
+
+/* 조건 패널 */
+.filter-panel fieldset {
+  border: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 13px;
+}
+
+.filter-panel legend {
+  font-weight: 600;
+  color: var(--text-h);
+  margin-bottom: 4px;
+}
+
+.filter-panel select {
+  font: inherit;
+  padding: 2px 4px;
+}
+
+.filter-panel button {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.filter-panel button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.filter-panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 지도 */
+.map-view {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segmented button {
+  font: inherit;
+  padding: 4px 12px;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.segmented button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.legend {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+
+.map-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 300px;
+}
+
+.map-error {
+  position: absolute;
+  inset: 16px 16px auto;
+  padding: 10px 12px;
+  font-size: 13px;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+/* 게시대 상세 */
+.info {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.info dt {
+  color: var(--text);
+}
+
+.info dd {
+  margin: 0;
+  color: var(--text-h);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stats div {
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--panel-bg);
+}
+
+.stats b {
+  display: block;
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+.stats span {
+  font-size: 12px;
+}
+
+.bars {
+  display: grid;
+  gap: 3px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 62px 1fr 60px;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.bar-track {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--panel-bg);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.bar-fill.dim {
+  opacity: 0.3;
+}
+
+.bar-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-footer {
+  padding: 8px 24px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}

@@ -1,0 +1,16 @@
+[project]
+name = "data-processing"
+version = "0.1.0"
+description = "FLOWSIGN 데이터 전처리 및 추천 계산"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.5.2",
+    "pandas>=3.0.5",
+]
+
+[project.scripts]
+data-processing = "data_processing:main"
+
+[build-system]
+requires = ["uv_build>=0.12.9,<0.13.0"]
+build-backend = "uv_build"

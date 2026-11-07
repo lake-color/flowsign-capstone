@@ -1,0 +1,658 @@
+openapi: 3.0.3
+info:
+  title: FLOWSIGN 게시대 중심 API
+  version: 0.2.1-draft
+  description: |
+    캡스톤 MVP 협업용 제안 OpenAPI 계약. 구현 완료를 의미하지 않습니다.
+    초기 화면은 게시대 마커만 표시하고, Cell 데이터는 게시대 선택 후 조회합니다.
+    영향권은 게시대가 속한 250m Cell 기준 3×3(최대 9 Cell, 약 750m × 750m)입니다.
+    지도 전체 250m 격자선은 /meta의 grid 기준값으로 프론트가 그립니다(인구값 없음).
+    실제 결제·예약 없이 신청 문의만 접수합니다.
+servers:
+  - url: /api/v1
+tags:
+  - name: Metadata
+  - name: Boards
+  - name: Recommendations
+  - name: Inquiries
+paths:
+  /meta:
+    get:
+      tags: [Metadata]
+      operationId: getMetadata
+      summary: 서비스 범위 및 데이터 준비 상태
+      responses:
+        '200':
+          description: 메타 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetadataResponse'
+  /boards:
+    get:
+      tags: [Boards]
+      operationId: getBoards
+      summary: 지도 표시용 게시대 목록
+      description: 초기 지도는 행정용 게시대를 포함한 게시대 마커만 표시. Cell 인구정보 없음.
+      parameters:
+        - name: cities
+          in: query
+          description: '쉼표구분 도시 코드 (예: ANYANG,GUNPO)'
+          schema:
+            type: string
+        - name: west
+          in: query
+          schema: {type: number, format: double}
+        - name: south
+          in: query
+          schema: {type: number, format: double}
+        - name: east
+          in: query
+          schema: {type: number, format: double}
+        - name: north
+          in: query
+          schema: {type: number, format: double}
+        - name: purpose
+          in: query
+          description: 진단/관리용. 기본 미지정 시 행정용 포함 전체 표시.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 게시대 마커 목록
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BoardListResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /boards/{boardId}:
+    get:
+      tags: [Boards]
+      operationId: getBoard
+      summary: 게시대 기본정보
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+      responses:
+        '200':
+          description: 게시대 상세
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BoardResponse'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /boards/{boardId}/population:
+    get:
+      tags: [Boards]
+      operationId: getBoardPopulation
+      summary: 게시대 영향권 유동인구 요약 및 그래프
+      description: 게시대 3×3 Cell 기준 E board_population 집계. 차트 축은 7개 시간대·12개월 전부 반환.
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+        - $ref: '#/components/parameters/Gender'
+        - $ref: '#/components/parameters/AgeGroups'
+        - $ref: '#/components/parameters/FlowType'
+        - $ref: '#/components/parameters/TimeBands'
+        - $ref: '#/components/parameters/PeriodKind'
+        - $ref: '#/components/parameters/Season'
+        - $ref: '#/components/parameters/Month'
+        - $ref: '#/components/parameters/DayType'
+      responses:
+        '200':
+          description: 게시대 인구통계
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BoardPopulationResponse'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /boards/{boardId}/cells:
+    get:
+      tags: [Boards]
+      operationId: getBoardCells
+      summary: 게시대 3×3 영역의 개별 250m Cell (최대 9개)
+      description: 선택 게시대의 3×3 Cell 레이어를 켰을 때만 조회. 전역 Cell 인구 API는 제공하지 않음(확장 기능).
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+        - $ref: '#/components/parameters/Gender'
+        - $ref: '#/components/parameters/AgeGroups'
+        - $ref: '#/components/parameters/FlowType'
+        - $ref: '#/components/parameters/TimeBands'
+        - $ref: '#/components/parameters/PeriodKind'
+        - $ref: '#/components/parameters/Season'
+        - $ref: '#/components/parameters/Month'
+        - $ref: '#/components/parameters/DayType'
+      responses:
+        '200':
+          description: 게시대 3×3 Cell 리스트
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BoardCellsResponse'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /recommendations/search:
+    post:
+      tags: [Recommendations]
+      operationId: searchRecommendations
+      summary: 조건 기반 게시대 추천
+      description: 추천 점수는 Spring이 board_population(3×3 Cell 합계)을 읽어 요청 시 계산. 가중치·산식은 임시값(PROVISIONAL).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RecommendationRequest'}
+      responses:
+        '200':
+          description: 추천 순위. 결과 없음은 items=[]인 200.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RecommendationResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '503': {$ref: '#/components/responses/Unavailable'}
+  /inquiries:
+    post:
+      tags: [Inquiries]
+      operationId: createInquiry
+      summary: 광고 신청 문의 저장 (결제/예약 아님)
+      description: 개인정보 동의와 멱등성 키 필수. 행정용 게시대 요청은 서버에서 거부.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: 동일 작성 세션 재시도 시 재사용하는 UUID
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InquiryRequest'}
+      responses:
+        '201':
+          description: 새 문의 접수
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InquiryResponse'}
+        '200':
+          description: 같은 멱등성 키·같은 내용 재전송 (기존 접수 반환)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/InquiryResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+components:
+  parameters:
+    BoardId:
+      name: boardId
+      in: path
+      required: true
+      description: DB BIGINT를 문자열로 표현
+      schema: {type: string, pattern: '^[0-9]+$'}
+    Gender:
+      name: gender
+      in: query
+      schema: {$ref: '#/components/schemas/Gender'}
+    AgeGroups:
+      name: ageGroups
+      in: query
+      description: 쉼표구분 연령대 코드
+      schema: {type: string}
+    FlowType:
+      name: flowType
+      in: query
+      schema: {$ref: '#/components/schemas/FlowType'}
+    TimeBands:
+      name: timeBands
+      in: query
+      description: 쉼표구분 시간대 코드
+      schema: {type: string}
+    PeriodKind:
+      name: periodKind
+      in: query
+      schema: {type: string, enum: [YEAR, SEASON, MONTH], default: YEAR}
+    Season:
+      name: season
+      in: query
+      description: periodKind=SEASON일 때 필수
+      schema: {type: string, enum: [SPRING, SUMMER, AUTUMN, WINTER]}
+    Month:
+      name: month
+      in: query
+      description: periodKind=MONTH일 때 필수
+      schema: {type: integer, minimum: 1, maximum: 12}
+    DayType:
+      name: dayType
+      in: query
+      schema: {$ref: '#/components/schemas/DayType'}
+  responses:
+    BadRequest:
+      description: 잘못된 요청
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Forbidden:
+      description: 문의 불가 게시대
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    NotFound:
+      description: 게시대 없음
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Conflict:
+      description: 멱등성 키 충돌
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Unprocessable:
+      description: 집계 방식이 미확정됨
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+    Unavailable:
+      description: 집계 데이터 또는 추천 로직 준비되지 않음
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/ErrorResponse'}
+  schemas:
+    City:
+      type: string
+      enum: [ANYANG, GUNPO, SIHEUNG]
+    Purpose:
+      type: string
+      enum: [COMMERCIAL, MIXED, ADMINISTRATIVE]
+    Gender:
+      type: string
+      description: 원본 성별 NULL은 DB에 UNKNOWN으로 보존되며 ALL에는 포함되고 MALE/FEMALE 선택 시 제외됩니다.
+      enum: [ALL, MALE, FEMALE]
+      default: ALL
+    AgeGroup:
+      type: string
+      enum: [UNDER_20, AGE_20S, AGE_30S, AGE_40S, AGE_50S, AGE_60_PLUS]
+    FlowType:
+      type: string
+      enum: [ALL, STAY, WALK, DRIVE]
+      default: ALL
+    TimeBand:
+      type: string
+      enum: ['06_08', '08_10', '10_12', '12_14', '14_16', '16_18', '18_20']
+    DayType:
+      type: string
+      enum: [ALL, WEEKDAY, WEEKEND]
+      default: ALL
+    DataStatus:
+      type: string
+      enum: [AVAILABLE, PARTIAL, MISSING, MASKED, UNVERIFIED]
+    PopulationValue:
+      type: object
+      required: [value, status, unitLabel]
+      properties:
+        value: {type: number, nullable: true}
+        status: {$ref: '#/components/schemas/DataStatus'}
+        unitLabel: {type: string, nullable: true}
+    Meta:
+      type: object
+      required: [requestId, datasetVersion, syntheticData]
+      properties:
+        requestId: {type: string}
+        datasetVersion: {type: string, nullable: true}
+        syntheticData: {type: boolean}
+    Metadata:
+      type: object
+      required: [serviceName, dataYear, cities, timeBands, availableDayTypes, cellSizeMeters, influenceArea, grid, mapScope, recommendationAvailable]
+      properties:
+        serviceName: {type: string, example: FLOWSIGN}
+        dataYear: {type: integer, example: 2025}
+        cities:
+          type: array
+          items: {$ref: '#/components/schemas/City'}
+        timeBands:
+          type: array
+          items: {$ref: '#/components/schemas/TimeBand'}
+        availableDayTypes:
+          type: array
+          items: {$ref: '#/components/schemas/DayType'}
+        dayTypeSourceStatus: {type: string, enum: [VERIFIED, UNCONFIRMED]}
+        cellSizeMeters: {type: integer, example: 250}
+        influenceArea: {type: string, enum: [CELL_3X3]}
+        grid: {$ref: '#/components/schemas/GridSpec'}
+        populationUnitLabel: {type: string, nullable: true}
+        populationUnitStatus: {type: string, enum: [VERIFIED, UNCONFIRMED]}
+        combinationRuleStatus: {type: string, enum: [VERIFIED, UNCONFIRMED]}
+        algorithmStatus: {type: string, enum: [PROVISIONAL, CONFIRMED]}
+        algorithmVersion: {type: string}
+        recommendationAvailable: {type: boolean}
+        maxRecommendationPageSize: {type: integer, example: 50}
+        mapScope: {type: string, enum: [BOARD_ONLY]}
+        notice: {type: string}
+    GridSpec:
+      type: object
+      description: 지도 격자선용 기준값. Python 배치가 Cell 중심 좌표에서 계산해 grid_spec에 저장. NOT_VERIFIED면 격자선 옵션 비활성화.
+      required: [cellSizeMeters, originLatitude, originLongitude, latitudeStepDeg, longitudeStepDeg, status]
+      properties:
+        cellSizeMeters: {type: integer, example: 250}
+        originLatitude: {type: number, format: double, description: 기준 Cell 남서쪽 모서리 위도}
+        originLongitude: {type: number, format: double, description: 기준 Cell 남서쪽 모서리 경도}
+        latitudeStepDeg: {type: number, format: double, description: 250m에 해당하는 위도 간격}
+        longitudeStepDeg: {type: number, format: double, description: 250m에 해당하는 경도 간격}
+        status: {type: string, enum: [VERIFIED, NOT_VERIFIED]}
+    MetadataResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/Metadata'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    BoardMarker:
+      type: object
+      required: [boardId, name, city, latitude, longitude, purpose, canInquire, hasPopulationData]
+      properties:
+        boardId: {type: string, example: '1'}
+        name: {type: string}
+        city: {$ref: '#/components/schemas/City'}
+        dong: {type: string, nullable: true}
+        latitude: {type: number, format: double}
+        longitude: {type: number, format: double}
+        purpose: {$ref: '#/components/schemas/Purpose'}
+        canInquire: {type: boolean}
+        hasPopulationData: {type: boolean}
+    Board:
+      allOf:
+        - $ref: '#/components/schemas/BoardMarker'
+        - type: object
+          properties:
+            address: {type: string, nullable: true}
+            faceCount: {type: integer, nullable: true}
+            postingFee: {type: number, nullable: true}
+            dataReferenceDate: {type: string, format: date, nullable: true}
+    BoardList:
+      type: object
+      required: [boards, totalCount]
+      properties:
+        boards:
+          type: array
+          items: {$ref: '#/components/schemas/BoardMarker'}
+        totalCount: {type: integer, minimum: 0}
+    BoardListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/BoardList'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    BoardResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/Board'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    Period:
+      type: object
+      required: [kind, year]
+      properties:
+        kind: {type: string, enum: [YEAR, SEASON, MONTH]}
+        year: {type: integer, enum: [2025]}
+        season: {type: string, enum: [SPRING, SUMMER, AUTUMN, WINTER]}
+        month: {type: integer, minimum: 1, maximum: 12}
+      description: kind=SEASON일 때 season 필수; kind=MONTH일 때 month 필수. Spring에서 교차필드 검사.
+    FilterApplied:
+      type: object
+      required: [gender, ageGroups, flowType, timeBands, period, dayType]
+      properties:
+        gender: {$ref: '#/components/schemas/Gender'}
+        ageGroups:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/AgeGroup'}
+        flowType: {$ref: '#/components/schemas/FlowType'}
+        timeBands:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {$ref: '#/components/schemas/TimeBand'}
+        period: {$ref: '#/components/schemas/Period'}
+        dayType: {$ref: '#/components/schemas/DayType'}
+    Criteria:
+      allOf:
+        - $ref: '#/components/schemas/FilterApplied'
+        - type: object
+          required: [cities, purposes]
+          properties:
+            cities:
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items: {$ref: '#/components/schemas/City'}
+            purposes:
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items: {$ref: '#/components/schemas/Purpose'}
+    PopulationTotals:
+      type: object
+      required: [totalFlow, stay, walk, drive]
+      properties:
+        totalFlow: {$ref: '#/components/schemas/PopulationValue'}
+        stay: {$ref: '#/components/schemas/PopulationValue'}
+        walk: {$ref: '#/components/schemas/PopulationValue'}
+        drive: {$ref: '#/components/schemas/PopulationValue'}
+    TimeBandPoint:
+      type: object
+      required: [timeBand, value, selected]
+      properties:
+        timeBand: {$ref: '#/components/schemas/TimeBand'}
+        value: {$ref: '#/components/schemas/PopulationValue'}
+        selected: {type: boolean}
+    MonthPoint:
+      type: object
+      required: [month, value, selected]
+      properties:
+        month: {type: integer, minimum: 1, maximum: 12}
+        value: {$ref: '#/components/schemas/PopulationValue'}
+        selected: {type: boolean}
+    DistributionPoint:
+      type: object
+      required: [key, population, ratio]
+      properties:
+        key: {type: string}
+        population: {$ref: '#/components/schemas/PopulationValue'}
+        ratio: {type: number, nullable: true, minimum: 0, maximum: 1}
+    BoardPopulation:
+      type: object
+      required: [boardId, centerCellId, filterApplied, population, hourly, monthly, genderDistribution, ageDistribution, flowDistribution, servicePopulation, expectedCellCount, matchedCellCount, aggregationStatus, dataNotice]
+      properties:
+        boardId: {type: string}
+        centerCellId: {type: string, description: 게시대가 속한 소속 Cell}
+        filterApplied: {$ref: '#/components/schemas/FilterApplied'}
+        population: {$ref: '#/components/schemas/PopulationTotals'}
+        hourly:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: {$ref: '#/components/schemas/TimeBandPoint'}
+        monthly:
+          type: array
+          minItems: 12
+          maxItems: 12
+          items: {$ref: '#/components/schemas/MonthPoint'}
+        genderDistribution:
+          type: array
+          description: MALE, FEMALE, UNKNOWN(원본 성별 NULL) 항목
+          items: {$ref: '#/components/schemas/DistributionPoint'}
+        ageDistribution:
+          type: array
+          items: {$ref: '#/components/schemas/DistributionPoint'}
+        flowDistribution:
+          type: array
+          items: {$ref: '#/components/schemas/DistributionPoint'}
+        servicePopulation:
+          type: array
+          items: {$ref: '#/components/schemas/DistributionPoint'}
+        expectedCellCount: {type: integer, minimum: 0, maximum: 9}
+        matchedCellCount: {type: integer, minimum: 0, maximum: 9}
+        aggregationStatus: {type: string, enum: [VERIFIED, UNVERIFIED, PARTIAL]}
+        dataNotice: {type: string}
+    BoardPopulationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/BoardPopulation'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    LatLon:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude: {type: number, format: double}
+        longitude: {type: number, format: double}
+    CellItem:
+      type: object
+      required: [cellId, isCenter, distanceMeters, center, geometry, geometryStatus, population]
+      properties:
+        cellId: {type: string}
+        isCenter: {type: boolean, description: 게시대 소속 Cell 여부}
+        distanceMeters: {type: number, minimum: 0, description: 게시대 위경도에서 Cell 중심까지 거리}
+        center: {$ref: '#/components/schemas/LatLon'}
+        geometry:
+          type: object
+          nullable: true
+          description: Cell 중심 ±125m 정사각형 GeoJSON Polygon. grid.status가 VERIFIED가 아니면 null.
+          additionalProperties: true
+        geometryStatus: {type: string, enum: [AVAILABLE, NOT_VERIFIED]}
+        population: {$ref: '#/components/schemas/PopulationValue'}
+    BoardCells:
+      type: object
+      required: [boardId, centerCellId, cellSizeMeters, center, cells, cellCount, dataNotice]
+      properties:
+        boardId: {type: string}
+        centerCellId: {type: string}
+        cellSizeMeters: {type: integer, example: 250}
+        center: {$ref: '#/components/schemas/LatLon'}
+        cells:
+          type: array
+          maxItems: 9
+          items: {$ref: '#/components/schemas/CellItem'}
+        cellCount: {type: integer, minimum: 0, maximum: 9}
+        dataNotice: {type: string}
+    BoardCellsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/BoardCells'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    RecommendationRequest:
+      type: object
+      required: [criteria]
+      properties:
+        criteria: {$ref: '#/components/schemas/Criteria'}
+        page: {type: integer, default: 0, minimum: 0}
+        pageSize: {type: integer, default: 10, minimum: 1, maximum: 50}
+    ScoreComponent:
+      type: object
+      required: [key, label, rawValue, percentile, weight, contribution]
+      properties:
+        key: {type: string, enum: [A, B, C, D]}
+        label: {type: string}
+        rawValue: {type: number, nullable: true}
+        percentile: {type: number, nullable: true, minimum: 0, maximum: 1}
+        weight: {type: number, minimum: 0, maximum: 1}
+        contribution: {type: number, nullable: true}
+    RecommendationItem:
+      type: object
+      required: [rank, boardId, name, city, latitude, longitude, purpose, canInquire, score, displayScore, targetPopulation, targetShare, reason, scoreBreakdown, sameLocationCount]
+      properties:
+        rank: {type: integer, minimum: 1}
+        boardId: {type: string}
+        name: {type: string}
+        city: {$ref: '#/components/schemas/City'}
+        dong: {type: string, nullable: true}
+        latitude: {type: number, format: double}
+        longitude: {type: number, format: double}
+        purpose: {$ref: '#/components/schemas/Purpose'}
+        canInquire: {type: boolean}
+        score: {type: number, minimum: 0, maximum: 100}
+        displayScore: {type: integer, minimum: 0, maximum: 100}
+        targetPopulation: {$ref: '#/components/schemas/PopulationValue'}
+        targetShare: {type: number, nullable: true, minimum: 0, maximum: 1}
+        reason: {type: string}
+        scoreBreakdown:
+          type: array
+          items: {$ref: '#/components/schemas/ScoreComponent'}
+        sameLocationCount: {type: integer, minimum: 1}
+    RecommendationResult:
+      type: object
+      required: [criteria, items, page, pageSize, totalItems, hasNext, algorithmVersion, algorithmStatus, populationAggregationStatus]
+      properties:
+        criteria: {$ref: '#/components/schemas/Criteria'}
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/RecommendationItem'}
+        page: {type: integer, minimum: 0}
+        pageSize: {type: integer, minimum: 1}
+        totalItems: {type: integer, minimum: 0}
+        hasNext: {type: boolean}
+        algorithmVersion: {type: string}
+        algorithmStatus: {type: string, enum: [PROVISIONAL, CONFIRMED]}
+        populationAggregationStatus: {type: string, enum: [VERIFIED, UNVERIFIED, PARTIAL]}
+    RecommendationResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/RecommendationResult'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    DesiredPosting:
+      type: object
+      required: [year, month, half]
+      properties:
+        year: {type: integer, minimum: 2026}
+        month: {type: integer, minimum: 1, maximum: 12}
+        half: {type: string, enum: [FIRST, SECOND]}
+    InquiryRequest:
+      type: object
+      required: [boardId, desiredPosting, industry, contact, privacyConsent, privacyConsentVersion]
+      properties:
+        boardId: {type: string, pattern: '^[0-9]+$'}
+        desiredPosting: {$ref: '#/components/schemas/DesiredPosting'}
+        industry: {type: string, minLength: 1}
+        businessName: {type: string, nullable: true}
+        contact: {type: string, minLength: 3}
+        productionAssistanceRequired: {type: boolean, default: false}
+        message: {type: string, maxLength: 300, nullable: true}
+        privacyConsent: {type: boolean, enum: [true]}
+        privacyConsentVersion: {type: string, minLength: 1}
+    InquiryResult:
+      type: object
+      required: [inquiryId, status, boardId, desiredPosting, receivedAt, notice]
+      properties:
+        inquiryId: {type: string}
+        status: {type: string, enum: [RECEIVED]}
+        boardId: {type: string}
+        desiredPosting: {$ref: '#/components/schemas/DesiredPosting'}
+        receivedAt: {type: string, format: date-time}
+        notice: {type: string}
+    InquiryResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/InquiryResult'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    ErrorDetail:
+      type: object
+      required: [field, reason]
+      properties:
+        field: {type: string}
+        reason: {type: string}
+    ErrorInfo:
+      type: object
+      required: [code, message, requestId]
+      properties:
+        code: {type: string}
+        message: {type: string}
+        requestId: {type: string}
+        details:
+          type: array
+          items: {$ref: '#/components/schemas/ErrorDetail'}
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: {$ref: '#/components/schemas/ErrorInfo'}

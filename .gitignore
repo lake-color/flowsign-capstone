@@ -1,0 +1,90 @@
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# 실제 원본 컬럼명·코드값 매핑 (공개용은 raw_mapping.example.json)
+python/raw_mapping.json
+
+# Cloud credentials
+.aws/
+.azure/
+.gcloud/
+*credentials*.json
+*service-account*.json
+client_secret*.json
+
+# Private keys / signing keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE
+# =========================
+.idea/
+.vscode/
+*.iml
+
+# =========================
+# Python
+# =========================
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# =========================
+# Data
+# Raw / processed telecom data
+# =========================
+data/raw/
+data/processed/
+*.csv
+*.parquet
+*.pkl
+*.joblib
+
+# =========================
+# Java / Gradle / Spring
+# =========================
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# =========================
+# Node / React
+# =========================
+node_modules/
+dist/
+.vite/
+.npm/
+*.log
+
+# =========================
+# Coverage / Test
+# =========================
+coverage/
+htmlcov/
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log

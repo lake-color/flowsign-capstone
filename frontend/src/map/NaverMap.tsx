@@ -1,0 +1,163 @@
+import { useEffect, useRef, useState } from 'react'
+import type { MapProps } from '../types'
+import { GRID_MIN_PIXELS, PURPOSE_COLOR, formatValue, gridLines } from './common'
+
+/**
+ * Naver Maps JS v3 지도 (1순위). VITE_NAVER_MAP_CLIENT_ID가 있어야 동작한다.
+ * SDK 타입 패키지를 추가하지 않고 필요한 부분만 any로 다룬다(데모 초안).
+ */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Naver = any
+
+const CLIENT_ID = import.meta.env.VITE_NAVER_MAP_CLIENT_ID as string | undefined
+
+let sdkPromise: Promise<Naver> | null = null
+
+/** SDK 스크립트를 한 번만 불러온다. 2025년 이후 NCP 키는 ncpKeyId 파라미터를 쓴다. */
+function loadSdk(): Promise<Naver> {
+  const w = window as unknown as { naver?: Naver }
+  if (w.naver?.maps) return Promise.resolve(w.naver)
+  if (!sdkPromise) {
+    sdkPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(CLIENT_ID ?? '')}`
+      script.async = true
+      script.onload = () => (w.naver?.maps ? resolve(w.naver) : reject(new Error('Naver Maps SDK 초기화 실패')))
+      script.onerror = () => reject(new Error('Naver Maps SDK를 불러오지 못했습니다.'))
+      document.head.appendChild(script)
+    })
+  }
+  return sdkPromise
+}
+
+function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells }: MapProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [naver, setNaver] = useState<Naver | null>(null)
+  const [error, setError] = useState<string | null>(CLIENT_ID ? null : 'VITE_NAVER_MAP_CLIENT_ID가 설정되지 않았습니다.')
+  const mapRef = useRef<Naver>(null)
+  const overlays = useRef<{ markers: Naver[]; grid: Naver[]; cells: Naver[] }>({ markers: [], grid: [], cells: [] })
+  const fitted = useRef(false)
+
+  // SDK 로드 + 지도 생성
+  useEffect(() => {
+    if (!CLIENT_ID) return
+    let cancelled = false
+    loadSdk()
+      .then((n) => {
+        if (cancelled || !containerRef.current) return
+        mapRef.current = new n.maps.Map(containerRef.current, {
+          center: new n.maps.LatLng(37.39, 126.92),
+          zoom: 13,
+        })
+        setNaver(n)
+      })
+      .catch((e: Error) => setError(e.message))
+    return () => {
+      cancelled = true
+      mapRef.current?.destroy?.()
+      mapRef.current = null
+      fitted.current = false
+    }
+  }, [])
+
+  const clear = (key: 'markers' | 'grid' | 'cells') => {
+    overlays.current[key].forEach((o) => o.setMap(null))
+    overlays.current[key] = []
+  }
+
+  // 게시대 마커 (게시대 자체 위경도). 행정용은 회색 사각형.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!naver || !map) return
+    clear('markers')
+    for (const b of boards) {
+      const selected = b.boardId === selectedBoardId
+      const size = selected ? 18 : 12
+      const shape = b.purpose === 'ADMINISTRATIVE' ? '2px' : '50%'
+      const marker = new naver.maps.Marker({
+        map,
+        position: new naver.maps.LatLng(b.latitude, b.longitude),
+        title: b.name,
+        icon: {
+          content: `<div style="width:${size}px;height:${size}px;border-radius:${shape};background:${PURPOSE_COLOR[b.purpose]};border:2px solid ${selected ? '#f59e0b' : '#fff'};box-shadow:0 0 2px #0008"></div>`,
+          anchor: new naver.maps.Point(size / 2, size / 2),
+        },
+      })
+      naver.maps.Event.addListener(marker, 'click', () => onSelectBoard(b.boardId))
+      overlays.current.markers.push(marker)
+    }
+    if (!fitted.current && boards.length > 0) {
+      const bounds = new naver.maps.LatLngBounds()
+      boards.forEach((b) => bounds.extend(new naver.maps.LatLng(b.latitude, b.longitude)))
+      map.fitBounds(bounds)
+      fitted.current = true
+    }
+  }, [naver, boards, selectedBoardId, onSelectBoard])
+
+  // 250m 격자선
+  useEffect(() => {
+    const map = mapRef.current
+    if (!naver || !map) return
+    const draw = () => {
+      clear('grid')
+      if (!showGrid || !grid || grid.status !== 'VERIFIED') return
+      const proj = map.getProjection()
+      const c = map.getCenter()
+      const p1 = proj.fromCoordToOffset(c)
+      const p2 = proj.fromCoordToOffset(new naver.maps.LatLng(c.lat() + grid.latitudeStepDeg, c.lng()))
+      if (Math.abs(p2.y - p1.y) < GRID_MIN_PIXELS) return
+      const b = map.getBounds()
+      const sw = b.getSW()
+      const ne = b.getNE()
+      const lines = gridLines(grid, { south: sw.lat(), west: sw.lng(), north: ne.lat(), east: ne.lng() })
+      if (!lines) return
+      const style = { map, strokeColor: '#ef4444', strokeWeight: 1, strokeOpacity: 0.45, clickable: false }
+      for (const lat of lines.lats) {
+        overlays.current.grid.push(new naver.maps.Polyline({
+          ...style, path: [new naver.maps.LatLng(lat, sw.lng()), new naver.maps.LatLng(lat, ne.lng())],
+        }))
+      }
+      for (const lng of lines.lngs) {
+        overlays.current.grid.push(new naver.maps.Polyline({
+          ...style, path: [new naver.maps.LatLng(sw.lat(), lng), new naver.maps.LatLng(ne.lat(), lng)],
+        }))
+      }
+    }
+    draw()
+    const listener = naver.maps.Event.addListener(map, 'idle', draw)
+    return () => naver.maps.Event.removeListener(listener)
+  }, [naver, grid, showGrid])
+
+  // 선택 게시대의 3×3 Cell
+  useEffect(() => {
+    const map = mapRef.current
+    if (!naver || !map) return
+    clear('cells')
+    for (const cell of cells ?? []) {
+      const color = cell.isCenter ? '#f59e0b' : '#8b5cf6'
+      const title = `${cell.isCenter ? '소속 Cell ' : ''}${cell.cellId} / 인구 ${formatValue(cell.population.value)}`
+      const overlay = cell.geometry
+        ? new naver.maps.Polygon({
+          map,
+          paths: [cell.geometry.coordinates[0].map(([lng, lat]) => new naver.maps.LatLng(lat, lng))],
+          strokeColor: color, strokeWeight: 2, fillColor: color, fillOpacity: 0.15,
+        })
+        : new naver.maps.Circle({
+          map, center: new naver.maps.LatLng(cell.center.latitude, cell.center.longitude),
+          radius: 20, strokeColor: color, fillColor: color, fillOpacity: 0.3,
+        })
+      naver.maps.Event.addListener(overlay, 'click', () => window.alert(title))
+      overlays.current.cells.push(overlay)
+    }
+  }, [naver, cells])
+
+  return (
+    <div className="map-canvas">
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      {error && <div className="map-error">Naver 지도: {error} 상단에서 Leaflet으로 전환할 수 있습니다.</div>}
+    </div>
+  )
+}
+
+export default NaverMap

@@ -1,0 +1,119 @@
+import { useCallback, useEffect, useState } from 'react'
+import { api } from './api'
+import BoardDetail from './components/BoardDetail'
+import FilterPanel from './components/FilterPanel'
+import { DEFAULT_QUERY } from './constants'
+import MapView, { type MapProvider } from './components/MapView'
+import type { Board, BoardPopulation, CellItem, Meta, PopulationQuery } from './types'
+import './App.css'
+
+// 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1
+const params = new URLSearchParams(window.location.search)
+const envProvider: MapProvider =
+  import.meta.env.VITE_MAP_PROVIDER === 'naver' && import.meta.env.VITE_NAVER_MAP_CLIENT_ID ? 'naver' : 'leaflet'
+const INITIAL_PROVIDER: MapProvider =
+  params.get('map') === 'naver' || params.get('map') === 'leaflet' ? (params.get('map') as MapProvider) : envProvider
+
+function App() {
+  const [meta, setMeta] = useState<Meta | null>(null)
+  const [boards, setBoards] = useState<Board[]>([])
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const [provider, setProvider] = useState<MapProvider>(INITIAL_PROVIDER)
+  const [showGrid, setShowGrid] = useState(params.get('grid') === '1')
+  const [showCells, setShowCells] = useState(params.get('cells') === '1')
+  const [query, setQuery] = useState<PopulationQuery>(DEFAULT_QUERY)
+
+  const [selectedId, setSelectedId] = useState<string | null>(params.get('board'))
+  const [board, setBoard] = useState<Board | null>(null)
+  const [population, setPopulation] = useState<BoardPopulation | null>(null)
+  const [cells, setCells] = useState<CellItem[] | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
+
+  // 첫 진입: /meta + /boards (전역 인구 API는 호출하지 않는다)
+  useEffect(() => {
+    const ctrl = new AbortController()
+    Promise.all([api.meta(ctrl.signal), api.boards(ctrl.signal)])
+      .then(([m, b]) => {
+        setMeta(m)
+        setBoards(b)
+      })
+      .catch((e: Error) => {
+        if (!ctrl.signal.aborted) setLoadError(e.message)
+      })
+    return () => ctrl.abort()
+  }, [])
+
+  // 게시대 선택 또는 조건 변경: 상세 + 인구 병렬 조회
+  useEffect(() => {
+    if (!selectedId) return
+    const ctrl = new AbortController()
+    setDetailLoading(true)
+    setDetailError(null)
+    Promise.all([api.board(selectedId, ctrl.signal), api.population(selectedId, query, ctrl.signal)])
+      .then(([b, p]) => {
+        setBoard(b)
+        setPopulation(p)
+      })
+      .catch((e: Error) => {
+        if (!ctrl.signal.aborted) setDetailError(e.message)
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setDetailLoading(false)
+      })
+    return () => ctrl.abort()
+  }, [selectedId, query])
+
+  // 3×3 Cell 보기를 켰을 때만 /cells 호출
+  useEffect(() => {
+    if (!selectedId || !showCells) {
+      setCells(null)
+      return
+    }
+    const ctrl = new AbortController()
+    api.cells(selectedId, query, ctrl.signal)
+      .then(setCells)
+      .catch((e: Error) => {
+        if (!ctrl.signal.aborted) setDetailError(e.message)
+      })
+    return () => ctrl.abort()
+  }, [selectedId, showCells, query])
+
+  const selectBoard = useCallback((id: string) => setSelectedId(id), [])
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <h1>FLOWSIGN</h1>
+        <p>유동인구 데이터 기반 옥외광고 게시대 추천 서비스 · 데모 초안 (가짜 데이터)</p>
+      </header>
+
+      {loadError && <div className="banner error">데이터를 불러오지 못했습니다: {loadError}</div>}
+
+      <main className="app-body">
+        <FilterPanel applied={query} onApply={setQuery} />
+        <MapView
+          provider={provider}
+          onProviderChange={setProvider}
+          boards={boards}
+          selectedBoardId={selectedId}
+          onSelectBoard={selectBoard}
+          grid={meta?.grid ?? null}
+          showGrid={showGrid}
+          onShowGridChange={setShowGrid}
+          showCells={showCells}
+          onShowCellsChange={setShowCells}
+          cells={cells}
+        />
+        <BoardDetail board={board} population={population} loading={detailLoading} error={detailError} />
+      </main>
+
+      <footer className="app-footer">
+        {meta?.notice ?? '통신사 유동인구를 활용한 노출 가능성 추정이며 실제 광고 성과를 의미하지 않습니다.'}
+      </footer>
+    </div>
+  )
+}
+
+export default App

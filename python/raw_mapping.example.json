@@ -1,0 +1,48 @@
+{
+  "description": "공개용 예시 매핑(가짜 데이터 형식). 실제 원본은 같은 구조로 raw_mapping.json을 만들어 로컬에만 둔다. columns = 표준 컬럼명: 원본 컬럼명, codes = 분류 컬럼: {원본 코드: 표준 코드}. day_type 컬럼이 원본에 없으면 columns·codes에서 빼면 된다(UNSPECIFIED로 처리).",
+  "columns": {
+    "base_month": "ym",
+    "day_type": "day_type",
+    "city_name": "city",
+    "dong_name": "dong",
+    "cell_id": "cell",
+    "longitude": "lon",
+    "latitude": "lat",
+    "gender": "sex",
+    "age_group": "age",
+    "time_slot": "hour",
+    "stay": "pop_stay",
+    "walk": "pop_walk",
+    "drive": "pop_drive",
+    "residence": "pop_home",
+    "work": "pop_work",
+    "visit": "pop_visit"
+  },
+  "codes": {
+    "day_type": {
+      "WD": "WEEKDAY",
+      "WE": "WEEKEND"
+    },
+    "gender": {
+      "M": "MALE",
+      "F": "FEMALE"
+    },
+    "age_group": {
+      "0-19": "UNDER_20",
+      "20-29": "AGE_20S",
+      "30-39": "AGE_30S",
+      "40-49": "AGE_40S",
+      "50-59": "AGE_50S",
+      "60+": "AGE_60_PLUS"
+    },
+    "time_slot": {
+      "06-08": "06_08",
+      "08-10": "08_10",
+      "10-12": "10_12",
+      "12-14": "12_14",
+      "14-16": "14_16",
+      "16-18": "16_18",
+      "18-20": "18_20"
+    }
+  }
+}

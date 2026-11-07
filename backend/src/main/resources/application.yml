@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: backend
+  profiles:
+    default: local
+  config:
+    import: optional:file:../.env[.properties]
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+# 응답 meta에 표시할 데이터셋 정보. 실제 데이터를 적재하면 synthetic=false로 바꾼다.
+flowsign:
+  dataset:
+    version: fake-demo
+    synthetic: true
