@@ -1,55 +1,55 @@
-"""표준 CSV를 PostgreSQL에 적재한다 (psql copy, 테이블은 Flyway migration이 이미 만든 상태).
+"""데이터 세트 폴더의 표준 CSV를 PostgreSQL에 적재한다 (테이블은 Flyway migration이 이미 만든 상태).
 
 로컬 PC에 psql을 설치하지 않아도 되도록 docker compose의 PostgreSQL 컨테이너 안의 psql을 쓴다.
-CSV는 표준 입력으로 넘기므로(COPY ... FROM STDIN) 컨테이너에 파일을 복사할 필요가 없다.
-기존 데이터는 모두 지우고 다시 넣는다(개발·데모용 전체 재적재).
+CSV를 컨테이너 임시 폴더로 복사한 뒤, TRUNCATE와 모든 COPY를 **트랜잭션 하나**로 실행한다.
+중간에 하나라도 실패하면 전체가 롤백되어 기존 DB 데이터가 그대로 남는다.
+복사한 임시 파일은 성공·실패와 관계없이 지운다.
 """
 
+import re
 import subprocess
+import uuid
 from pathlib import Path
 
-# FK 순서대로 적재한다. (테이블, CSV 파일명)
-LOAD_ORDER = [
-    ("cell", "cell.csv"),
-    ("board", "board.csv"),
-    ("population_fact", "population_fact.csv"),
-    ("board_cell", "board_cell.csv"),
-    ("board_population", "board_population.csv"),
-    ("grid_spec", "grid_spec.csv"),
-]
+# FK 순서대로 적재한다. 파일명 = 테이블명.csv
+LOAD_TABLES = ["cell", "board", "population_fact", "board_cell", "board_population", "grid_spec"]
 
 
-def _psql(container: str, db: str, user: str, sql: str, stdin_path: Path | None = None) -> str:
-    cmd = ["docker", "exec", "-i", container, "psql", "-v", "ON_ERROR_STOP=1", "-U", user, "-d", db, "-c", sql]
-    if stdin_path is None:
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
-    else:
-        with stdin_path.open("rb") as f:
-            result = subprocess.run(cmd, stdin=f, capture_output=True)
-        result.stdout = result.stdout.decode("utf-8", "replace")
-        result.stderr = result.stderr.decode("utf-8", "replace")
+def _run(cmd: list[str], what: str) -> str:
+    result = subprocess.run(cmd, capture_output=True)
+    stdout = result.stdout.decode("utf-8", "replace")
     if result.returncode != 0:
-        raise RuntimeError(f"psql 실패: {sql}\n{result.stderr.strip()}")
-    return result.stdout.strip()
+        raise RuntimeError(f"{what} 실패:\n{result.stderr.decode('utf-8', 'replace').strip()}")
+    return stdout
 
 
-def load_all(data_dir: Path, board_csv: Path, container: str = "telecom-postgres",
-             db: str = "telecom", user: str = "telecom") -> dict[str, str]:
-    """data_dir의 표준 CSV(board는 board_csv)를 비우고 다시 적재한다. 테이블별 COPY 결과를 반환한다."""
-    files = {table: (board_csv if table == "board" else data_dir / name) for table, name in LOAD_ORDER}
-    missing = [str(p) for p in files.values() if not p.exists()]
+def load_set(set_dir: Path, container: str = "telecom-postgres",
+             db: str = "telecom", user: str = "telecom") -> dict[str, int]:
+    """set_dir의 CSV 6개로 테이블 6개를 한 트랜잭션 안에서 교체한다. 테이블별 적재 행 수를 반환한다."""
+    files = {table: set_dir / f"{table}.csv" for table in LOAD_TABLES}
+    missing = [p.name for p in files.values() if not p.exists()]
     if missing:
         raise FileNotFoundError(f"적재할 CSV가 없습니다: {missing}")
 
-    tables = ", ".join(table for table, _ in reversed(LOAD_ORDER))
-    _psql(container, db, user, f"TRUNCATE {tables}")
-
-    results = {}
-    for table, _ in LOAD_ORDER:
-        path = files[table]
+    remote_dir = f"/tmp/flowsign_load_{uuid.uuid4().hex}"
+    lines = ["TRUNCATE " + ", ".join(reversed(LOAD_TABLES)) + ";"]
+    for table, path in files.items():
         with path.open(encoding="utf-8") as f:
             header = f.readline().strip()
-        copy = f"\\copy {table} ({header}) FROM STDIN WITH (FORMAT csv, HEADER true)"
-        results[table] = _psql(container, db, user, copy, stdin_path=path)
-    _psql(container, db, user, "ANALYZE")
-    return results
+        lines.append(f"\\copy {table} ({header}) FROM '{remote_dir}/{path.name}' WITH (FORMAT csv, HEADER true)")
+    script = set_dir / ".load.sql"
+    script.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    try:
+        _run(["docker", "exec", container, "mkdir", "-p", remote_dir], "컨테이너 임시 폴더 생성")
+        for path in [*files.values(), script]:
+            _run(["docker", "cp", str(path), f"{container}:{remote_dir}/{path.name}"], f"{path.name} 복사")
+        out = _run(["docker", "exec", container, "psql", "-v", "ON_ERROR_STOP=1", "--single-transaction",
+                    "-U", user, "-d", db, "-f", f"{remote_dir}/{script.name}"], "DB 적재(전체 롤백됨)")
+        _run(["docker", "exec", container, "psql", "-U", user, "-d", db, "-c", "ANALYZE"], "ANALYZE")
+    finally:
+        script.unlink(missing_ok=True)
+        subprocess.run(["docker", "exec", container, "rm", "-rf", remote_dir], capture_output=True)
+
+    counts = [int(n) for n in re.findall(r"^COPY (\d+)$", out, flags=re.MULTILINE)]
+    return dict(zip(LOAD_TABLES, counts))

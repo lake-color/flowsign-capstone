@@ -1,62 +1,41 @@
 import argparse
-from pathlib import Path
+import sys
 
-from data_processing.board import convert_board_csv
-from data_processing.fake_data import generate_fake_csv
-from data_processing.load import load_all
-from data_processing.mapping import run_mapping
-from data_processing.preprocess import preprocess_csv
+from data_processing.pipeline import DataSetError, build, load
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="data-processing", description="FLOWSIGN 데이터 처리")
+    parser = argparse.ArgumentParser(
+        prog="data-processing",
+        description="FLOWSIGN 데이터 처리. data/raw/의 원본으로 data/generated_<모드>/ 세트를 만들고 DB에 적재한다.",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    pre = sub.add_parser("preprocess", help="유동인구 원본 CSV 정제")
-    pre.add_argument("inputs", type=Path, nargs="+", metavar="input", help="원본 CSV. 여러 파일로 나뉘어 있으면 모두 나열")
-    pre.add_argument("output_dir", type=Path, help="population_fact.csv, cell.csv, preprocess_report.json 저장 폴더")
-    pre.add_argument("--encoding", default="utf-8", help="원본 인코딩 (예: utf-8, cp949)")
-    pre.add_argument("--chunksize", type=int, default=1_000_000)
-    pre.add_argument("--mapping", type=Path, help="원본 매핑 파일 (기본: raw_mapping.json, 없으면 예시 파일)")
+    b = sub.add_parser("build", help="원본 확인 → 전처리·매핑 → 검증 후 data/generated_<모드>/ 생성")
+    b.add_argument("mode", choices=["fake", "real"],
+                   help="fake: 실제 게시대 + 가짜 통신사 데이터 / real: 실제 게시대 + 실제 통신사 원본")
+    b.add_argument("--encoding", default="utf-8", help="통신사 원본 인코딩 (real 전용, 예: cp949)")
+    b.add_argument("--load", action="store_true", help="생성·검증이 끝나면 이어서 DB에 적재")
 
-    board = sub.add_parser("board", help="게시대 원본 CSV(공공데이터포털)를 표준 board.csv로 변환 (대상 3개 시만)")
-    board.add_argument("input", type=Path)
-    board.add_argument("output", type=Path)
-    board.add_argument("--encoding", default="cp949", help="원본 인코딩 (기본: cp949)")
+    ld = sub.add_parser("load", help="검증을 통과한 data/generated_<모드>/ 세트를 DB에 적재 (전체 교체, 실패 시 롤백)")
+    ld.add_argument("mode", choices=["fake", "real"])
 
-    fake = sub.add_parser("fake-data", help="게시대 3×3 주변 Cell에 대해 원본 형식의 가짜 유동인구 CSV 생성")
-    fake.add_argument("output", type=Path)
-    fake.add_argument("--boards", type=Path, required=True, help="표준 board.csv (이 게시대들의 3×3 Cell만 생성)")
-    fake.add_argument("--seed", type=int, default=42)
-    fake.add_argument("--mapping", type=Path, help="원본 매핑 파일 (기본: raw_mapping.json, 없으면 예시 파일)")
-
-    mapping = sub.add_parser("map", help="게시대 ↔ Cell 3×3 매핑, board_population·grid_spec 생성")
-    mapping.add_argument("processed_dir", type=Path, help="전처리 결과 폴더 (결과 CSV도 여기에 저장)")
-    mapping.add_argument("board_csv", type=Path)
-
-    load = sub.add_parser("load", help="표준 CSV를 PostgreSQL에 전체 재적재 (docker 컨테이너의 psql 사용)")
-    load.add_argument("processed_dir", type=Path)
-    load.add_argument("board_csv", type=Path)
-    load.add_argument("--container", default="telecom-postgres")
-    load.add_argument("--db", default="telecom")
-    load.add_argument("--user", default="telecom")
+    for p in (b, ld):
+        p.add_argument("--container", default="telecom-postgres")
+        p.add_argument("--db", default="telecom")
+        p.add_argument("--user", default="telecom")
 
     args = parser.parse_args()
-    if args.command == "preprocess":
-        report = preprocess_csv(args.inputs, args.output_dir, chunksize=args.chunksize, encoding=args.encoding,
-                                mapping_path=args.mapping)
-        print(f"정제 완료: 원본 {report['input_files']}개 파일, population_fact {report['rows_written']}행, "
-              f"cell {report['cells']}개 → {args.output_dir}")
-        print(f"버린 행: {report['rows_dropped']}, UNKNOWN: {report['unknown_counts']}")
-    elif args.command == "board":
-        report = convert_board_csv(args.input, args.output, encoding=args.encoding)
-        print(f"게시대 변환 완료: {report['boards']}개 {report['by_city']} → {args.output}")
-        print(f"동 없음: {report['dong_missing']}, 금액 미제공: {report['fee_missing']}")
-    elif args.command == "fake-data":
-        cells, rows = generate_fake_csv(args.output, args.boards, seed=args.seed, mapping_path=args.mapping)
-        print(f"가짜 데이터 생성: Cell {cells}개, {rows}행 → {args.output}")
-    elif args.command == "map":
-        print(f"매핑 완료: {run_mapping(args.processed_dir, args.board_csv)}")
-    elif args.command == "load":
-        for table, result in load_all(args.processed_dir, args.board_csv, args.container, args.db, args.user).items():
-            print(f"{table}: {result}")
+    db = {"container": args.container, "db": args.db, "user": args.user}
+    try:
+        if args.command == "build":
+            if args.encoding != "utf-8" and args.mode == "fake":
+                parser.error("--encoding은 real 모드에서만 씁니다.")
+            build(args.mode, encoding=args.encoding)
+            if args.load:
+                load(args.mode, **db)
+        elif args.command == "load":
+            load(args.mode, **db)
+    except DataSetError as e:
+        print(f"중단: {e}", file=sys.stderr)
+        sys.exit(1)

@@ -217,13 +217,14 @@ def _check_same_header(input_paths: list[Path], encoding: str) -> None:
 
 def preprocess_csv(
     input_paths: Path | list[Path], output_dir: Path, chunksize: int = 1_000_000, encoding: str = "utf-8",
-    mapping_path: Path | None = None,
+    mapping_path: Path | None = None, dataset: str | None = None,
 ) -> dict:
     """대용량 원본 CSV를 청크로 정제해 output_dir에 표준 CSV 2개와 품질 리포트를 저장한다.
 
     원본이 여러 파일로 나뉘어 있으면 모두 넘긴다. 같은 헤더의 파일들을 순서대로
     이어 읽어 결과 하나로 합친다. 파일끼리 겹치는 행은 없다고 본다(population_fact에 UNIQUE 제약이
     없으므로 같은 행이 두 파일에 있으면 두 번 합산된다).
+    dataset("real"/"fake")과 입력 파일 이름을 리포트에 남겨 이 결과의 출처를 기록한다.
     품질 리포트 내용(dict)을 반환한다.
     """
     input_paths = [input_paths] if isinstance(input_paths, Path) else list(input_paths)
@@ -259,7 +260,8 @@ def preprocess_csv(
     cells.to_csv(output_dir / "cell.csv", index=False)
 
     result = report.to_dict(cells, multi_names)
-    result["input_files"] = len(input_paths)
+    result["dataset"] = dataset
+    result["input_files"] = [p.name for p in input_paths]
     (output_dir / "preprocess_report.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
     )
