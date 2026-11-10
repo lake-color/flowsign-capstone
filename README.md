@@ -27,11 +27,10 @@
 1. [기술 스택](#기술-스택)
 2. [사전 준비](#사전-준비)
 3. [환경변수](#환경변수)
-4. [빠른 시작 (가짜 데이터)](#빠른-시작-가짜-데이터)
-5. [실제 데이터로 실행](#실제-데이터로-실행)
-6. [데이터와 보안](#데이터와-보안)
-7. [문제 해결](#문제-해결)
-8. [개발 참고](#개발-참고)
+4. [실행 방법](#실행-방법)
+5. [데이터와 보안](#데이터와-보안)
+6. [문제 해결](#문제-해결)
+7. [개발 참고](#개발-참고)
 
 ---
 
@@ -97,13 +96,11 @@ copy frontend\.env.example frontend\.env
 
 ---
 
-## 빠른 시작 (가짜 데이터)
+## 실행 방법
 
-게시대 원본만 있으면 됩니다. 공공데이터포털 「전국현수막게시대표준데이터」 CSV를 내려받아 `data/raw/board_raw.csv`로 저장합니다(인코딩 CP949 그대로).
+터미널 3개를 씁니다. (Windows `cmd` 기준) 1 → 2 → 3 → 4 순서로 진행합니다.
 
-터미널 3개를 씁니다. (Windows `cmd` 기준)
-
-**1. DB + Backend**
+### 1. DB + Backend 실행
 
 ```cmd
 docker compose --env-file .env -f database/docker-compose.yml up -d
@@ -111,20 +108,64 @@ cd backend
 gradlew.bat bootRun
 ```
 
-`Started BackendApplication`이 보이면 준비된 것입니다. 처음 뜰 때 Flyway가 테이블을 만듭니다.
+`Started BackendApplication`이 보이면 준비된 것입니다. 처음 뜰 때 Flyway가 테이블을 만들기 때문에, 데이터 적재 전에 한 번은 실행해야 합니다.
 
-**2. 데이터 생성 · 적재** (Backend를 켠 상태로 다른 터미널에서)
+### 2. 데이터 생성 · 적재
+
+Backend를 켠 상태로 **다른 터미널**의 `python` 폴더에서 실행합니다. 2.1과 2.2 중 하나를 고릅니다.
 
 ```cmd
 cd python
 uv sync
+```
+
+`uv sync`는 최초 1회만 실행합니다.
+
+#### 2.1. 가짜 데이터
+
+게시대 원본만 있으면 됩니다. 공공데이터포털 「전국현수막게시대표준데이터」 CSV를 내려받아 `data/raw/board_raw.csv`로 저장합니다(인코딩 CP949 그대로).
+
+```cmd
 uv run data-processing build fake --load
 ```
 
-- `uv sync`는 최초 1회만 실행합니다.
-- 실제 게시대 445개와 그 주변 가짜 Cell·인구를 만들어 `data/generated_fake/`에 저장하고 DB에 적재합니다. 1~2분 걸립니다.
+실제 게시대 445개와 그 주변 가짜 Cell·인구를 만들어 `data/generated_fake/`에 저장하고 DB에 적재합니다. 1~2분 걸립니다.
 
-**3. Frontend**
+#### 2.2. 실제 데이터
+
+아래 파일을 각자 로컬에 둡니다.
+
+| 파일 | 위치·이름 | 비고 |
+| ---- | --------- | ---- |
+| 게시대 원본 | `data/raw/board_raw.csv` | 2.1과 같음 |
+| 통신사 유동인구 원본 | `data/raw/population_raw_1.csv`, `_2`, `_3` … | 여러 파일이면 1부터 빠짐없이 번호. 파일마다 같은 헤더, 파일끼리 겹치는 행 없음 |
+| 원본 매핑 파일 | `python/raw_mapping.json` | `raw_mapping.example.json`을 복사해 실제 컬럼명·코드값을 채움 |
+
+1. 세트만 만들고 결과를 확인합니다. 원본이 UTF-8이 아니면 `--encoding cp949`를 붙입니다.
+   ```cmd
+   uv run data-processing build real
+   ```
+2. 출력에서 확인합니다.
+   - `[0/5] 원본 확인`의 **통신사 원본 개수가 실제로 받은 파일 수와 같은지** (마지막 번호 파일이 빠진 것은 자동으로 알 수 없음)
+   - `[4/5] 매핑`의 9칸 게시대 수와 격자 검증. `NOT_VERIFIED`면 `250m 격자선`만 안 나오고, Cell 사각형과 매핑·집계에는 영향이 없습니다.
+   - `data/generated_real/preprocess_report.json`의 기간·NULL 수 등
+3. 문제없으면 적재합니다.
+   ```cmd
+   uv run data-processing load real
+   ```
+
+### 3. Backend 설정 반영
+
+**실제 데이터(2.2)를 적재했을 때만** 합니다.
+
+1. `backend/src/main/resources/application.yml`의 `flowsign.dataset.synthetic`을 `false`로 바꿉니다. **이 변경은 커밋하지 않습니다.**
+2. 1번 터미널에서 Backend를 `Ctrl + C`로 끄고 `gradlew.bat bootRun`으로 다시 실행합니다.
+
+가짜 데이터로 돌아가려면 `uv run data-processing load fake`를 실행하고 `synthetic`을 `true`로 되돌린 뒤 Backend를 재시작합니다. 두 세트는 폴더가 따로라 서로 지워지지 않습니다.
+
+### 4. Frontend 실행
+
+세 번째 터미널에서 실행합니다.
 
 ```cmd
 cd frontend
@@ -148,38 +189,6 @@ http://localhost:5173 을 엽니다.
 ```text
 http://localhost:5173/?board=3&grid=1&cells=1&allcells=1
 ```
-
----
-
-## 실제 데이터로 실행
-
-**준비** — 아래 파일을 각자 로컬에 둡니다.
-
-| 파일 | 위치·이름 | 비고 |
-| ---- | --------- | ---- |
-| 게시대 원본 | `data/raw/board_raw.csv` | 빠른 시작과 같음 |
-| 통신사 유동인구 원본 | `data/raw/population_raw_1.csv`, `_2`, `_3` … | 여러 파일이면 1부터 빠짐없이 번호. 파일마다 같은 헤더, 파일끼리 겹치는 행 없음 |
-| 원본 매핑 파일 | `python/raw_mapping.json` | `raw_mapping.example.json`을 복사해 실제 컬럼명·코드값을 채움 |
-
-**실행 순서** (`python` 폴더에서)
-
-1. 세트만 만들고 결과를 확인합니다.
-   ```cmd
-   uv run data-processing build real
-   ```
-   원본이 UTF-8이 아니면 `--encoding cp949`를 붙입니다.
-2. 출력에서 확인합니다.
-   - `[0/5] 원본 확인`의 **통신사 원본 개수가 실제로 받은 파일 수와 같은지** (마지막 번호 파일이 빠진 것은 자동으로 알 수 없음)
-   - `[4/5] 매핑`의 9칸 게시대 수와 격자 검증. `NOT_VERIFIED`면 `250m 격자선`만 안 나오고, Cell 사각형과 매핑·집계에는 영향이 없습니다.
-   - `data/generated_real/preprocess_report.json`의 기간·NULL 수 등
-3. 문제없으면 적재합니다.
-   ```cmd
-   uv run data-processing load real
-   ```
-4. `backend/src/main/resources/application.yml`의 `flowsign.dataset.synthetic`을 `false`로 바꾸고 Backend를 재시작합니다.
-   **이 변경은 커밋하지 않습니다.**
-
-가짜 데이터로 돌아가려면 `load fake`를 실행하고 `synthetic`을 `true`로 되돌립니다. 두 세트는 폴더가 따로라 서로 지워지지 않습니다.
 
 ---
 
@@ -210,7 +219,7 @@ data/
 
 **화면에 "데이터를 불러오지 못했습니다"**
 
-- Backend가 꺼져 있거나 데이터 적재 전입니다. [빠른 시작](#빠른-시작-가짜-데이터)의 1·2단계를 확인합니다.
+- Backend가 꺼져 있거나 데이터 적재 전입니다. [실행 방법](#실행-방법)의 1·2단계를 확인합니다.
 
 **`Port 8080 was already in use`**
 
