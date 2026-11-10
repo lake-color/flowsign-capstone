@@ -35,7 +35,7 @@
 ## 1. 데이터 파이프라인과 DB ↔ API 책임
 
 ```text
-유동인구 원본 CSV (1.1)              게시대 원본 파일 (컬럼 미정)
+유동인구 원본 CSV (1.1)              게시대 원본 CSV (공공데이터포털 전국현수막게시대표준데이터)
   ↓ Python 전처리기: 컬럼명·코드 매핑, 타입 정제, 대용량 청크 처리
   ↓   ※ 원본 형식이 달라지면 매핑 파일만 수정한다
   ↓ Python 표준 CSV 출력
@@ -618,8 +618,8 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 | 셀 좌표계 L6 | **WGS84 경위도, Cell 중심점으로 확인** | 실데이터로 격자 정합성만 검증 |
 | 격자 검증 허용 오차·격자선 표시 픽셀 기준 | 방식은 확정, 값은 미정 | 실데이터·화면 확인 후 결정 |
 | 추천 공식 Q7 | 가중치·산식 모두 임시값, 팀 미확정 | `algorithmStatus=PROVISIONAL`, 실데이터 분석 후 확정 |
-| 게시대 원본 파일 형식 | 컬럼 미정(약 445개, 위경도 포함 예정) | 게시대 전처리기 매핑 상수에만 채움 |
-| 게시대 가격/원본 ID 등 | 실제 게시대 CSV 검증 필요 | 값 없으면 `null`, 가짜 기본값 금지 |
+| 게시대 원본 파일 형식 | **공공데이터포털 전국현수막게시대표준데이터 CSV(CP949), 대상 3개 시 445개, 위경도 포함 확인** | 변환 규칙은 `python/src/data_processing/board.py` |
+| 게시대 가격/원본 ID 등 | 원본에 고유 ID 없음 → `board_id`는 순번. 부착금액 "무료" → 0, 빈 값 → `null`(106개) | 원본이 갱신되면 순번이 바뀔 수 있음 |
 | 상세 차트 구성·라이브러리 | 차트 포함 확정, 목록(시간대별 성별 등)·라이브러리 미정 | 확정 후 4.4 응답 필드 보완 |
 | `population_fact` 적재 범위 | 전체 Cell vs 게시대 3×3 Cell만. 250m 기준이면 전체도 수백만 행 수준 | 확장 기능(전체 격자 인구) 일정과 함께 결정 |
 | 문의 업종 선택지·개인정보 동의 문구/보관 종료일 | 미확정 | 필드/저장 동작만 제안, 실제 동의문은 별도 합의 |
@@ -659,4 +659,4 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 - **`dayTypeSourceStatus`:** 데이터에 `WEEKDAY`/`WEEKEND`가 있으면 `VERIFIED`로 반환한다.
 - **`grid`:** `grid_spec` 행이 없으면 `null`을 반환한다.
 - **`GET /cells` (4장에 없는 데모 추가 API):** 쿼리 `west`, `south`, `east`, `north`(필수, 지도 화면 범위). 응답 `data`는 `cells`(`cellId`, `latitude`, `longitude` — Cell 중심, 인구값 없음), `cellCount`, `truncated`, `limit`. 범위 안 Cell이 `limit`(3000, 임시값)을 넘으면 `cells=[]`, `truncated=true`를 돌려주고 프론트는 확대 안내를 띄운다. 사각형은 프론트가 `/meta.grid` 간격으로 중심 ±반 칸을 그리며, 격자 검증 전이면 점으로 표시한다. 잘못된 범위는 400 `VALIDATION_ERROR`.
-- **게시대 데이터:** 게시대 원본 형식이 정해지지 않아 가짜 게시대(`fake-boards`)를 표준 `board.csv` 형식으로 바로 만든다.
+- **게시대 데이터:** 실제 공공데이터(안양·군포·시흥 445개)를 `data-processing board`로 표준 `board.csv`로 변환한다. `name`은 게시대위치명, `address`는 지번주소(없으면 도로명주소), `dong`은 지번주소의 동(없으면 `null`). 현수막규격·관리기관 등 `board` 테이블에 없는 컬럼은 쓰지 않는다. 유동인구는 아직 가짜 데이터이며 `fake-data --boards`로 게시대 3×3 주변 Cell만 만든다.

@@ -50,10 +50,8 @@ flowsign/
 │       │   ├── health/             # GET /health
 │       │   ├── common/             # 공통 응답 {data, meta}·오류 {error}, 코드값
 │       │   ├── meta/               # GET /meta
-│       │   ├── board/              # GET /boards, /boards/{id}, /population, /cells
-│       │   ├── cell/               # GET /cells (지도 통신사 Cell 레이어)
-│       │   ├── recommendation/     # /recommendations/search (자리만 있음)
-│       │   └── inquiry/            # /inquiries (자리만 있음)
+│       │   ├── board/              # GET /boards, /boards/{id}, /boards/{id}/population, /boards/{id}/cells
+│       │   └── cell/               # GET /cells (지도 통신사 Cell 레이어)
 │       └── resources/
 │           ├── application*.yml
 │           └── db/migration/       # Flyway migration (테이블은 여기서만 생성)
@@ -61,7 +59,8 @@ flowsign/
 │   ├── raw_mapping.example.json    # 원본 컬럼명·코드값 매핑 예시 (실제 raw_mapping.json은 Git 제외)
 │   └── src/data_processing/
 │       ├── preprocess.py           # 원본 → 표준 CSV (원본 형식은 매핑 파일로 읽음)
-│       ├── fake_data.py            # 매핑 형식대로 가짜 인구 CSV, 가짜 게시대 CSV
+│       ├── board.py                # 게시대 원본(공공데이터포털) → 표준 board.csv
+│       ├── fake_data.py            # 매핑 형식대로 가짜 인구 CSV (게시대 3×3 주변 Cell만 만들 수 있음)
 │       ├── mapping.py              # 게시대 ↔ Cell 3×3 매핑, board_population, grid_spec
 │       ├── load.py                 # 표준 CSV → PostgreSQL 전체 재적재
 │       └── scoring.py              # 추천 점수 참고 구현 (서비스 점수는 Spring)
@@ -128,7 +127,7 @@ Leaflet은 키 없이 OpenStreetMap 타일로 동작합니다.
 
 ## 빠른 시작 (데모)
 
-가짜 데이터로 전체 흐름을 띄웁니다. 터미널 3개를 씁니다. (Windows `cmd` 기준)
+실제 게시대 데이터와 가짜 유동인구 데이터로 전체 흐름을 띄웁니다. 터미널 3개를 씁니다. (Windows `cmd` 기준)
 
 **1) DB + Backend** — Backend가 처음 뜰 때 Flyway가 테이블을 만듭니다.
 
@@ -140,19 +139,21 @@ gradlew.bat bootRun
 
 `Started BackendApplication`이 보이면 http://localhost:8080/api/v1/health 가 `{"status":"UP"}`를 반환합니다.
 
-**2) 가짜 데이터 생성 · 적재** — Backend를 켠 상태로 다른 터미널에서 실행합니다.
+**2) 데이터 변환 · 적재** — Backend를 켠 상태로 다른 터미널에서 실행합니다.
 
 ```cmd
 cd python
 uv sync
-uv run data-processing fake-data ../data/raw/fake_population.csv --cells 200
+uv run data-processing board ../data/raw/board_raw.csv ../data/raw/board.csv
+uv run data-processing fake-data ../data/raw/fake_population.csv --boards ../data/raw/board.csv
 uv run data-processing preprocess ../data/raw/fake_population.csv ../data/processed
-uv run data-processing fake-boards ../data/processed/cell.csv ../data/raw/fake_board.csv --count 60
-uv run data-processing map ../data/processed ../data/raw/fake_board.csv
-uv run data-processing load ../data/processed ../data/raw/fake_board.csv
+uv run data-processing map ../data/processed ../data/raw/board.csv
+uv run data-processing load ../data/processed ../data/raw/board.csv
 ```
 
-Cell 200개(약 40만 행, 약 36MB)와 게시대 60개가 만들어지며 전체 1분 안팎이 걸립니다.
+게시대는 실제 공공데이터, 유동인구는 가짜 데이터입니다.
+`board_raw.csv`는 공공데이터포털의 「전국현수막게시대표준데이터」 CSV(CP949)를 내려받아 `data/raw/`에 둡니다.
+대상 3개 시 게시대 445개와 그 3×3 주변 가짜 Cell 약 1,400개(약 290만 행, 약 300MB)가 만들어지며 전체 2분 안팎이 걸립니다.
 `load`는 기존 데이터를 모두 지우고 다시 넣으므로 몇 번이든 반복해도 됩니다.
 
 **3) Frontend**
@@ -190,9 +191,9 @@ http://localhost:5173 을 엽니다.
 
 | 명령 | 하는 일 |
 | ---- | ------- |
-| `fake-data <출력.csv> [--size-mb 300 \| --cells N] [--seed 42] [--mapping 파일]` | 매핑 파일 형식의 가짜 원본 CSV 생성 (성별·연령 NULL, 0, 소수 인구값 포함) |
+| `board <원본.csv> <출력 board.csv> [--encoding cp949]` | 게시대 원본(공공데이터포털)에서 대상 3개 시만 골라 표준 `board.csv`로 변환 |
+| `fake-data <출력.csv> [--size-mb 300 \| --cells N \| --boards board.csv] [--seed 42] [--mapping 파일]` | 매핑 파일 형식의 가짜 원본 CSV 생성 (성별·연령 NULL, 0, 소수 인구값 포함). `--boards`를 주면 그 게시대들의 3×3 Cell만 생성 |
 | `preprocess <원본.csv> <출력폴더> [--encoding cp949] [--chunksize N] [--mapping 파일]` | 원본 정제 → `population_fact.csv`, `cell.csv`, `preprocess_report.json` |
-| `fake-boards <cell.csv> <출력.csv> [--count 60]` | Cell 주변에 가짜 게시대 `board.csv` 생성 (게시대 원본 형식 미정) |
 | `map <전처리폴더> <board.csv>` | 3×3 매핑 → `board_cell.csv`, `board_population.csv`, `grid_spec.csv` |
 | `load <전처리폴더> <board.csv> [--container --db --user]` | 6개 테이블 비우고 `\copy`로 재적재 |
 
@@ -252,7 +253,8 @@ npm run lint
 
 - [x] 개발 환경: PostgreSQL 17 Docker Compose, Spring Boot ↔ PostgreSQL, Flyway, React + Vite, Python + uv
 - [x] 초기 스키마 migration: `cell`, `population_fact`, `board`, `board_cell`, `board_population`, `grid_spec`
-- [x] Python 배치: 가짜 데이터 → 전처리 → 3×3 매핑·집계 → PostgreSQL 적재
+- [x] Python 배치: 가짜 인구 데이터 → 전처리 → 3×3 매핑·집계 → PostgreSQL 적재
+- [x] 실제 게시대 데이터(공공데이터포털, 안양·군포·시흥 445개) → 표준 `board.csv`
 - [x] 조회 API: `/meta`, `/boards`, `/boards/{id}`, `/boards/{id}/population`, `/boards/{id}/cells`, `/cells`
 - [x] 데모 화면: Naver Maps / Leaflet 전환, 게시대 마커, 250m 격자선, 통신사 Cell 레이어, 3×3 Cell, 조건 패널, 상세 차트
 
@@ -260,7 +262,6 @@ npm run lint
 
 - [ ] 추천 API와 Spring 점수 계산 (`POST /recommendations/search`)
 - [ ] 문의 API (`POST /inquiries`)와 `inquiry` 테이블
-- [ ] 게시대 원본 전처리 (원본 형식 미정, 현재는 가짜 `board.csv`)
 - [ ] Naver Maps 실제 키로 동작 확인
 - [ ] 차트 라이브러리 결정, 새 API 테스트 코드
 
