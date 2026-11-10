@@ -17,6 +17,7 @@
 | 영향권 | **게시대 위경도가 속한 Cell(가장 가까운 Cell 중심) 1개 + 주변 8칸 = 3×3, 최대 9 Cell(약 750m × 750m)**; `board_cell`에서 조회. 반경(`radiusMeters`) 개념 제거 | 확정 (2026-11-07, 250m Cell 기준 유지) |
 | 게시대 마커 위치 | Cell 중심이 아닌 **게시대 자체 위경도** | 확정 |
 | 250m 격자선 | 지도 전체에 격자선 표시, 체크박스로 켜고 끔. 인구값 없음 | 확정 |
+| 통신사 Cell 레이어 | 데이터에 있는 Cell을 지도 전체에 사각형으로 표시(화면 범위만 조회), 체크박스로 켜고 끔. **인구값 없음**. 인구는 선택 게시대와 그 3×3칸에만 표시 | 확정 (2026-11-10) |
 | E 분석 테이블 | `board_population`: 게시대별 3×3 Cell 집계 | 설계 완료, 적재 전 검증 필요 |
 | F 전역 분포 | `grid250_population` 관련 화면/서비스 API | **MVP 제외**; DB 잔존 시 즉시 삭제 필요 없음 |
 | 전체 격자 인구 | 모든 250m Cell의 인구 정보 제공 | **확장 기능**, MVP에서 구현하지 않음 |
@@ -633,7 +634,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 
 가짜 데이터로 동작하는 데모 초안 기준이다. 실행 방법은 README의 "빠른 시작 (데모)"를 참고한다.
 
-**구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`.
+**구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`, `GET /cells`(통신사 Cell 레이어, 아래 참고).
 **미구현:** `POST /recommendations/search`, `POST /inquiries`(및 `inquiry` 테이블).
 
 **데모에서 임시로 정한 규칙** (팀 확정 전, 바뀔 수 있음):
@@ -657,4 +658,5 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 - **`/boards` 응답:** 마커 목록에도 상세와 같은 필드(주소·게시면·금액 등)를 함께 내려준다.
 - **`dayTypeSourceStatus`:** 데이터에 `WEEKDAY`/`WEEKEND`가 있으면 `VERIFIED`로 반환한다.
 - **`grid`:** `grid_spec` 행이 없으면 `null`을 반환한다.
+- **`GET /cells` (4장에 없는 데모 추가 API):** 쿼리 `west`, `south`, `east`, `north`(필수, 지도 화면 범위). 응답 `data`는 `cells`(`cellId`, `latitude`, `longitude` — Cell 중심, 인구값 없음), `cellCount`, `truncated`, `limit`. 범위 안 Cell이 `limit`(3000, 임시값)을 넘으면 `cells=[]`, `truncated=true`를 돌려주고 프론트는 확대 안내를 띄운다. 사각형은 프론트가 `/meta.grid` 간격으로 중심 ±반 칸을 그리며, 격자 검증 전이면 점으로 표시한다. 잘못된 범위는 400 `VALIDATION_ERROR`.
 - **게시대 데이터:** 게시대 원본 형식이 정해지지 않아 가짜 게시대(`fake-boards`)를 표준 `board.csv` 형식으로 바로 만든다.

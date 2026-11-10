@@ -51,6 +51,7 @@ flowsign/
 │       │   ├── common/             # 공통 응답 {data, meta}·오류 {error}, 코드값
 │       │   ├── meta/               # GET /meta
 │       │   ├── board/              # GET /boards, /boards/{id}, /population, /cells
+│       │   ├── cell/               # GET /cells (지도 통신사 Cell 레이어)
 │       │   ├── recommendation/     # /recommendations/search (자리만 있음)
 │       │   └── inquiry/            # /inquiries (자리만 있음)
 │       └── resources/
@@ -166,9 +167,10 @@ http://localhost:5173 을 엽니다.
 
 - 상단 버튼으로 Naver / Leaflet 지도를 전환합니다.
 - 게시대 마커를 누르면 오른쪽에 상세 정보와 3×3 영향권 인구 차트가 나옵니다.
-- `250m 격자선`, `3×3 Cell 보기` 체크박스로 레이어를 켜고 끕니다.
+- `250m 격자선`, `통신사 Cell`, `3×3 Cell 보기` 체크박스로 레이어를 켜고 끕니다.
+  `통신사 Cell`은 데이터에 있는 Cell을 화면 범위만큼 사각형으로 그리며(인구값 없음), 범위가 너무 넓으면 확대 안내가 나옵니다.
 - 왼쪽 조건을 바꾸고 `조건 적용`을 누르면 상세 인구가 다시 조회됩니다.
-- 데모 링크: http://localhost:5173/?board=3&grid=1&cells=1 (게시대 선택·격자선·3×3을 켠 상태로 시작, `&map=naver`로 지도 지정)
+- 데모 링크: http://localhost:5173/?board=3&grid=1&cells=1&allcells=1 (게시대 선택·격자선·3×3·통신사 Cell을 켠 상태로 시작, `&map=naver`로 지도 지정)
 
 ### 문제 해결
 
@@ -222,6 +224,7 @@ gradlew.bat test
 | GET | `/api/v1/boards/{id}` | 게시대 상세 |
 | GET | `/api/v1/boards/{id}/population` | 3×3 합계, 시간대·월별, 성별·연령·유동·서비스 분포 |
 | GET | `/api/v1/boards/{id}/cells` | 3×3 Cell 중심·사각형(GeoJSON)·Cell별 인구 |
+| GET | `/api/v1/cells?west=&south=&east=&north=` | 화면 범위 안 통신사 Cell 중심 (인구값 없음, 최대 3000개) |
 
 `population`·`cells`는 `gender`, `ageGroups`, `flowType`, `timeBands`, `periodKind`(+`season`/`month`), `dayType` 쿼리를 받습니다.
 예: `/api/v1/boards/3/population?gender=FEMALE&ageGroups=AGE_20S,AGE_30S&periodKind=SEASON&season=SUMMER`
@@ -250,8 +253,8 @@ npm run lint
 - [x] 개발 환경: PostgreSQL 17 Docker Compose, Spring Boot ↔ PostgreSQL, Flyway, React + Vite, Python + uv
 - [x] 초기 스키마 migration: `cell`, `population_fact`, `board`, `board_cell`, `board_population`, `grid_spec`
 - [x] Python 배치: 가짜 데이터 → 전처리 → 3×3 매핑·집계 → PostgreSQL 적재
-- [x] 조회 API: `/meta`, `/boards`, `/boards/{id}`, `/boards/{id}/population`, `/boards/{id}/cells`
-- [x] 데모 화면: Naver Maps / Leaflet 전환, 게시대 마커, 250m 격자선, 3×3 Cell, 조건 패널, 상세 차트
+- [x] 조회 API: `/meta`, `/boards`, `/boards/{id}`, `/boards/{id}/population`, `/boards/{id}/cells`, `/cells`
+- [x] 데모 화면: Naver Maps / Leaflet 전환, 게시대 마커, 250m 격자선, 통신사 Cell 레이어, 3×3 Cell, 조건 패널, 상세 차트
 
 ### 미구현
 
