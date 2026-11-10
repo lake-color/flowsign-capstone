@@ -62,8 +62,8 @@ data/
 
 # 2) 원본·결과 파일명 명시 (data/ 밖으로 옮겨져도 제외)
 **/raw_mapping.json
-**/board_raw.*
-**/population_raw.*
+**/board_raw*
+**/population_raw*
 **/fake_population.*
 **/board.csv
 **/cell.csv
