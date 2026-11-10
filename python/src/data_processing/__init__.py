@@ -37,5 +37,10 @@ def main() -> None:
         elif args.command == "load":
             load(args.mode, **db)
     except DataSetError as e:
-        print(f"중단: {e}", file=sys.stderr)
+        sys.stdout.flush()  # 진행 출력(stdout)이 중단 메시지(stderr)보다 먼저 보이도록
+        bar = "=" * 64
+        print(f"\n{bar}\n 중단: 아무것도 바꾸지 않았습니다 (기존 세트·DB 그대로)\n{bar}", file=sys.stderr)
+        for line in str(e).splitlines():
+            print(f"  - {line}", file=sys.stderr)
+        print("  ※ 오류 메시지에 실제 코드값·컬럼명이 있을 수 있으니 공유할 때 가리세요.", file=sys.stderr)
         sys.exit(1)

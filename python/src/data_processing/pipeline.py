@@ -28,6 +28,8 @@
 import json
 import re
 import shutil
+import time
+import unicodedata
 from pathlib import Path
 
 import pandas as pd
@@ -132,37 +134,130 @@ def validate_set(directory: Path, mode: str) -> dict:
     return report
 
 
+MODE_LABEL = {"real": "실제(real)", "fake": "가짜(fake)"}
+UNKNOWN_LABEL = {"day_type": "주중/주말", "gender": "성별", "age_group": "연령", "time_slot": "시간대"}
+LINE = "=" * 64
+
+
+def _width(text: str) -> int:
+    """콘솔 표시 폭 (한글 등 전각 문자는 2칸)."""
+    return sum(2 if unicodedata.east_asian_width(ch) in "WF" else 1 for ch in text)
+
+
+def _kv(label: str, value, note: str = "") -> str:
+    """'  라벨      값   (설명)' 한 줄. 라벨 폭을 맞춘다."""
+    return f"  {label}{' ' * max(1, 24 - _width(label))}{value}" + (f"   ({note})" if note else "")
+
+
+def _n(value: int) -> str:
+    return f"{value:,}"
+
+
+def _header(log, title: str, *lines: str) -> None:
+    log(LINE)
+    log(f" {title}")
+    for line in lines:
+        log(f" {line}")
+    log(LINE)
+
+
+def _footer(log, *lines: str) -> None:
+    log("")
+    log(LINE)
+    for line in lines:
+        log(f" {line}")
+    log(LINE)
+
+
+def _elapsed(start: float) -> str:
+    sec = int(time.monotonic() - start)
+    return f"{sec // 60}분 {sec % 60}초" if sec >= 60 else f"{sec}초"
+
+
+class _Steps:
+    """단계 제목을 출력하고, 실패하면 어느 단계에서 멈췄는지 DataSetError로 알려 준다."""
+
+    def __init__(self, log, total: int) -> None:
+        self.log, self.total, self.current = log, total, ""
+
+    def start(self, no: int, name: str) -> None:
+        self.current = f"[{no}/{self.total}] {name}"
+        self.log("")
+        self.log(self.current)
+
+    def fail(self, error: Exception) -> DataSetError:
+        message = f"{self.current} 단계에서 오류: {error}"
+        if isinstance(error, UnicodeDecodeError):
+            message += "\n원본 인코딩이 UTF-8이 아닐 수 있습니다. --encoding cp949로 다시 실행해 보세요."
+        return DataSetError(message)
+
+
 def build(mode: str, raw_dir: Path = RAW_DIR, data_dir: Path = DATA_DIR, encoding: str = "utf-8",
           mapping_path: Path = LOCAL_MAPPING, log=print) -> dict:
     """원본 확인 → 임시 폴더에 세트 생성 → 검증 → 기존 세트와 교체. 리포트를 반환한다."""
-    population_files = find_inputs(mode, raw_dir, mapping_path)
+    start = time.monotonic()
     final = set_dir(mode, data_dir)
+    _header(log, f"FLOWSIGN 데이터 생성 · {MODE_LABEL[mode]} 모드", f"결과 폴더: {final}")
+    steps = _Steps(log, 5)
+
+    steps.start(0, "원본 확인")
+    population_files = find_inputs(mode, raw_dir, mapping_path)
+    log(_kv("게시대 원본", BOARD_RAW, "OK"))
+    if mode == "real":
+        log(_kv(f"통신사 원본 {len(population_files)}개", ", ".join(p.name for p in population_files), "OK"))
+        log(_kv("매핑 파일", mapping_path.name, "OK"))
+        log("  → 통신사 원본 개수가 실제로 받은 파일 수와 같은지 확인하세요.")
+    else:
+        log(_kv("통신사 원본", "사용 안 함 (가짜 데이터 생성)"))
+
     staging = final.with_name(final.name + ".building")
     shutil.rmtree(staging, ignore_errors=True)  # 지난번에 실패하고 남은 임시 폴더
     staging.mkdir(parents=True)
-
     try:
+        steps.start(1, "게시대 변환")
         board = convert_board_csv(raw_dir / BOARD_RAW, staging / "board.csv")
-        log(f"[1] 게시대 변환: {board['boards']}개 {board['by_city']} (동 없음 {board['dong_missing']}, "
-            f"금액 미제공 {board['fee_missing']})")
+        by_city = " · ".join(f"{city} {_n(n)}" for city, n in board["by_city"].items())
+        log(_kv("게시대", f"{_n(board['boards'])}개", by_city))
+        log(_kv("동 없음", f"{_n(board['dong_missing'])}개"))
+        log(_kv("금액 미제공", f"{_n(board['fee_missing'])}개"))
 
+        steps.start(2, "통신사 데이터")
         if mode == "fake":
             n_cells, n_rows = generate_fake_csv(staging / POPULATION_FAKE, staging / "board.csv")
-            log(f"[2] 가짜 통신사 데이터 생성: Cell {n_cells}개, {n_rows}행")
+            log(_kv("가짜 데이터 생성", f"Cell {_n(n_cells)}개, {_n(n_rows)}행", POPULATION_FAKE))
             inputs, mapping = [staging / POPULATION_FAKE], None
         else:
-            log(f"[2] 통신사 원본 {len(population_files)}개: {[p.name for p in population_files]}")
+            log(_kv("실제 원본 사용", f"{len(population_files)}개 파일을 번호순으로 이어 읽음"))
             inputs, mapping = population_files, mapping_path
 
+        steps.start(3, "전처리")
         report = preprocess_csv(inputs, staging, encoding=encoding, mapping_path=mapping, dataset=mode)
-        log(f"[3] 전처리: population_fact {report['rows_written']}행, cell {report['cells']}개, "
-            f"버린 행 {report['rows_dropped']}, UNKNOWN {report['unknown_counts']}")
+        dropped = report["rows_dropped"]
+        log(_kv("population_fact", f"{_n(report['rows_written'])}행"))
+        log(_kv("Cell", f"{_n(report['cells'])}개"))
+        log(_kv("버린 행", f"{_n(sum(dropped.values()))}행",
+                f"cell_id 없음 {_n(dropped['cell_id_null'])}, 기준월 없음 {_n(dropped['base_month_null'])}"))
+        log(_kv("UNKNOWN(빈 분류값)", ", ".join(f"{UNKNOWN_LABEL[k]} {_n(v)}"
+                                             for k, v in report["unknown_counts"].items())))
 
+        steps.start(4, "매핑")
         mapped = run_mapping(staging, staging / "board.csv")
-        log(f"[4] 매핑: {mapped}")
+        log(_kv("9칸이 모두 있는 게시대", f"{_n(mapped['boards_with_9_cells'])} / {_n(mapped['boards'])}",
+                "나머지는 주변에 데이터가 없는 칸 제외"))
+        log(_kv("board_cell", f"{_n(mapped['board_cell_rows'])}행"))
+        log(_kv("board_population", f"{_n(mapped['board_population_rows'])}행"))
+        grid_note = "" if mapped["grid_status"] == "VERIFIED" else "지도에서 Cell은 점으로 표시, 격자선 없음"
+        log(_kv("격자 검증", mapped["grid_status"], grid_note))
 
+        steps.start(5, "세트 검증")
         validate_set(staging, mode)
-        log("[5] 세트 검증 통과")
+        log(_kv("파일·출처·ID 일치", "통과"))
+    except DataSetError:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    except Exception as error:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise steps.fail(error) from error
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
@@ -174,21 +269,34 @@ def build(mode: str, raw_dir: Path = RAW_DIR, data_dir: Path = DATA_DIR, encodin
         final.rename(old)
     staging.rename(final)
     shutil.rmtree(old, ignore_errors=True)
-    log(f"완료 → {final}")
+    next_step = f"load {mode}" if mode == "fake" else f"preprocess_report.json 확인 후 load {mode}"
+    _footer(log, f"완료: {final}   (소요 {_elapsed(start)})", f"다음: {next_step}")
     return report
 
 
 def load(mode: str, data_dir: Path = DATA_DIR, log=print, **db) -> dict[str, int]:
     """검증을 통과한 세트만 DB에 적재한다. 검증 실패 시 DB는 건드리지 않는다."""
+    start = time.monotonic()
     directory = set_dir(mode, data_dir)
+    target = f"{db.get('container', 'telecom-postgres')} / {db.get('db', 'telecom')}"
+    _header(log, f"FLOWSIGN DB 적재 · {MODE_LABEL[mode]} 세트", f"{directory} → {target}")
+    steps = _Steps(log, 2)
+
+    steps.start(1, "세트 검증")
     validate_set(directory, mode)
-    label = "실제 통신사 데이터" if mode == "real" else "가짜 통신사 데이터"
-    log(f"{label} 세트({directory.name})를 적재합니다. 기존 DB 데이터는 성공 시에만 교체됩니다.")
-    counts = load_set(directory, **db)
+    log(_kv("파일·출처·ID 일치", "통과"))
+
+    steps.start(2, "적재 (트랜잭션 하나, 실패 시 전체 롤백)")
+    try:
+        counts = load_set(directory, **db)
+    except Exception as error:
+        raise DataSetError(f"{steps.current} 단계에서 오류 (기존 DB 데이터는 그대로): {error}") from error
     for table, n in counts.items():
-        log(f"  {table}: {n}행")
+        log(_kv(table, f"{_n(n)}행"))
+
     if mode == "real":
-        log("※ backend application.yml의 flowsign.dataset.synthetic을 false로 바꾸세요.")
+        note = "※ backend application.yml의 flowsign.dataset.synthetic을 false로 바꾸세요 (커밋하지 말 것)."
     else:
-        log("※ backend application.yml의 flowsign.dataset.synthetic이 true인지 확인하세요.")
+        note = "※ backend application.yml의 flowsign.dataset.synthetic이 true인지 확인하세요."
+    _footer(log, f"완료   (소요 {_elapsed(start)})", note)
     return counts
