@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from './api'
 import BoardDetail from './components/BoardDetail'
 import FilterPanel from './components/FilterPanel'
@@ -32,8 +32,13 @@ function App() {
   const [board, setBoard] = useState<Board | null>(null)
   const [population, setPopulation] = useState<BoardPopulation | null>(null)
   const [cells, setCells] = useState<CellItem[] | null>(null)
-  const [detailLoading, setDetailLoading] = useState(false)
-  const [detailError, setDetailError] = useState<string | null>(null)
+  // 상세 조회 한 번을 나타내는 값. 선택한 게시대나 조건이 바뀌면 새 객체가 된다.
+  const request = useMemo(() => ({ selectedId, query }), [selectedId, query])
+  // 응답(성공·실패)이 끝난 요청. 지금 요청과 다르면 아직 불러오는 중이다.
+  const [settled, setSettled] = useState<object | null>(null)
+  const [failure, setFailure] = useState<{ request: object; message: string } | null>(null)
+  const detailLoading = selectedId !== null && settled !== request
+  const detailError = failure?.request === request ? failure.message : null
 
   // 첫 진입: /meta + /boards (전역 인구 API는 호출하지 않는다)
   useEffect(() => {
@@ -51,46 +56,39 @@ function App() {
 
   // 게시대 선택 또는 조건 변경: 상세 + 인구 병렬 조회
   useEffect(() => {
+    const { selectedId, query } = request
     if (!selectedId) return
     const ctrl = new AbortController()
-    setDetailLoading(true)
-    setDetailError(null)
     Promise.all([api.board(selectedId, ctrl.signal), api.population(selectedId, query, ctrl.signal)])
       .then(([b, p]) => {
         setBoard(b)
         setPopulation(p)
       })
       .catch((e: Error) => {
-        if (!ctrl.signal.aborted) setDetailError(e.message)
+        if (!ctrl.signal.aborted) setFailure({ request, message: e.message })
       })
       .finally(() => {
-        if (!ctrl.signal.aborted) setDetailLoading(false)
+        if (!ctrl.signal.aborted) setSettled(request)
       })
     return () => ctrl.abort()
-  }, [selectedId, query])
+  }, [request])
 
   // 3×3 Cell 보기를 켰을 때만 /cells 호출
   useEffect(() => {
-    if (!selectedId || !showCells) {
-      setCells(null)
-      return
-    }
+    const { selectedId, query } = request
+    if (!selectedId || !showCells) return
     const ctrl = new AbortController()
     api.cells(selectedId, query, ctrl.signal)
       .then(setCells)
       .catch((e: Error) => {
-        if (!ctrl.signal.aborted) setDetailError(e.message)
+        if (!ctrl.signal.aborted) setFailure({ request, message: e.message })
       })
     return () => ctrl.abort()
-  }, [selectedId, showCells, query])
+  }, [request, showCells])
 
   // 통신사 Cell 레이어: 켜져 있으면 지도 이동이 끝날 때마다 화면 범위의 Cell만 다시 조회
   useEffect(() => {
-    if (!showAllCells || !view) {
-      setAllCells(null)
-      setAllCellsNotice(null)
-      return
-    }
+    if (!showAllCells || !view) return
     const ctrl = new AbortController()
     api.cellsInView(view, ctrl.signal)
       .then((r) => {
@@ -104,6 +102,19 @@ function App() {
   }, [showAllCells, view])
 
   const selectBoard = useCallback((id: string) => setSelectedId(id), [])
+
+  // 레이어를 끄면 그려 둔 Cell도 함께 비운다 (다시 켰을 때 이전 결과가 잠깐 보이지 않도록)
+  const toggleCells = useCallback((on: boolean) => {
+    setShowCells(on)
+    if (!on) setCells(null)
+  }, [])
+  const toggleAllCells = useCallback((on: boolean) => {
+    setShowAllCells(on)
+    if (!on) {
+      setAllCells(null)
+      setAllCellsNotice(null)
+    }
+  }, [])
 
   return (
     <div className="app">
@@ -126,10 +137,10 @@ function App() {
           showGrid={showGrid}
           onShowGridChange={setShowGrid}
           showCells={showCells}
-          onShowCellsChange={setShowCells}
+          onShowCellsChange={toggleCells}
           cells={cells}
           showAllCells={showAllCells}
-          onShowAllCellsChange={setShowAllCells}
+          onShowAllCellsChange={toggleAllCells}
           allCells={allCells}
           allCellsNotice={allCellsNotice}
           onViewChange={setView}

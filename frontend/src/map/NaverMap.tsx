@@ -44,10 +44,10 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
   // SDK 로드 + 지도 생성
   useEffect(() => {
     if (!CLIENT_ID) return
-    let cancelled = false
+    const ctrl = new AbortController()
     loadSdk()
       .then((n) => {
-        if (cancelled || !containerRef.current) return
+        if (ctrl.signal.aborted || !containerRef.current) return
         mapRef.current = new n.maps.Map(containerRef.current, {
           center: new n.maps.LatLng(37.39, 126.92),
           zoom: 13,
@@ -56,7 +56,7 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
       })
       .catch((e: Error) => setError(e.message))
     return () => {
-      cancelled = true
+      ctrl.abort()
       mapRef.current?.destroy?.()
       mapRef.current = null
       fitted.current = false
