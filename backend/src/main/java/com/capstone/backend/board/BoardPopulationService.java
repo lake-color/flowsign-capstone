@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import com.capstone.backend.board.PopulationFilter.Axis;
 import com.capstone.backend.common.Codes;
+import com.capstone.backend.common.DatasetInfo;
 import com.capstone.backend.common.PopulationValue;
 
 /**
@@ -23,12 +24,15 @@ import com.capstone.backend.common.PopulationValue;
 @Service
 public class BoardPopulationService {
 
-    private static final String DATA_NOTICE = "가짜 데이터 기반 데모입니다. 인구 단위 확인 전이므로 수치는 기간 내 합산 참고값입니다.";
+    private static final String UNIT_NOTICE = "인구 단위 확인 전이므로 수치는 기간 내 합산 참고값입니다.";
 
     private final NamedParameterJdbcTemplate jdbc;
+    /** 응답 안내 문구. 가짜 데이터 여부는 application.yml의 flowsign.dataset.synthetic을 따른다. */
+    private final String dataNotice;
 
-    public BoardPopulationService(NamedParameterJdbcTemplate jdbc) {
+    public BoardPopulationService(NamedParameterJdbcTemplate jdbc, DatasetInfo dataset) {
         this.jdbc = jdbc;
+        this.dataNotice = (dataset.synthetic() ? "가짜 데이터 기반 데모입니다. " : "") + UNIT_NOTICE;
     }
 
     public Map<String, Object> population(long boardId, PopulationFilter f) {
@@ -76,7 +80,7 @@ public class BoardPopulationService {
         data.put("expectedCellCount", expected);
         data.put("matchedCellCount", matched);
         data.put("aggregationStatus", matched < expected ? "PARTIAL" : "UNVERIFIED");
-        data.put("dataNotice", DATA_NOTICE);
+        data.put("dataNotice", dataNotice);
         return data;
     }
 
@@ -117,7 +121,7 @@ public class BoardPopulationService {
         data.put("center", Map.of("latitude", board.latitude(), "longitude", board.longitude()));
         data.put("cells", cells);
         data.put("cellCount", cells.size());
-        data.put("dataNotice", DATA_NOTICE);
+        data.put("dataNotice", dataNotice);
         return data;
     }
 
