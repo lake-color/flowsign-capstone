@@ -8,7 +8,8 @@
   - 12개월 × 주중/주말 × 성별 × 연령 6구간 × 시간대 7구간(2시간)
   - 인구 6종은 소수점 숫자, 0과 NULL이 섞임
   - 성별·연령 NULL 포함 (빈 칸으로 기록)
-지역은 대상 시 근처의 가상 격자이며 동 이름은 가상값이다.
+Cell은 실제 게시대(board.csv)마다 소속 칸과 주변 8칸만 만든다(3×3이 모두 채워지도록).
+격자는 대상 3개 시를 덮는 가상 격자이며 동 이름은 가상값이다.
 """
 
 from pathlib import Path
@@ -37,15 +38,6 @@ POPULATION_SHARES = {"stay": 0.5, "walk": 0.3, "drive": 0.2, "residence": 0.4, "
 TIME_WEIGHT = np.array([0.6, 1.3, 0.9, 1.1, 0.9, 1.0, 1.4])
 AGE_WEIGHT = np.array([0.7, 1.1, 1.2, 1.2, 1.0, 0.9])
 
-ROWS_PER_CELL = len(MONTHS) * len(DAY_TYPES) * len(GENDERS) * len(AGES) * len(TIME_SLOTS)
-# 실측: 예시 매핑 기준 행당 약 105바이트 (매핑 파일의 컬럼명·코드 길이에 따라 달라짐)
-APPROX_BYTES_PER_ROW = 105
-
-
-def cells_for_size(target_bytes: int) -> int:
-    """목표 파일 크기에 맞는 Cell 수를 계산한다."""
-    return max(1, round(target_bytes / (ROWS_PER_CELL * APPROX_BYTES_PER_ROW)))
-
 
 def _cells_around_boards(board_csv: Path) -> np.ndarray:
     """게시대마다 소속 칸과 주변 8칸의 격자 번호(행 * GRID_COLS + 열)를 모은다."""
@@ -60,18 +52,9 @@ def _cells_around_boards(board_csv: Path) -> np.ndarray:
     return np.unique(rows * GRID_COLS + cols)
 
 
-def _make_cells(n_cells: int, rng: np.random.Generator, board_csv: Path | None = None) -> pd.DataFrame:
-    if board_csv is not None:
-        # 게시대 3×3이 모두 채워지도록 게시대 주변 칸만 만든다 (n_cells 무시).
-        picks = _cells_around_boards(board_csv)
-        n_cells = len(picks)
-    else:
-        if n_cells > GRID_ROWS * GRID_COLS:
-            raise ValueError(f"Cell 수는 최대 {GRID_ROWS * GRID_COLS}개입니다.")
-        # Cell이 이어져 있어야 3×3 이웃이 생긴다. 격자 중앙에서 가까운 칸부터 고른다.
-        all_rows, all_cols = np.divmod(np.arange(GRID_ROWS * GRID_COLS), GRID_COLS)
-        dist = np.hypot(all_rows - GRID_ROWS / 2, all_cols - GRID_COLS / 2) + rng.uniform(0, 1.5, all_rows.size)
-        picks = np.sort(np.argsort(dist)[:n_cells])
+def _make_cells(board_csv: Path, rng: np.random.Generator) -> pd.DataFrame:
+    picks = _cells_around_boards(board_csv)
+    n_cells = len(picks)
     rows, cols = np.divmod(picks, GRID_COLS)
     # 서쪽은 시흥시, 동쪽 북부는 안양시, 동쪽 남부는 군포시
     city = np.where(cols < GRID_COLS * 0.45, "시흥시", np.where(rows >= GRID_ROWS * 0.45, "안양시", "군포시"))
@@ -141,20 +124,19 @@ def _rows_for_cells(
 
 def generate_fake_csv(
     output_path: Path,
-    n_cells: int,
+    board_csv: Path,
     seed: int = 42,
     null_rate: float = 0.005,
     cells_per_batch: int = 100,
     mapping_path: Path | None = None,
-    board_csv: Path | None = None,
 ) -> tuple[int, int]:
-    """가짜 원본 CSV를 만든다. (Cell 수, 쓴 행 수)를 반환한다. 메모리를 아끼려고 Cell 묶음 단위로 쓴다.
+    """board_csv 게시대들의 3×3 칸에 대해 가짜 원본 CSV를 만든다. (Cell 수, 쓴 행 수)를 반환한다.
 
-    board_csv를 주면 n_cells 대신 그 게시대들의 3×3 칸만 만든다.
+    메모리를 아끼려고 Cell 묶음 단위로 쓴다.
     """
     mapping = load_mapping(mapping_path)
     rng = np.random.default_rng(seed)
-    cells = _make_cells(n_cells, rng, board_csv)
+    cells = _make_cells(board_csv, rng)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     total = 0
