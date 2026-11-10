@@ -276,8 +276,12 @@ uv run data-processing build fake --load
 
 - 통신사 원본이 UTF-8이 아니면 `--encoding`을 붙입니다. (예: `build real --encoding cp949`)
 - 원본이 여러 파일이면 번호순으로 이어 읽어 하나로 합칩니다. 헤더가 다른 파일이 있으면 중단합니다.
+- 처음에는 `--load` 없이 `build real`만 실행해 출력과 `preprocess_report.json`을 확인한 뒤 `load real`을 실행합니다.
+- `[0/5] 원본 확인`에 나온 **통신사 원본 개수가 실제로 받은 파일 수와 같은지** 확인합니다. 중간 번호가 빠지면 중단하지만, 마지막 번호 파일이 빠진 것은 알 수 없습니다.
+- 오류 메시지에는 **실제 코드값·컬럼명이 찍힐 수 있습니다.** 다른 사람에게 공유할 때는 그 부분을 가립니다.
 - 적재 후 `backend/src/main/resources/application.yml`의 `flowsign.dataset.synthetic`을 `false`로 바꿉니다. API 응답의 `meta.syntheticData`에 반영됩니다.
-  가짜 세트로 돌아가면 다시 `true`로 바꿉니다.
+  **이 변경은 커밋하지 않습니다** (저장소 기본값은 가짜 세트 기준). 가짜 세트로 돌아가면 다시 `true`로 바꿉니다.
+- `[4/5] 매핑`의 격자 검증이 `NOT_VERIFIED`면(Cell 중심들이 위도·경도 간격으로 일정하게 놓이지 않은 경우) 지도에서 Cell이 사각형 대신 **점**으로 보이고 `250m 격자선`이 나오지 않습니다. 매핑과 인구 집계에는 영향이 없습니다.
 
 > [!IMPORTANT]
 > **실제·가짜 데이터가 섞이지 않도록 하는 장치**
