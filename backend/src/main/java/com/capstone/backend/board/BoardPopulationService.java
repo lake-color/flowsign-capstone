@@ -82,11 +82,6 @@ public class BoardPopulationService {
 
     public Map<String, Object> cells(BoardRepository.Board board, PopulationFilter f) {
         long boardId = Long.parseLong(board.boardId());
-        Map<String, Object> grid = jdbc.query("SELECT * FROM grid_spec WHERE id = 1", new MapSqlParameterSource(),
-                rs -> rs.next() && "VERIFIED".equals(rs.getString("status"))
-                        ? Map.<String, Object>of("lat", rs.getDouble("latitude_step_deg"), "lng", rs.getDouble("longitude_step_deg"))
-                        : null);
-
         MapSqlParameterSource p = new MapSqlParameterSource("id", boardId);
         String sql = """
                 SELECT bc.cell_id, bc.is_center, bc.distance_meters, c.latitude, c.longitude, pf.value
@@ -109,8 +104,8 @@ public class BoardPopulationService {
             cell.put("isCenter", rs.getBoolean("is_center"));
             cell.put("distanceMeters", rs.getDouble("distance_meters"));
             cell.put("center", Map.of("latitude", lat, "longitude", lng));
-            cell.put("geometry", grid == null ? null : square(lat, lng, (double) grid.get("lat"), (double) grid.get("lng")));
-            cell.put("geometryStatus", grid == null ? "NOT_VERIFIED" : "AVAILABLE");
+            cell.put("geometry", square(lat, lng));
+            cell.put("geometryStatus", "AVAILABLE");
             cell.put("population", PopulationValue.of(rs.getObject("value", Double.class)));
             return cell;
         });
@@ -126,9 +121,20 @@ public class BoardPopulationService {
         return data;
     }
 
-    /** Cell 중심 ±반 칸 정사각형 GeoJSON Polygon. 좌표 순서는 [경도, 위도]. */
-    private static Map<String, Object> square(double lat, double lng, double latStep, double lngStep) {
-        double s = lat - latStep / 2, n = lat + latStep / 2, w = lng - lngStep / 2, e = lng + lngStep / 2;
+    /** Cell 중심에서 사각형 변까지의 거리(m). 250m Cell의 반. */
+    static final double CELL_HALF_METERS = 125.0;
+    static final double METERS_PER_DEG_LAT = 111_320.0;
+
+    /**
+     * Cell 중심 ±125m 정사각형 GeoJSON Polygon. 좌표 순서는 [경도, 위도].
+     *
+     * Cell 데이터에는 중심 좌표만 있으므로, 변이 정남북·정동서인 근사 사각형을 그린다.
+     * 격자 검증(grid_spec.status)과 관계없이 항상 반환한다.
+     */
+    static Map<String, Object> square(double lat, double lng) {
+        double dLat = CELL_HALF_METERS / METERS_PER_DEG_LAT;
+        double dLng = CELL_HALF_METERS / (METERS_PER_DEG_LAT * Math.cos(Math.toRadians(lat)));
+        double s = lat - dLat, n = lat + dLat, w = lng - dLng, e = lng + dLng;
         return Map.of("type", "Polygon", "coordinates",
                 List.of(List.of(List.of(w, s), List.of(e, s), List.of(e, n), List.of(w, n), List.of(w, s))));
     }
