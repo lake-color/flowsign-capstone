@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from data_processing.board import BOARD_COLUMNS
 from data_processing.preprocess import RawMapping, load_mapping
 
 # 250m에 해당하는 위경도 간격 (위도 37.4° 근처 근사값)
@@ -142,10 +143,6 @@ def generate_fake_csv(
                      index=False, encoding="utf-8")
         total += len(batch)
     return total
-
-
-BOARD_COLUMNS = ["board_id", "name", "city", "dong", "address", "latitude", "longitude",
-                 "purpose", "face_count", "posting_fee", "data_reference_date"]
 
 
 def generate_fake_boards(cell_csv: Path, output_path: Path, n_boards: int = 60, seed: int = 7) -> int:

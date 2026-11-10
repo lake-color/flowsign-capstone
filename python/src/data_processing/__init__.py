@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 
+from data_processing.board import convert_board_csv
 from data_processing.fake_data import cells_for_size, generate_fake_boards, generate_fake_csv
 from data_processing.load import load_all
 from data_processing.mapping import run_mapping
@@ -17,6 +18,11 @@ def main() -> None:
     pre.add_argument("--encoding", default="utf-8", help="원본 인코딩 (예: utf-8, cp949)")
     pre.add_argument("--chunksize", type=int, default=1_000_000)
     pre.add_argument("--mapping", type=Path, help="원본 매핑 파일 (기본: raw_mapping.json, 없으면 예시 파일)")
+
+    board = sub.add_parser("board", help="게시대 원본 CSV(공공데이터포털)를 표준 board.csv로 변환 (대상 3개 시만)")
+    board.add_argument("input", type=Path)
+    board.add_argument("output", type=Path)
+    board.add_argument("--encoding", default="cp949", help="원본 인코딩 (기본: cp949)")
 
     fake = sub.add_parser("fake-data", help="원본 형식의 가짜 CSV 생성")
     fake.add_argument("output", type=Path)
@@ -47,6 +53,10 @@ def main() -> None:
                                 mapping_path=args.mapping)
         print(f"정제 완료: population_fact {report['rows_written']}행, cell {report['cells']}개 → {args.output_dir}")
         print(f"버린 행: {report['rows_dropped']}, UNKNOWN: {report['unknown_counts']}")
+    elif args.command == "board":
+        report = convert_board_csv(args.input, args.output, encoding=args.encoding)
+        print(f"게시대 변환 완료: {report['boards']}개 {report['by_city']} → {args.output}")
+        print(f"동 없음: {report['dong_missing']}, 금액 미제공: {report['fee_missing']}")
     elif args.command == "fake-data":
         n_cells = args.cells or cells_for_size(args.size_mb * 1024 * 1024)
         rows = generate_fake_csv(args.output, n_cells, seed=args.seed, mapping_path=args.mapping)
