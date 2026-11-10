@@ -52,19 +52,21 @@ __pycache__/
 
 # =========================
 # Data
-# Raw / processed telecom data
+# 원본(raw) / 실제 세트(generated_real) / 가짜 세트(generated_fake)
 # 공개 저장소이므로 데이터는 폴더·파일명·형식 세 겹으로 막는다.
 # =========================
-# 1) 데이터 폴더 전체 (어느 위치에 있든)
+# 1) 데이터 폴더 전체 (어느 위치에 있든, 생성 중 임시 폴더 포함)
 data/
 **/data/raw/
-**/data/processed/
+**/generated_real*/
+**/generated_fake*/
+.load.sql
 
 # 2) 원본·결과 파일명 명시 (data/ 밖으로 옮겨져도 제외)
 **/raw_mapping.json
 **/board_raw*
 **/population_raw*
-**/fake_population.*
+**/population_fake*
 **/board.csv
 **/cell.csv
 **/population_fact.*
