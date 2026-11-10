@@ -246,7 +246,7 @@ def build(mode: str, raw_dir: Path = RAW_DIR, data_dir: Path = DATA_DIR, encodin
                 "나머지는 주변에 데이터가 없는 칸 제외"))
         log(_kv("board_cell", f"{_n(mapped['board_cell_rows'])}행"))
         log(_kv("board_population", f"{_n(mapped['board_population_rows'])}행"))
-        grid_note = "" if mapped["grid_status"] == "VERIFIED" else "지도에서 Cell은 점으로 표시, 격자선 없음"
+        grid_note = "" if mapped["grid_status"] == "VERIFIED" else "지도에서 250m 격자선 없음. Cell 사각형·매핑은 영향 없음"
         log(_kv("격자 검증", mapped["grid_status"], grid_note))
 
         steps.start(5, "세트 검증")

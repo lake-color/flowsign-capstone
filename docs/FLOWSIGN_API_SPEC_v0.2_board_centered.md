@@ -100,7 +100,7 @@
 - **3×3:** 소속 Cell 중심에서 상하좌우(250m)와 대각선(약 354m) 이웃까지 포함한다. 다음 바깥 칸은 500m부터이므로 그 사이 거리로 구분한다. 영향권 전체는 약 750m × 750m이다.
 - **데이터가 없는 Cell:** 9칸 중 데이터가 없는 칸(중심 Cell 포함)은 집계·점수 계산에서 빼고 나머지 칸으로 계산한다. `expectedCellCount`/`matchedCellCount`로 표시한다. 9칸 모두 없으면 해당 게시대는 `hasPopulationData=false`로 추천에서 제외한다.
 - **같은 Cell의 여러 게시대:** 같은 9칸을 공유하므로 점수가 같다. 250m Cell이므로 같은 Cell을 공유하는 게시대가 흔할 수 있다. 4.6의 동점 정렬 규칙을 따른다.
-- **격자 정합성 검증:** Python 배치가 모든 Cell 중심이 `grid_spec` 격자 위에 있는지 검증한다. 허용 오차를 넘으면 `grid_spec.status=NOT_VERIFIED`가 되고, 프론트는 격자선 옵션을 비활성화하며 `/cells`는 `geometry=null`을 반환한다. 허용 오차 값은 실데이터 확인 후 정한다.
+- **격자 정합성 검증:** Python 배치가 모든 Cell 중심이 `grid_spec` 격자 위에 있는지 검증한다. 허용 오차를 넘으면 `grid_spec.status=NOT_VERIFIED`가 되고, 프론트는 격자선 옵션을 비활성화한다. 허용 오차 값은 실데이터 확인 후 정한다. 격자 검증은 **격자선 표시에만** 쓰이며, Cell 사각형 표시와 매핑·집계에는 영향이 없다(아래 지오메트리 계약).
 - 공간 계산은 모두 Python 배치에서 한 번 수행하며 PostGIS를 사용하지 않는다. DB에는 위경도를 `double precision` 컬럼으로 저장한다.
 - 광고 신청 문의: `inquiry`에 Spring 트랜잭션으로 저장. 조회용 관리자 API 없음.
 - `grid250_population`은 더 이상 새로 만들 필요 없음. 이미 만들어졌다면 이후 삭제 여부 별도 판단.
@@ -362,7 +362,7 @@ interface Criteria {
       {
         "cellId": "example-cell-05", "isCenter": true, "distanceMeters": 12.3,
         "center": {"latitude": 37.3901, "longitude": 126.9601},
-        "geometry": null, "geometryStatus": "NOT_VERIFIED",
+        "geometry": {"type": "Polygon", "coordinates": [[[126.9587, 37.3890], "…", [126.9587, 37.3890]]]}, "geometryStatus": "AVAILABLE",
         "population": {"value": null, "status": "UNVERIFIED", "unitLabel": null}
       }
     ],
@@ -376,7 +376,7 @@ interface Criteria {
 - `center`는 게시대 위경도, `cells[].center`는 Cell 중심 위경도, `distanceMeters`는 게시대에서 Cell 중심까지의 거리.
 - 예시는 1칸만 표시했다. 실제로는 최대 9칸이며 데이터가 없는 칸도 `population.status=MISSING`으로 포함한다.
 
-**지오메트리 계약:** `geometry`는 **GeoJSON Polygon 또는 null**. Cell은 중심점 ±125m 정사각형으로 정의되므로, `grid_spec.status=VERIFIED`일 때 서버가 Cell 중심과 `grid` 간격으로 사각형 꼭짓점을 단순 계산해 반환한다(PostGIS 불필요). 검증 전이면 `geometry=null`, `geometryStatus=NOT_VERIFIED`이고 React는 중심점만 표시한다. **게시대 3×3 Cell만 조회하며 전 지역 Cell 인구 API는 없음(확장 기능).**
+**지오메트리 계약:** `geometry`는 **GeoJSON Polygon**. Cell 데이터에는 중심 좌표만 있으므로, 서버가 **Cell 중심 ±125m(미터 기준) 정사각형**을 변이 정남북·정동서인 근사로 계산해 반환한다(PostGIS 불필요). `grid_spec.status`와 관계없이 항상 반환하며 `geometryStatus=AVAILABLE`이다. `geometry=null`·`geometryStatus=NOT_VERIFIED`는 계약상 남겨 두지만 현재 구현은 내지 않는다. **게시대 3×3 Cell만 조회하며 전 지역 Cell 인구 API는 없음(확장 기능).**
 
 **공개 범위:** Cell별 세부 성별·연령·인구 공개가 허용되는지는 원본 데이터 이용 조건과 소수 집계 마스킹 기준 확인 필요. 비공개 구간은 `MASKED`로 반환하거나 Cell 수치를 생략.
 
@@ -660,5 +660,5 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 - **`/boards` 응답:** 마커 목록에도 상세와 같은 필드(주소·게시면·금액 등)를 함께 내려준다.
 - **`dayTypeSourceStatus`:** 데이터에 `WEEKDAY`/`WEEKEND`가 있으면 `VERIFIED`로 반환한다.
 - **`grid`:** `grid_spec` 행이 없으면 `null`을 반환한다.
-- **`GET /cells` (4장에 없는 데모 추가 API):** 쿼리 `west`, `south`, `east`, `north`(필수, 지도 화면 범위). 응답 `data`는 `cells`(`cellId`, `latitude`, `longitude` — Cell 중심, 인구값 없음), `cellCount`, `truncated`, `limit`. 범위 안 Cell이 `limit`(3000, 임시값)을 넘으면 `cells=[]`, `truncated=true`를 돌려주고 프론트는 확대 안내를 띄운다. 사각형은 프론트가 `/meta.grid` 간격으로 중심 ±반 칸을 그리며, 격자 검증 전이면 점으로 표시한다. 잘못된 범위는 400 `VALIDATION_ERROR`.
+- **`GET /cells` (4장에 없는 데모 추가 API):** 쿼리 `west`, `south`, `east`, `north`(필수, 지도 화면 범위). 응답 `data`는 `cells`(`cellId`, `latitude`, `longitude` — Cell 중심, 인구값 없음), `cellCount`, `truncated`, `limit`. 범위 안 Cell이 `limit`(3000, 임시값)을 넘으면 `cells=[]`, `truncated=true`를 돌려주고 프론트는 확대 안내를 띄운다. 사각형은 프론트가 Cell 중심 ±125m(미터 기준) 근사로 그리며, 격자 검증 여부와 관계없다. 잘못된 범위는 400 `VALIDATION_ERROR`.
 - **게시대 데이터:** 실제 공공데이터(안양·군포·시흥 445개)를 `build` 1단계에서 표준 `board.csv`로 변환한다. `name`은 게시대위치명, `address`는 지번주소(없으면 도로명주소), `dong`은 지번주소의 동(없으면 `null`). 현수막규격·관리기관 등 `board` 테이블에 없는 컬럼은 쓰지 않는다. 유동인구는 아직 가짜 데이터이며 `build fake`가 게시대 3×3 주변 Cell만 만든다(`data/generated_fake/`).

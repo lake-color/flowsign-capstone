@@ -515,7 +515,7 @@ components:
         geometry:
           type: object
           nullable: true
-          description: Cell 중심 ±125m 정사각형 GeoJSON Polygon. grid.status가 VERIFIED가 아니면 null.
+          description: Cell 중심 ±125m(미터 기준, 변이 정남북·정동서인 근사) 정사각형 GeoJSON Polygon. grid.status와 관계없이 반환(현재 구현은 null을 내지 않음).
           additionalProperties: true
         geometryStatus: {type: string, enum: [AVAILABLE, NOT_VERIFIED]}
         population: {$ref: '#/components/schemas/PopulationValue'}
