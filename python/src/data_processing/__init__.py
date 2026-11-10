@@ -13,7 +13,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     pre = sub.add_parser("preprocess", help="유동인구 원본 CSV 정제")
-    pre.add_argument("input", type=Path)
+    pre.add_argument("inputs", type=Path, nargs="+", metavar="input", help="원본 CSV. 여러 파일로 나뉘어 있으면 모두 나열")
     pre.add_argument("output_dir", type=Path, help="population_fact.csv, cell.csv, preprocess_report.json 저장 폴더")
     pre.add_argument("--encoding", default="utf-8", help="원본 인코딩 (예: utf-8, cp949)")
     pre.add_argument("--chunksize", type=int, default=1_000_000)
@@ -45,9 +45,10 @@ def main() -> None:
 
     args = parser.parse_args()
     if args.command == "preprocess":
-        report = preprocess_csv(args.input, args.output_dir, chunksize=args.chunksize, encoding=args.encoding,
+        report = preprocess_csv(args.inputs, args.output_dir, chunksize=args.chunksize, encoding=args.encoding,
                                 mapping_path=args.mapping)
-        print(f"정제 완료: population_fact {report['rows_written']}행, cell {report['cells']}개 → {args.output_dir}")
+        print(f"정제 완료: 원본 {report['input_files']}개 파일, population_fact {report['rows_written']}행, "
+              f"cell {report['cells']}개 → {args.output_dir}")
         print(f"버린 행: {report['rows_dropped']}, UNKNOWN: {report['unknown_counts']}")
     elif args.command == "board":
         report = convert_board_csv(args.input, args.output, encoding=args.encoding)

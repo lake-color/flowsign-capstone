@@ -1,6 +1,6 @@
 """유동인구 원본 CSV 전처리.
 
-원본 CSV를 청크 단위로 읽어 표준 컬럼명/코드로 정제한 뒤 출력 폴더에 저장한다.
+원본 CSV(여러 파일로 나뉘어 있어도 됨)를 청크 단위로 읽어 표준 컬럼명/코드로 정제한 뒤 출력 폴더에 저장한다.
   population_fact.csv    = Cell × 월 × day_type × 성별 × 연령 × 시간대별 6종 인구
   cell.csv               = Cell ID / 중심 위경도 / 시 이름 / 동 이름 (Cell당 1행)
   preprocess_report.json = 행 수·NULL 수·UNKNOWN 수 등 품질 집계 (원본 행은 담지 않음)
@@ -204,14 +204,33 @@ def _resolve_cells(cell_rows: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     return cells[CELL_COLUMNS].sort_values("cell_id").reset_index(drop=True), multi
 
 
+def _check_same_header(input_paths: list[Path], encoding: str) -> None:
+    """나뉜 원본 파일들의 헤더(컬럼 순서 포함)가 모두 같은지 확인한다.
+
+    파일마다 헤더 행이 있어야 한다. 원본 컬럼명은 오류 메시지에 넣지 않고 파일 이름만 알린다.
+    """
+    headers = [list(pd.read_csv(p, nrows=0, encoding=encoding).columns) for p in input_paths]
+    different = [p.name for p, h in zip(input_paths, headers) if h != headers[0]]
+    if different:
+        raise ValueError(f"첫 파일({input_paths[0].name})과 헤더가 다른 원본 파일: {different}")
+
+
 def preprocess_csv(
-    input_path: Path, output_dir: Path, chunksize: int = 1_000_000, encoding: str = "utf-8",
+    input_paths: Path | list[Path], output_dir: Path, chunksize: int = 1_000_000, encoding: str = "utf-8",
     mapping_path: Path | None = None,
 ) -> dict:
     """대용량 원본 CSV를 청크로 정제해 output_dir에 표준 CSV 2개와 품질 리포트를 저장한다.
 
+    원본이 여러 파일로 나뉘어 있으면 모두 넘긴다. 같은 헤더의 파일들을 순서대로
+    이어 읽어 결과 하나로 합친다. 파일끼리 겹치는 행은 없다고 본다(population_fact에 UNIQUE 제약이
+    없으므로 같은 행이 두 파일에 있으면 두 번 합산된다).
     품질 리포트 내용(dict)을 반환한다.
     """
+    input_paths = [input_paths] if isinstance(input_paths, Path) else list(input_paths)
+    if not input_paths:
+        raise ValueError("원본 파일을 하나 이상 지정해야 합니다.")
+    _check_same_header(input_paths, encoding)
+
     mapping = load_mapping(mapping_path)
     output_dir.mkdir(parents=True, exist_ok=True)
     fact_path = output_dir / "population_fact.csv"
@@ -219,18 +238,19 @@ def preprocess_csv(
 
     first = True
     cell_parts: list[pd.DataFrame] = []
-    with pd.read_csv(
-        input_path, chunksize=chunksize, dtype=str, encoding=encoding,
-        keep_default_na=False, na_values=NULL_TOKENS,
-    ) as reader:
-        for raw in reader:
-            cleaned = clean_chunk(raw, mapping, report)
-            cleaned[KEY_COLUMNS + POPULATION_COLUMNS].to_csv(
-                fact_path, mode="w" if first else "a", header=first, index=False
-            )
-            first = False
-            # Cell 속성은 청크마다 중복을 줄여 모아 둔다 (Cell 수는 수천 개 수준).
-            cell_parts.append(cleaned[CELL_COLUMNS].drop_duplicates())
+    for input_path in input_paths:
+        with pd.read_csv(
+            input_path, chunksize=chunksize, dtype=str, encoding=encoding,
+            keep_default_na=False, na_values=NULL_TOKENS,
+        ) as reader:
+            for raw in reader:
+                cleaned = clean_chunk(raw, mapping, report)
+                cleaned[KEY_COLUMNS + POPULATION_COLUMNS].to_csv(
+                    fact_path, mode="w" if first else "a", header=first, index=False
+                )
+                first = False
+                # Cell 속성은 청크마다 중복을 줄여 모아 둔다 (Cell 수는 수천 개 수준).
+                cell_parts.append(cleaned[CELL_COLUMNS].drop_duplicates())
 
     if first:
         raise ValueError("원본에 데이터 행이 없습니다.")
@@ -239,6 +259,7 @@ def preprocess_csv(
     cells.to_csv(output_dir / "cell.csv", index=False)
 
     result = report.to_dict(cells, multi_names)
+    result["input_files"] = len(input_paths)
     (output_dir / "preprocess_report.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
     )
