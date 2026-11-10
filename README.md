@@ -127,9 +127,32 @@ Leaflet은 키 없이 OpenStreetMap 타일로 동작합니다.
 
 ---
 
+## 데이터 준비 (최초 1회)
+
+원본 데이터는 저장소에 올리지 않습니다. 아래 위치·이름으로 **각자 로컬에** 둡니다.
+`data/` 폴더와 `python/raw_mapping.json`은 `.gitignore`에 들어 있어 커밋되지 않지만, 커밋 전에 `git status`로 한 번 더 확인합니다.
+
+| 파일 | 위치·이름 | 준비 방법 |
+| ---- | --------- | --------- |
+| 게시대 원본 | `data/raw/board_raw.csv` | 공공데이터포털 「전국현수막게시대표준데이터」 CSV를 내려받아 이 이름으로 저장합니다. 인코딩(CP949)은 바꾸지 않습니다. |
+| 통신사 유동인구 원본 | `data/raw/population_raw.csv` | 팀 내부에서만 전달받습니다. 저장소·메신저·외부 서비스에 올리지 않습니다. 없으면 가짜 데이터로 실행합니다(아래 2-A). |
+| 원본 매핑 파일 | `python/raw_mapping.json` | `python/raw_mapping.example.json`을 복사해 실제 원본 컬럼명·코드값을 채웁니다. 실제 원본으로 실행할 때만 필요합니다. |
+
+```text
+data/
+├── raw/
+│   ├── board_raw.csv          # 게시대 원본 (직접 준비)
+│   ├── population_raw.csv     # 통신사 유동인구 원본 (실제 데이터가 있을 때만)
+│   ├── board.csv              # ↓ 아래 명령이 만드는 파일
+│   └── fake_population.csv
+└── processed/                 # 전처리·매핑 결과 (적재용 표준 CSV)
+```
+
+---
+
 ## 빠른 시작 (데모)
 
-실제 게시대 데이터와 가짜 유동인구 데이터로 전체 흐름을 띄웁니다. 터미널 3개를 씁니다. (Windows `cmd` 기준)
+실제 게시대 데이터와 유동인구 데이터(실제 원본이 없으면 가짜)로 전체 흐름을 띄웁니다. 터미널 3개를 씁니다. (Windows `cmd` 기준)
 
 **1) DB + Backend** — Backend가 처음 뜰 때 Flyway가 테이블을 만듭니다.
 
@@ -141,21 +164,42 @@ gradlew.bat bootRun
 
 `Started BackendApplication`이 보이면 http://localhost:8080/api/v1/health 가 `{"status":"UP"}`를 반환합니다.
 
-**2) 데이터 변환 · 적재** — Backend를 켠 상태로 다른 터미널에서 실행합니다.
+**2) 데이터 변환 · 적재** — Backend를 켠 상태로 다른 터미널에서 실행합니다. 유동인구 데이터에 따라 2-A 또는 2-B 중 하나를 씁니다.
+
+**2-A) 가짜 유동인구로 실행** (실제 유동인구 원본이 없을 때)
+
+```cmd
+cd python
+REM Python 패키지 설치 (최초 1회)
+uv sync
+REM 게시대 원본에서 안양·군포·시흥 게시대만 골라 표준 board.csv로 변환
+uv run data-processing board ../data/raw/board_raw.csv ../data/raw/board.csv
+REM 게시대 3×3 주변 Cell에 대해 원본 형식의 가짜 유동인구 CSV 생성
+uv run data-processing fake-data ../data/raw/fake_population.csv --boards ../data/raw/board.csv
+REM 유동인구 원본 정제 → processed/에 population_fact.csv, cell.csv, 품질 리포트
+uv run data-processing preprocess ../data/raw/fake_population.csv ../data/processed
+REM 게시대 ↔ 3×3 Cell 매핑과 게시대별 인구 합계, 격자선 기준값 계산
+uv run data-processing map ../data/processed ../data/raw/board.csv
+REM 6개 테이블을 비우고 표준 CSV를 PostgreSQL에 다시 적재
+uv run data-processing load ../data/processed ../data/raw/board.csv
+```
+
+게시대 445개와 그 3×3 주변 가짜 Cell 약 1,400개(약 290만 행)가 만들어지며 전체 2분 안팎이 걸립니다.
+
+**2-B) 실제 유동인구로 실행** (`population_raw.csv`와 `raw_mapping.json`을 준비했을 때)
 
 ```cmd
 cd python
 uv sync
 uv run data-processing board ../data/raw/board_raw.csv ../data/raw/board.csv
-uv run data-processing fake-data ../data/raw/fake_population.csv --boards ../data/raw/board.csv
-uv run data-processing preprocess ../data/raw/fake_population.csv ../data/processed
+REM 실제 원본 정제. 원본이 UTF-8이 아니면 --encoding으로 지정 (예: --encoding cp949)
+uv run data-processing preprocess ../data/raw/population_raw.csv ../data/processed
 uv run data-processing map ../data/processed ../data/raw/board.csv
 uv run data-processing load ../data/processed ../data/raw/board.csv
 ```
 
-게시대는 실제 공공데이터, 유동인구는 가짜 데이터입니다.
-`board_raw.csv`는 공공데이터포털의 「전국현수막게시대표준데이터」 CSV(CP949)를 내려받아 `data/raw/`에 둡니다.
-대상 3개 시 게시대 445개와 그 3×3 주변 가짜 Cell 약 1,400개(약 290만 행, 약 300MB)가 만들어지며 전체 2분 안팎이 걸립니다.
+`data/processed/`의 결과 파일과 `preprocess_report.json`(행 수·NULL 수·기간 등 집계)도 실제 데이터에서 나온 것이므로 저장소나 외부에 올리지 않습니다.
+실제 유동인구를 적재했다면 `backend/src/main/resources/application.yml`의 `flowsign.dataset.synthetic`을 `false`로 바꿉니다(응답 `meta.syntheticData`에 표시).
 `load`는 기존 데이터를 모두 지우고 다시 넣으므로 몇 번이든 반복해도 됩니다.
 
 **3) Frontend**
@@ -183,6 +227,7 @@ http://localhost:5173 을 엽니다.
 | `Port 8080 was already in use` | 이전 Backend가 남아 있습니다. 종료하거나 `gradlew.bat bootRun --args=--server.port=8081`로 띄우고, Frontend를 `set API_PROXY_TARGET=http://localhost:8081&& npm run dev`로 실행합니다. |
 | `load`에서 `docker` 오류 | Docker Desktop과 `telecom-postgres` 컨테이너가 떠 있는지 확인합니다. DB 이름·사용자를 바꿨다면 `--db`, `--user`, `--container` 옵션을 줍니다. |
 | `load`에서 테이블이 없다는 오류 | Backend를 한 번도 실행하지 않아 Flyway migration이 적용되지 않은 상태입니다. |
+| Backend 시작 시 Flyway 검증(checksum) 오류 | DB 볼륨에 예전 스키마가 남아 있습니다. `docker compose --env-file .env -f database/docker-compose.yml down -v`로 볼륨을 지우고(DB 데이터 전부 삭제) 1)·2)를 다시 실행합니다. |
 | Naver 지도에 안내 문구만 표시 | `frontend/.env`의 `VITE_NAVER_MAP_CLIENT_ID`와 NCP 웹 서비스 URL 등록을 확인하고 dev 서버를 재시작합니다. |
 
 ---
