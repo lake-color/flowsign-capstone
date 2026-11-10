@@ -26,7 +26,7 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 - [x] NULL 처리 규칙과 품질 리포트(`preprocess_report.json`)
 - [ ] 실제 파일로 전처리기 실행해 매핑 오류·NULL 위치 확인 (리포트만 공유)
 - [ ] 연령 `UNKNOWN`을 API에서 언제 포함할지 결정
-- [x] 원본 CSV 정제 → `population_fact.csv`, `cell.csv` 출력 (`preprocess.py`)
+- [x] 원본 CSV 정제 → `population_fact.csv`, `cell.csv` 출력 (`preprocess.py`, 여러 파일로 나뉜 원본도 한 번에 처리)
 - [x] 게시대 원본 정제 (`board` 표준 CSV, `board.py` — 공공데이터포털 CSV에서 대상 3개 시 445개)
 - [x] `cell`, `population_fact` 테이블 Flyway migration 작성
   (`backend/src/main/resources/db/migration/V1__create_initial_schema.sql`)

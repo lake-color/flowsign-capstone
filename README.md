@@ -166,7 +166,7 @@ copy frontend\.env.example frontend\.env
 | 파일 | 위치·이름 | 필요한 때 |
 | ---- | --------- | --------- |
 | 게시대 원본 | `data/raw/board_raw.csv` | 항상 |
-| 통신사 유동인구 원본 | `data/raw/population_raw.csv` | 실제 유동인구로 실행할 때 |
+| 통신사 유동인구 원본 | `data/raw/population_raw_1.csv`, `population_raw_2.csv`, … | 실제 유동인구로 실행할 때 |
 | 원본 매핑 파일 | `python/raw_mapping.json` | 실제 유동인구로 실행할 때 |
 
 **게시대 원본** — `data/raw/board_raw.csv`
@@ -174,8 +174,10 @@ copy frontend\.env.example frontend\.env
 - 공공데이터포털 「전국현수막게시대표준데이터」 CSV를 내려받아 이 이름으로 저장합니다.
 - 인코딩(CP949)은 바꾸지 않습니다.
 
-**통신사 유동인구 원본** — `data/raw/population_raw.csv`
+**통신사 유동인구 원본** — `data/raw/population_raw_1.csv`, `population_raw_2.csv`, …
 
+- 원본이 여러 CSV로 나뉘어 있으면 `_1`, `_2`, `_3`처럼 번호를 붙여 모두 둡니다.
+- 파일마다 첫 줄에 같은 헤더가 있어야 합니다. 파일끼리 같은 행이 겹치면 안 됩니다(두 번 합산됨).
 - 팀 내부에서만 전달받습니다.
 - 저장소·메신저·외부 서비스에 올리지 않습니다.
 - 없으면 가짜 데이터로 실행합니다. → [2-A](#2-a-가짜-유동인구로-실행)
@@ -191,7 +193,8 @@ copy frontend\.env.example frontend\.env
 data/
 ├── raw/
 │   ├── board_raw.csv          # 게시대 원본 (직접 준비)
-│   ├── population_raw.csv     # 유동인구 원본 (실제 데이터가 있을 때만)
+│   ├── population_raw_1.csv   # 유동인구 원본 (실제 데이터가 있을 때만)
+│   ├── population_raw_2.csv   #   여러 파일로 나뉘어 있으면 번호를 이어 붙임
 │   ├── board.csv              # ← 명령이 만드는 파일
 │   └── fake_population.csv    # ← 명령이 만드는 파일 (가짜 데이터로 실행할 때)
 └── processed/                 # ← 전처리·매핑 결과 (적재용 표준 CSV)
@@ -245,17 +248,19 @@ uv run data-processing load       ../data/processed ../data/raw/board.csv
 
 #### 2-B. 실제 유동인구로 실행
 
-`population_raw.csv`와 `raw_mapping.json`을 [준비](#데이터-준비)했을 때 씁니다. 2-A에서 `fake-data`가 빠지고, `preprocess`의 입력이 실제 원본으로 바뀝니다.
+`population_raw_*.csv`와 `raw_mapping.json`을 [준비](#데이터-준비)했을 때 씁니다. 2-A에서 `fake-data`가 빠지고, `preprocess`의 입력이 실제 원본으로 바뀝니다.
 
 ```cmd
 cd python
 uv sync
 uv run data-processing board      ../data/raw/board_raw.csv ../data/raw/board.csv
-uv run data-processing preprocess ../data/raw/population_raw.csv ../data/processed
+uv run data-processing preprocess ../data/raw/population_raw_1.csv ../data/raw/population_raw_2.csv ../data/processed
 uv run data-processing map        ../data/processed ../data/raw/board.csv
 uv run data-processing load       ../data/processed ../data/raw/board.csv
 ```
 
+- 원본 파일은 **모두 나열**하고 마지막에 출력 폴더를 씁니다. 파일이 3개면 `population_raw_3.csv`를 출력 폴더 앞에 추가합니다.
+  여러 파일은 순서대로 이어 읽어 결과 하나로 합칩니다. 헤더가 다른 파일이 있으면 오류로 멈춥니다.
 - 원본이 UTF-8이 아니면 `preprocess`에 `--encoding`을 붙입니다. (예: `--encoding cp949`)
 - 적재 후 `backend/src/main/resources/application.yml`의 `flowsign.dataset.synthetic`을 `false`로 바꿉니다.
   API 응답의 `meta.syntheticData`에 반영됩니다.
@@ -341,7 +346,7 @@ http://localhost:5173/?board=3&grid=1&cells=1&allcells=1
 ```text
 data-processing board      <원본.csv> <출력 board.csv> [--encoding cp949]
 data-processing fake-data  <출력.csv> [--size-mb 300 | --cells N | --boards board.csv] [--seed 42] [--mapping 파일]
-data-processing preprocess <원본.csv> <출력폴더> [--encoding cp949] [--chunksize N] [--mapping 파일]
+data-processing preprocess <원본.csv> [원본2.csv ...] <출력폴더> [--encoding cp949] [--chunksize N] [--mapping 파일]
 data-processing map        <전처리폴더> <board.csv>
 data-processing load       <전처리폴더> <board.csv> [--container] [--db] [--user]
 ```
@@ -350,7 +355,7 @@ data-processing load       <전처리폴더> <board.csv> [--container] [--db] [-
 | ---- | ------- |
 | `board` | 게시대 원본(공공데이터포털)에서 대상 3개 시만 골라 표준 `board.csv`로 변환 |
 | `fake-data` | 매핑 파일 형식의 가짜 원본 CSV 생성. `--boards`를 주면 그 게시대들의 3×3 Cell만 생성 |
-| `preprocess` | 원본 정제 → `population_fact.csv`, `cell.csv`, `preprocess_report.json` |
+| `preprocess` | 원본 정제 → `population_fact.csv`, `cell.csv`, `preprocess_report.json`. 원본이 여러 파일이면 모두 받아 하나로 합침 |
 | `map` | 3×3 매핑 → `board_cell.csv`, `board_population.csv`, `grid_spec.csv` |
 | `load` | 6개 테이블을 비우고 `\copy`로 재적재 |
 
