@@ -30,7 +30,9 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 - [x] 게시대 원본 정제 (`board` 표준 CSV, `board.py` — 공공데이터포털 CSV에서 대상 3개 시 445개)
 - [x] `cell`, `population_fact` 테이블 Flyway migration 작성
   (`backend/src/main/resources/db/migration/V1__create_initial_schema.sql`)
-- [x] 표준 CSV를 `psql \copy`로 적재하는 절차 작성 (`data-processing load`, 테이블 생성은 Flyway만 담당)
+- [x] 표준 CSV를 `psql \copy`로 적재하는 절차 작성 (`data-processing load`, 트랜잭션 하나로 교체, 테이블 생성은 Flyway만 담당)
+- [x] 실제/가짜 데이터 세트 분리 (`data/generated_real/`, `data/generated_fake/`, `build fake|real`), 원본 누락·세트 혼합 검증
+- [ ] DB에 적재된 세트가 실제인지 가짜인지 자동 판별해 API·화면에 표시 (지금은 `application.yml` 수동 설정)
 - [ ] 적재 결과 검증 (행 수, NULL 비율, 좌표 범위가 기대값과 맞는지 쿼리로 확인)
 
 ---

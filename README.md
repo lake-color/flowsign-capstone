@@ -81,6 +81,8 @@ flowsign/
 ├── python/                         # 데이터 배치 (CLI: data-processing)
 │   ├── raw_mapping.example.json    # 원본 컬럼명·코드값 매핑 예시
 │   └── src/data_processing/
+│       ├── __init__.py             # CLI: build fake|real, load fake|real
+│       ├── pipeline.py             # 모드별 원본 확인 → 생성 → 세트 검증 → 교체 → 적재
 │       ├── preprocess.py           # 유동인구 원본 → 표준 CSV (원본 형식은 매핑 파일로 읽음)
 │       ├── board.py                # 게시대 원본(공공데이터포털) → 표준 board.csv
 │       ├── fake_data.py            # 가짜 유동인구 CSV (게시대 3×3 주변 Cell만 만들 수 있음)
@@ -90,7 +92,7 @@ flowsign/
 │
 ├── database/
 │   └── docker-compose.yml          # PostgreSQL 17 실행 설정
-├── data/                           # 로컬 데이터 (Git 제외)
+├── data/                           # 로컬 데이터: raw/ · generated_real/ · generated_fake/ (Git 제외)
 ├── docs/                           # API 명세, OpenAPI, TODO
 ├── .env.example                    # DB 접속 정보 예시
 ├── AGENTS.md                       # AI 코딩 에이전트 작업 원칙
@@ -176,29 +178,52 @@ copy frontend\.env.example frontend\.env
 
 **통신사 유동인구 원본** — `data/raw/population_raw_1.csv`, `population_raw_2.csv`, …
 
-- 원본이 여러 CSV로 나뉘어 있으면 `_1`, `_2`, `_3`처럼 번호를 붙여 모두 둡니다.
+- 원본이 여러 CSV로 나뉘어 있으면 `_1`, `_2`, `_3`처럼 **1부터 빠짐없이** 번호를 붙여 모두 둡니다. 번호가 비거나 이름 규칙이 다른 파일이 있으면 중단합니다.
 - 파일마다 첫 줄에 같은 헤더가 있어야 합니다. 파일끼리 같은 행이 겹치면 안 됩니다(두 번 합산됨).
 - 팀 내부에서만 전달받습니다.
 - 저장소·메신저·외부 서비스에 올리지 않습니다.
-- 없으면 가짜 데이터로 실행합니다. → [2-A](#2-a-가짜-유동인구로-실행)
+- 없으면 가짜 모드로 실행합니다. → [빠른 시작 2](#2-데이터-생성--적재)
 
 **원본 매핑 파일** — `python/raw_mapping.json`
 
 - `python/raw_mapping.example.json`을 복사해 실제 원본 컬럼명·코드값을 채웁니다.
+- 실제 모드는 이 파일이 없으면 중단합니다. 예시 파일로 대신하지 않습니다.
 - 이 파일도 커밋하지 않습니다.
 
-준비가 끝나면 `data/`는 이렇게 됩니다.
+### 데이터 폴더 구조
+
+사람이 넣는 곳은 `raw/` 하나뿐입니다. 나머지 두 폴더는 명령이 만들고, 언제든 지우고 다시 만들 수 있습니다.
 
 ```text
 data/
-├── raw/
-│   ├── board_raw.csv          # 게시대 원본 (직접 준비)
-│   ├── population_raw_1.csv   # 유동인구 원본 (실제 데이터가 있을 때만)
-│   ├── population_raw_2.csv   #   여러 파일로 나뉘어 있으면 번호를 이어 붙임
-│   ├── board.csv              # ← 명령이 만드는 파일
-│   └── fake_population.csv    # ← 명령이 만드는 파일 (가짜 데이터로 실행할 때)
-└── processed/                 # ← 전처리·매핑 결과 (적재용 표준 CSV)
+├── raw/                      # 직접 넣는 실제 원본만. 어떤 명령도 여기에 쓰지 않음
+│   ├── board_raw.csv
+│   ├── population_raw_1.csv
+│   └── population_raw_2.csv
+│
+├── generated_real/           # build real: 실제 게시대 + 실제 통신사 원본 기반
+│   ├── board.csv
+│   ├── cell.csv
+│   ├── population_fact.csv
+│   ├── board_cell.csv
+│   ├── board_population.csv
+│   ├── grid_spec.csv
+│   └── preprocess_report.json
+│
+└── generated_fake/           # build fake: 실제 게시대 + 가짜 통신사 데이터 기반
+    ├── board.csv
+    ├── population_fake.csv   #   가짜 통신사 원본 (이 세트에만 있음)
+    ├── cell.csv
+    ├── population_fact.csv
+    ├── board_cell.csv        #   실제 게시대 × 가짜 Cell → 실제 매핑 결과가 아님
+    ├── board_population.csv
+    ├── grid_spec.csv
+    └── preprocess_report.json
 ```
+
+- 두 세트는 각각 **독립된 한 벌**입니다. `board.csv`부터 `grid_spec.csv`까지 서로 맞는 파일만 들어 있고, 파일명은 DB 테이블명과 같습니다.
+- `generated_fake/`의 `cell`·`population_fact`·`board_cell`·`board_population`·`grid_spec`은 **가상 Cell과 난수 인구**로 만든 것입니다. 게시대만 실제입니다.
+- `preprocess_report.json`에는 품질 집계와 함께 출처(`dataset`: `real`/`fake`, 입력 파일 이름)가 기록됩니다.
 
 ---
 
@@ -217,60 +242,57 @@ gradlew.bat bootRun
 - Backend가 처음 뜰 때 Flyway가 테이블을 만듭니다.
 - `Started BackendApplication`이 보이면 http://localhost:8080/api/v1/health 가 `{"status":"UP"}`를 반환합니다.
 
-### 2. 데이터 변환 · 적재
+### 2. 데이터 생성 · 적재
 
-Backend를 켠 상태로 **다른 터미널**에서 실행합니다. 유동인구 데이터에 따라 2-A 또는 2-B 중 하나를 씁니다.
-
-#### 2-A. 가짜 유동인구로 실행
-
-실제 유동인구 원본이 없을 때 씁니다.
+Backend를 켠 상태로 **다른 터미널**에서 실행합니다. 모드마다 명령 하나로 생성·검증·적재까지 끝납니다.
 
 ```cmd
 cd python
 uv sync
-uv run data-processing board      ../data/raw/board_raw.csv ../data/raw/board.csv
-uv run data-processing fake-data  ../data/raw/fake_population.csv --boards ../data/raw/board.csv
-uv run data-processing preprocess ../data/raw/fake_population.csv ../data/processed
-uv run data-processing map        ../data/processed ../data/raw/board.csv
-uv run data-processing load       ../data/processed ../data/raw/board.csv
+uv run data-processing build fake --load
 ```
 
-| 명령 | 하는 일 |
+| 모드 | 명령 | 필요한 원본 | 결과 폴더 |
+| ---- | ---- | ----------- | --------- |
+| 가짜 | `build fake` | `board_raw.csv` | `data/generated_fake/` |
+| 실제 | `build real` | `board_raw.csv`, `population_raw_*.csv`, `python/raw_mapping.json` | `data/generated_real/` |
+
+- `uv sync`는 Python 패키지 설치입니다. 최초 1회만 실행합니다.
+- `--load`를 빼면 생성·검증까지만 하고, 적재는 나중에 `load fake` / `load real`로 따로 할 수 있습니다.
+- 가짜 모드는 게시대 445개와 그 3×3 주변 가짜 Cell 약 1,400개(약 290만 행)를 만들며, 생성 약 40초, 적재 약 40초가 걸립니다.
+
+**`build`가 하는 일 (순서대로)**
+
+| 단계 | 하는 일 |
 | ---- | ------- |
-| `uv sync` | Python 패키지 설치 (최초 1회) |
-| `board` | 게시대 원본에서 안양·군포·시흥 게시대만 골라 표준 `board.csv`로 변환 |
-| `fake-data` | 게시대 3×3 주변 Cell에 대해 원본 형식의 가짜 유동인구 CSV 생성 |
-| `preprocess` | 유동인구 원본 정제 → `processed/`에 `population_fact.csv`, `cell.csv`, 품질 리포트 |
-| `map` | 게시대 ↔ 3×3 Cell 매핑, 게시대별 인구 합계, 격자선 기준값 계산 |
-| `load` | 6개 테이블을 비우고 표준 CSV를 PostgreSQL에 다시 적재 |
+| 0. 원본 확인 | 모드에 필요한 원본이 모두 있는지 확인. 없으면 빠진 파일을 모두 출력하고 **아무것도 만들지 않고** 중단 |
+| 1. 게시대 변환 | `board_raw.csv`에서 안양·군포·시흥 게시대만 골라 표준 `board.csv`로 변환 |
+| 2. 통신사 데이터 | fake: 게시대 3×3 주변에 가짜 통신사 원본 생성 / real: `population_raw_*.csv`를 번호순으로 사용 |
+| 3. 전처리 | 통신사 원본 정제 → `population_fact.csv`, `cell.csv`, `preprocess_report.json` |
+| 4. 매핑 | 게시대 ↔ 3×3 Cell 매핑, 게시대별 인구 합계, 격자선 기준값 |
+| 5. 세트 검증 | 파일이 모두 있는지, 출처가 모드와 맞는지, 세트 안 ID가 서로 맞는지 확인 |
+| 6. 교체 | 검증까지 통과해야 기존 `generated_<모드>/`와 바꿈 |
 
-게시대 445개와 그 주변 가짜 Cell 약 1,400개(약 290만 행)가 만들어지며, 전체 2분 안팎이 걸립니다.
+**실제 모드 참고**
 
-#### 2-B. 실제 유동인구로 실행
+- 통신사 원본이 UTF-8이 아니면 `--encoding`을 붙입니다. (예: `build real --encoding cp949`)
+- 원본이 여러 파일이면 번호순으로 이어 읽어 하나로 합칩니다. 헤더가 다른 파일이 있으면 중단합니다.
+- 적재 후 `backend/src/main/resources/application.yml`의 `flowsign.dataset.synthetic`을 `false`로 바꿉니다. API 응답의 `meta.syntheticData`에 반영됩니다.
+  가짜 세트로 돌아가면 다시 `true`로 바꿉니다.
 
-`population_raw_*.csv`와 `raw_mapping.json`을 [준비](#데이터-준비)했을 때 씁니다. 2-A에서 `fake-data`가 빠지고, `preprocess`의 입력이 실제 원본으로 바뀝니다.
-
-```cmd
-cd python
-uv sync
-uv run data-processing board      ../data/raw/board_raw.csv ../data/raw/board.csv
-uv run data-processing preprocess ../data/raw/population_raw_1.csv ../data/raw/population_raw_2.csv ../data/processed
-uv run data-processing map        ../data/processed ../data/raw/board.csv
-uv run data-processing load       ../data/processed ../data/raw/board.csv
-```
-
-- 원본 파일은 **모두 나열**하고 마지막에 출력 폴더를 씁니다. 파일이 3개면 `population_raw_3.csv`를 출력 폴더 앞에 추가합니다.
-  여러 파일은 순서대로 이어 읽어 결과 하나로 합칩니다. 헤더가 다른 파일이 있으면 오류로 멈춥니다.
-- 원본이 UTF-8이 아니면 `preprocess`에 `--encoding`을 붙입니다. (예: `--encoding cp949`)
-- 적재 후 `backend/src/main/resources/application.yml`의 `flowsign.dataset.synthetic`을 `false`로 바꿉니다.
-  API 응답의 `meta.syntheticData`에 반영됩니다.
+> [!IMPORTANT]
+> **실제·가짜 데이터가 섞이지 않도록 하는 장치**
+>
+> - 결과 폴더는 모드로 정해지며 경로를 입력하지 않습니다.
+> - 실제 모드는 통신사 원본이나 매핑 파일이 없으면 중단합니다. 가짜 데이터나 예시 매핑으로 대신하지 않습니다.
+> - 가짜 모드도 게시대 원본이 없으면 중단합니다. 임의 게시대를 만들지 않습니다.
+> - 생성은 임시 폴더(`generated_<모드>.building`)에서 하고, 실패하면 임시 폴더만 지웁니다. 기존 세트는 그대로입니다.
+> - `load`는 검증을 통과한 세트만 적재합니다. 적재는 트랜잭션 하나로 실행되어, 중간에 실패하면 기존 DB 데이터가 그대로 남습니다.
+> - DB에는 항상 한 세트만 들어 있습니다. 세트를 바꾸려면 다른 모드로 `load`합니다.
 
 > [!WARNING]
-> 실제 데이터로 만든 `data/processed/`의 결과 파일과 `preprocess_report.json`(행 수·NULL 수·기간 등 집계)도
+> 실제 데이터로 만든 `data/generated_real/`의 결과 파일과 `preprocess_report.json`(행 수·NULL 수·기간 등 집계)도
 > 실제 데이터에서 나온 것입니다. 저장소나 외부에 올리지 않습니다.
-
-> [!TIP]
-> `load`는 기존 데이터를 모두 지우고 다시 넣으므로 몇 번이든 반복해도 됩니다.
 
 ### 3. Frontend 실행
 
@@ -314,12 +336,17 @@ http://localhost:5173/?board=3&grid=1&cells=1&allcells=1
   set API_PROXY_TARGET=http://localhost:8081&& npm run dev
   ```
 
+**`중단: ...`으로 끝나며 아무것도 만들어지지 않음**
+
+- 필요한 원본·매핑 파일이 없거나, 이름 규칙이 다르거나, 세트 검증에 실패한 경우입니다. 메시지에 나온 파일을 확인합니다.
+- 이때 기존 `generated_<모드>/` 세트와 DB 데이터는 바뀌지 않습니다.
+
 **`load`에서 `docker` 오류**
 
 - Docker Desktop과 `telecom-postgres` 컨테이너가 떠 있는지 확인합니다.
 - DB 이름·사용자를 바꿨다면 `--db`, `--user`, `--container` 옵션을 줍니다.
 
-**`load`에서 테이블이 없다는 오류**
+**`load`에서 테이블이 없다는 오류** (DB 적재 실패, 롤백됨)
 
 - Backend를 한 번도 실행하지 않아 Flyway migration이 적용되지 않은 상태입니다. Backend를 먼저 실행합니다.
 
@@ -344,26 +371,27 @@ http://localhost:5173/?board=3&grid=1&cells=1&allcells=1
 ### Python 배치 (`python/`, CLI `data-processing`)
 
 ```text
-data-processing board      <원본.csv> <출력 board.csv> [--encoding cp949]
-data-processing fake-data  <출력.csv> --boards <board.csv> [--seed 42] [--mapping 파일]
-data-processing preprocess <원본.csv> [원본2.csv ...] <출력폴더> [--encoding cp949] [--chunksize N] [--mapping 파일]
-data-processing map        <전처리폴더> <board.csv>
-data-processing load       <전처리폴더> <board.csv> [--container] [--db] [--user]
+data-processing build fake [--load]
+data-processing build real [--encoding cp949] [--load]
+data-processing load  fake|real
 ```
+
+DB 접속 옵션 `--container`(기본 `telecom-postgres`), `--db`(기본 `telecom`), `--user`(기본 `telecom`)는 `build --load`와 `load` 모두에 줄 수 있습니다.
 
 | 명령 | 하는 일 |
 | ---- | ------- |
-| `board` | 게시대 원본(공공데이터포털)에서 대상 3개 시만 골라 표준 `board.csv`로 변환 |
-| `fake-data` | 게시대들의 3×3 Cell에 대해 매핑 파일 형식의 가짜 유동인구 원본 CSV 생성 (실제 원본이 없을 때 개발용) |
-| `preprocess` | 원본 정제 → `population_fact.csv`, `cell.csv`, `preprocess_report.json`. 원본이 여러 파일이면 모두 받아 하나로 합침 |
-| `map` | 3×3 매핑 → `board_cell.csv`, `board_population.csv`, `grid_spec.csv` |
-| `load` | 6개 테이블을 비우고 `\copy`로 재적재 |
+| `build fake` | `data/raw/board_raw.csv`로 `data/generated_fake/` 생성 (가짜 통신사 데이터 포함) |
+| `build real` | `data/raw/`의 게시대·통신사 원본과 `python/raw_mapping.json`으로 `data/generated_real/` 생성 |
+| `load fake` / `load real` | 해당 세트를 검증한 뒤 6개 테이블을 트랜잭션 하나로 교체 |
+
+- 경로는 입력하지 않습니다. 폴더는 [데이터 폴더 구조](#데이터-폴더-구조)대로 고정입니다.
+- 단계별 명령(`board`, `fake-data`, `preprocess`, `map`)은 경로를 잘못 넣어 세트가 섞일 수 있어 없앴습니다. 단계별 함수는 `pipeline.py`가 순서대로 부릅니다.
 
 **매핑 파일**
 
 - 원본 컬럼명·코드값은 매핑 파일로 읽습니다.
-- `python/raw_mapping.json`이 있으면 그것을, 없으면 `raw_mapping.example.json`(가짜 데이터 형식)을 씁니다.
-- `fake-data`와 `preprocess`는 같은 매핑 파일을 쓰므로, 로컬에 `raw_mapping.json`이 있어도 가짜 데이터 명령은 그대로 동작합니다.
+- 실제 모드는 `python/raw_mapping.json`이 반드시 있어야 합니다.
+- 가짜 모드는 `raw_mapping.json`이 있으면 그 형식으로, 없으면 `raw_mapping.example.json` 형식으로 가짜 원본을 만들고 같은 파일로 읽습니다.
 
 **전처리 NULL 규칙** (자세한 내용은 명세 1.1)
 
