@@ -51,7 +51,9 @@ flowsign/
 │       │   ├── common/             # 공통 응답 {data, meta}·오류 {error}, 코드값
 │       │   ├── meta/               # GET /meta
 │       │   ├── board/              # GET /boards, /boards/{id}, /boards/{id}/population, /boards/{id}/cells
-│       │   └── cell/               # GET /cells (지도 통신사 Cell 레이어)
+│       │   ├── cell/               # GET /cells (지도 통신사 Cell 레이어)
+│       │   ├── recommendation/     # /recommendations/search (자리만 있음)
+│       │   └── inquiry/            # /inquiries (자리만 있음)
 │       └── resources/
 │           ├── application*.yml
 │           └── db/migration/       # Flyway migration (테이블은 여기서만 생성)
