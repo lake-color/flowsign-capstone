@@ -22,14 +22,16 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from data_processing.preprocess import KEY_COLUMNS as FACT_KEY_COLUMNS, POPULATION_COLUMNS
+
 CELL_SIZE_METERS = 250
 METERS_PER_DEG_LAT = 111_320.0
 NEIGHBOR_MAX_METERS = 430.0
 # Cell 중심이 격자 위에 있는지 볼 때 허용하는 오차 (격자 간격 대비 비율). 실데이터 확인 후 확정.
 GRID_TOLERANCE = 0.05
 
-KEY_COLUMNS = ["base_month", "day_type", "gender", "age_group", "time_slot"]
-POPULATION_COLUMNS = ["stay", "walk", "drive", "residence", "work", "visit"]
+# population_fact 키 중 cell_id를 뺀 것 (Cell을 게시대 단위로 합산할 때 묶는 키)
+KEY_COLUMNS = [c for c in FACT_KEY_COLUMNS if c != "cell_id"]
 
 
 def _distance_meters(lat1, lng1, lat2, lng2):
