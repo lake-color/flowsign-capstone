@@ -241,7 +241,7 @@ def build(mode: str, raw_dir: Path = RAW_DIR, data_dir: Path = DATA_DIR, encodin
                                              for k, v in report["unknown_counts"].items())))
 
         steps.start(4, "매핑")
-        mapped = run_mapping(staging, staging / "board.csv")
+        mapped = run_mapping(staging)
         log(_kv("9칸이 모두 있는 게시대", f"{_n(mapped['boards_with_9_cells'])} / {_n(mapped['boards'])}",
                 "나머지는 주변에 데이터가 없는 칸 제외"))
         log(_kv("board_cell", f"{_n(mapped['board_cell_rows'])}행"))

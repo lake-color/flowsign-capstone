@@ -216,7 +216,7 @@ def _check_same_header(input_paths: list[Path], encoding: str) -> None:
 
 
 def preprocess_csv(
-    input_paths: Path | list[Path], output_dir: Path, chunksize: int = 1_000_000, encoding: str = "utf-8",
+    input_paths: list[Path], output_dir: Path, chunksize: int = 1_000_000, encoding: str = "utf-8",
     mapping_path: Path | None = None, dataset: str | None = None,
 ) -> dict:
     """대용량 원본 CSV를 청크로 정제해 output_dir에 표준 CSV 2개와 품질 리포트를 저장한다.
@@ -227,7 +227,6 @@ def preprocess_csv(
     dataset("real"/"fake")과 입력 파일 이름을 리포트에 남겨 이 결과의 출처를 기록한다.
     품질 리포트 내용(dict)을 반환한다.
     """
-    input_paths = [input_paths] if isinstance(input_paths, Path) else list(input_paths)
     if not input_paths:
         raise ValueError("원본 파일을 하나 이상 지정해야 합니다.")
     _check_same_header(input_paths, encoding)

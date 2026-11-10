@@ -118,19 +118,19 @@ def compute_grid_spec(cells: pd.DataFrame) -> dict:
     }
 
 
-def run_mapping(processed_dir: Path, board_csv: Path) -> dict:
-    """processed_dir의 cell.csv, population_fact.csv와 board.csv로 매핑 결과 CSV 3개를 만든다."""
-    cells = pd.read_csv(processed_dir / "cell.csv", dtype={"cell_id": str})
-    boards = pd.read_csv(board_csv)
+def run_mapping(set_dir: Path) -> dict:
+    """세트 폴더의 board.csv, cell.csv, population_fact.csv로 매핑 결과 CSV 3개를 같은 폴더에 만든다."""
+    cells = pd.read_csv(set_dir / "cell.csv", dtype={"cell_id": str})
+    boards = pd.read_csv(set_dir / "board.csv")
 
     board_cell = map_boards_to_cells(boards, cells)
-    board_cell.to_csv(processed_dir / "board_cell.csv", index=False)
+    board_cell.to_csv(set_dir / "board_cell.csv", index=False)
 
-    board_population = aggregate_board_population(processed_dir / "population_fact.csv", board_cell)
-    board_population.to_csv(processed_dir / "board_population.csv", index=False)
+    board_population = aggregate_board_population(set_dir / "population_fact.csv", board_cell)
+    board_population.to_csv(set_dir / "board_population.csv", index=False)
 
     grid = compute_grid_spec(cells)
-    pd.DataFrame([grid]).to_csv(processed_dir / "grid_spec.csv", index=False)
+    pd.DataFrame([grid]).to_csv(set_dir / "grid_spec.csv", index=False)
 
     return {
         "boards": len(boards),

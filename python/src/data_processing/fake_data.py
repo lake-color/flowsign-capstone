@@ -128,13 +128,12 @@ def generate_fake_csv(
     seed: int = 42,
     null_rate: float = 0.005,
     cells_per_batch: int = 100,
-    mapping_path: Path | None = None,
 ) -> tuple[int, int]:
     """board_csv 게시대들의 3×3 칸에 대해 가짜 원본 CSV를 만든다. (Cell 수, 쓴 행 수)를 반환한다.
 
     메모리를 아끼려고 Cell 묶음 단위로 쓴다.
     """
-    mapping = load_mapping(mapping_path)
+    mapping = load_mapping()
     rng = np.random.default_rng(seed)
     cells = _make_cells(board_csv, rng)
     output_path.parent.mkdir(parents=True, exist_ok=True)
