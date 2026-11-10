@@ -345,7 +345,7 @@ http://localhost:5173/?board=3&grid=1&cells=1&allcells=1
 
 ```text
 data-processing board      <원본.csv> <출력 board.csv> [--encoding cp949]
-data-processing fake-data  <출력.csv> [--size-mb 300 | --cells N | --boards board.csv] [--seed 42] [--mapping 파일]
+data-processing fake-data  <출력.csv> --boards <board.csv> [--seed 42] [--mapping 파일]
 data-processing preprocess <원본.csv> [원본2.csv ...] <출력폴더> [--encoding cp949] [--chunksize N] [--mapping 파일]
 data-processing map        <전처리폴더> <board.csv>
 data-processing load       <전처리폴더> <board.csv> [--container] [--db] [--user]
@@ -354,7 +354,7 @@ data-processing load       <전처리폴더> <board.csv> [--container] [--db] [-
 | 명령 | 하는 일 |
 | ---- | ------- |
 | `board` | 게시대 원본(공공데이터포털)에서 대상 3개 시만 골라 표준 `board.csv`로 변환 |
-| `fake-data` | 매핑 파일 형식의 가짜 원본 CSV 생성. `--boards`를 주면 그 게시대들의 3×3 Cell만 생성 |
+| `fake-data` | 게시대들의 3×3 Cell에 대해 매핑 파일 형식의 가짜 유동인구 원본 CSV 생성 (실제 원본이 없을 때 개발용) |
 | `preprocess` | 원본 정제 → `population_fact.csv`, `cell.csv`, `preprocess_report.json`. 원본이 여러 파일이면 모두 받아 하나로 합침 |
 | `map` | 3×3 매핑 → `board_cell.csv`, `board_population.csv`, `grid_spec.csv` |
 | `load` | 6개 테이블을 비우고 `\copy`로 재적재 |

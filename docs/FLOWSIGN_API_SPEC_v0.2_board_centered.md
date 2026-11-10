@@ -91,7 +91,7 @@
   - NULL로 보는 표기: 빈 칸, `NULL`, `null`, `Null`, `\N`. 다른 표기가 있으면 전처리기 상수에 추가
 - 전처리기 출력: `population_fact.csv`(키 6개 + 인구 6종), `cell.csv`(Cell ID·중심 위경도·시 이름·동 이름, Cell당 1행), `preprocess_report.json`(행 수·NULL 수·`UNKNOWN` 수·음수 값 수·연월 목록·좌표 범위. **원본 행은 담지 않음**).
 - `UNKNOWN` 행끼리는 키(Cell·월·주중구분·성별·연령·시간대)가 겹칠 수 있다. `population_fact`에는 키 UNIQUE 제약을 두지 않고, 조회·집계는 항상 `SUM`으로 한다.
-- 개발·테스트는 가짜 데이터(`data-processing fake-data`, 기본 약 300MB)로 한다. 실제 원본과 실제 매핑 파일은 저장소에 두지 않는다.
+- 개발·테스트는 가짜 데이터(`data-processing fake-data --boards board.csv`, 실제 게시대 3×3 주변 Cell만 생성)로 한다. 실제 원본과 실제 매핑 파일은 저장소에 두지 않는다.
 
 ### 1.2 게시대 ↔ Cell 매핑 규칙
 
