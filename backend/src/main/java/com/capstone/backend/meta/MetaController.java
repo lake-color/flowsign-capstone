@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.capstone.backend.common.ApiResponse;
 import com.capstone.backend.common.Codes;
-import com.capstone.backend.common.DatasetInfo;
+import com.capstone.backend.common.DatasetInfoReader;
 
 /**
  * GET /api/v1/meta — 필터 선택지, 격자 기준값, 데이터 준비 상태 (API 명세 4.1).
@@ -22,9 +22,9 @@ import com.capstone.backend.common.DatasetInfo;
 public class MetaController {
 
     private final JdbcTemplate jdbc;
-    private final DatasetInfo dataset;
+    private final DatasetInfoReader dataset;
 
-    public MetaController(JdbcTemplate jdbc, DatasetInfo dataset) {
+    public MetaController(JdbcTemplate jdbc, DatasetInfoReader dataset) {
         this.jdbc = jdbc;
         this.dataset = dataset;
     }
@@ -65,6 +65,6 @@ public class MetaController {
         data.put("maxRecommendationPageSize", 50);
         data.put("mapScope", "BOARD_ONLY");
         data.put("notice", "통신사 유동인구를 활용한 노출 가능성 추정이며 실제 광고 성과를 의미하지 않습니다.");
-        return ApiResponse.of(data, dataset);
+        return ApiResponse.of(data, dataset.current());
     }
 }

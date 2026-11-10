@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.capstone.backend.common.ApiException;
 import com.capstone.backend.common.ApiResponse;
-import com.capstone.backend.common.DatasetInfo;
+import com.capstone.backend.common.DatasetInfoReader;
 
 /**
  * GET /api/v1/cells — 지도 화면 범위 안의 통신사 Cell 중심 좌표 (지도 Cell 레이어용).
@@ -29,9 +29,9 @@ public class CellController {
     static final int MAX_CELLS = 3000;
 
     private final NamedParameterJdbcTemplate jdbc;
-    private final DatasetInfo dataset;
+    private final DatasetInfoReader dataset;
 
-    public CellController(NamedParameterJdbcTemplate jdbc, DatasetInfo dataset) {
+    public CellController(NamedParameterJdbcTemplate jdbc, DatasetInfoReader dataset) {
         this.jdbc = jdbc;
         this.dataset = dataset;
     }
@@ -70,6 +70,6 @@ public class CellController {
         data.put("cellCount", truncated ? 0 : found.size());
         data.put("truncated", truncated);
         data.put("limit", MAX_CELLS);
-        return ApiResponse.of(data, dataset);
+        return ApiResponse.of(data, dataset.current());
     }
 }
