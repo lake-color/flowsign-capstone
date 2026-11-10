@@ -63,7 +63,9 @@
 
 ## 환경변수
 
-### 1. 저장소 루트 `.env` — DB 접속 (Backend·Docker Compose 공용)
+### 저장소 루트 `.env` — DB 접속
+
+Backend와 Docker Compose가 함께 씁니다.
 
 ```cmd
 copy .env.example .env
@@ -77,9 +79,10 @@ copy .env.example .env
 | `DB_PASSWORD` | DB 비밀번호          | `telecom_dev`                              |
 | `DB_PORT`     | 호스트에 노출할 포트 | `5432`                                     |
 
-Spring profile 기본값은 `local`입니다. `prod`는 배포 환경이 제공하는 환경변수를 사용합니다.
+- Spring profile 기본값은 `local`입니다.
+- `prod`는 배포 환경이 제공하는 환경변수를 사용합니다.
 
-### 2. `frontend/.env` — 지도 (선택)
+### `frontend/.env` — 지도 (선택)
 
 ```cmd
 copy frontend\.env.example frontend\.env
@@ -92,13 +95,19 @@ copy frontend\.env.example frontend\.env
 
 - **Leaflet**은 키 없이 OpenStreetMap 타일로 동작합니다.
 - **Naver 지도**는 Client ID가 없으면 안내 문구만 표시합니다.
-  NCP 콘솔의 Maps 애플리케이션에 웹 서비스 URL `http://localhost:5173`도 등록해야 합니다.
+- Naver 지도를 쓰려면 NCP 콘솔의 Maps 애플리케이션에 웹 서비스 URL `http://localhost:5173`도 등록합니다.
 
 ---
 
 ## 실행 방법
 
-터미널 3개를 씁니다. (Windows `cmd` 기준) 1 → 2 → 3 → 4 순서로 진행합니다.
+Windows `cmd` 기준이며, 터미널 3개를 씁니다. 아래 순서대로 진행합니다.
+
+| 단계 | 터미널 | 하는 일 |
+| ---- | ------ | ------- |
+| [1. DB + Backend 실행](#1-db--backend-실행) | 첫 번째 | DB 컨테이너와 API 서버를 켭니다 |
+| [2. 데이터 생성 · 적재](#2-데이터-생성--적재) | 두 번째 | 가짜(2.1) 또는 실제(2.2) 데이터를 DB에 넣습니다 |
+| [3. Frontend 실행](#3-frontend-실행) | 세 번째 | 화면을 띄웁니다 |
 
 ### 1. DB + Backend 실행
 
@@ -108,55 +117,79 @@ cd backend
 gradlew.bat bootRun
 ```
 
-`Started BackendApplication`이 보이면 준비된 것입니다. 처음 뜰 때 Flyway가 테이블을 만들기 때문에, 데이터 적재 전에 한 번은 실행해야 합니다.
+- `Started BackendApplication`이 보이면 준비된 것입니다.
+- 처음 뜰 때 Flyway가 테이블을 만듭니다. 그래서 데이터 적재 전에 한 번은 실행해야 합니다.
 
 ### 2. 데이터 생성 · 적재
 
-Backend를 켠 상태로 **다른 터미널**의 `python` 폴더에서 실행합니다. 2.1과 2.2 중 하나를 고릅니다.
+Backend를 켠 상태로 **다른 터미널**의 `python` 폴더에서 실행합니다.
 
 ```cmd
 cd python
 uv sync
 ```
 
-`uv sync`는 최초 1회만 실행합니다.
+- `uv sync`는 최초 1회만 실행합니다.
+- 이어서 **2.1과 2.2 중 하나**를 고릅니다.
 
 #### 2.1. 가짜 데이터
 
-게시대 원본만 있으면 됩니다. 공공데이터포털 「전국현수막게시대표준데이터」 CSV를 내려받아 `data/raw/board_raw.csv`로 저장합니다(인코딩 CP949 그대로).
+게시대 원본만 있으면 됩니다.
 
-```cmd
-uv run data-processing build fake --load
-```
+1. 공공데이터포털 「전국현수막게시대표준데이터」 CSV를 내려받습니다.
+2. `data/raw/board_raw.csv`로 저장합니다. 인코딩은 CP949 그대로 둡니다.
+3. 아래 명령을 실행합니다.
 
-실제 게시대 445개와 그 주변 가짜 Cell·인구를 만들어 `data/generated_fake/`에 저장하고 DB에 적재합니다. 1~2분 걸립니다.
+   ```cmd
+   uv run data-processing build fake --load
+   ```
+
+- 실제 게시대 445개와 그 주변 가짜 Cell·인구를 만들어 `data/generated_fake/`에 저장하고 DB에 적재합니다.
+- 1~2분 걸립니다.
 
 #### 2.2. 실제 데이터
 
-아래 파일을 각자 로컬에 둡니다.
+**준비:** 아래 파일을 각자 로컬에 둡니다.
 
-| 파일 | 위치·이름 | 비고 |
-| ---- | --------- | ---- |
-| 게시대 원본 | `data/raw/board_raw.csv` | 2.1과 같음 |
-| 통신사 유동인구 원본 | `data/raw/population_raw_1.csv`, `_2`, `_3` … | 여러 파일이면 1부터 빠짐없이 번호. 파일마다 같은 헤더, 파일끼리 겹치는 행 없음 |
-| 원본 매핑 파일 | `python/raw_mapping.json` | `raw_mapping.example.json`을 복사해 실제 컬럼명·코드값을 채움 |
+| 파일 | 위치·이름 |
+| ---- | --------- |
+| 게시대 원본 | `data/raw/board_raw.csv` (2.1과 같음) |
+| 통신사 유동인구 원본 | `data/raw/population_raw_1.csv`, `population_raw_2.csv` … |
+| 원본 매핑 파일 | `python/raw_mapping.json` |
 
-1. 세트만 만들고 결과를 확인합니다. 원본이 UTF-8이 아니면 `--encoding cp949`를 붙입니다.
+- 통신사 원본이 여러 파일이면 1부터 빠짐없이 번호를 붙입니다.
+- 파일마다 헤더가 같아야 하고, 파일끼리 겹치는 행이 없어야 합니다.
+- 매핑 파일은 `raw_mapping.example.json`을 복사해 실제 컬럼명·코드값을 채웁니다.
+
+**실행:**
+
+1. 세트만 먼저 만듭니다. 원본이 UTF-8이 아니면 `--encoding cp949`를 붙입니다.
+
    ```cmd
    uv run data-processing build real
    ```
-2. 출력에서 확인합니다.
-   - `[0/5] 원본 확인`의 **통신사 원본 개수가 실제로 받은 파일 수와 같은지** (마지막 번호 파일이 빠진 것은 자동으로 알 수 없음)
-   - `[4/5] 매핑`의 9칸 게시대 수와 격자 검증. `NOT_VERIFIED`면 `250m 격자선`만 안 나오고, Cell 사각형과 매핑·집계에는 영향이 없습니다.
-   - `data/generated_real/preprocess_report.json`의 기간·NULL 수 등
+
+2. 출력에서 아래 세 가지를 확인합니다.
+
+   | 확인할 곳 | 볼 내용 |
+   | --------- | ------- |
+   | `[0/5] 원본 확인` | **통신사 원본 개수가 실제로 받은 파일 수와 같은지** |
+   | `[4/5] 매핑` | 9칸 게시대 수, 격자 검증 결과 |
+   | `data/generated_real/preprocess_report.json` | 기간, NULL 수 등 |
+
+   - 마지막 번호 파일이 빠진 것은 자동으로 알 수 없으니 개수를 직접 봅니다.
+   - 격자 검증이 `NOT_VERIFIED`여도 `250m 격자선`만 안 나옵니다. Cell 사각형과 매핑·집계에는 영향이 없습니다.
+
 3. 문제없으면 적재합니다.
+
    ```cmd
    uv run data-processing load real
    ```
 
-적재가 끝나면 Backend가 DB에 기록된 세트 종류(실제/가짜)를 읽어 응답에 자동으로 표시합니다. 설정을 바꾸거나 Backend를 재시작할 필요가 없습니다.
-
-가짜 데이터로 돌아가려면 `uv run data-processing load fake`만 다시 실행합니다. 두 세트는 폴더가 따로라 서로 지워지지 않습니다.
+> [!TIP]
+> - 적재가 끝나면 Backend가 DB에 기록된 세트 종류(실제/가짜)를 읽어 응답에 자동으로 표시합니다. 설정 변경이나 Backend 재시작은 필요 없습니다.
+> - 가짜 데이터로 돌아가려면 `uv run data-processing load fake`만 다시 실행합니다.
+> - 두 세트는 폴더가 따로라 서로 지워지지 않습니다.
 
 ### 3. Frontend 실행
 
@@ -170,20 +203,25 @@ npm run dev
 
 http://localhost:5173 을 엽니다.
 
+**화면 조작**
+
 | 조작 | 결과 |
 | ---- | ---- |
 | 상단 `Naver` / `Leaflet` 버튼 | 지도 전환 |
 | 게시대 마커 클릭 | 오른쪽에 상세 정보와 3×3 영향권 인구 차트 |
 | `250m 격자선` 체크 | 격자선 표시 |
-| `통신사 Cell` 체크 | 화면 범위의 데이터 Cell을 사각형으로 표시 (인구값 없음, 너무 넓으면 확대 안내) |
+| `통신사 Cell` 체크 | 화면 범위의 데이터 Cell을 사각형으로 표시 (인구값 없음) |
 | `3×3 Cell 보기` 체크 | 선택한 게시대의 3×3 Cell 표시 |
 | 왼쪽 조건 변경 후 `조건 적용` | 상세 인구 다시 조회 |
 
-**데모 링크** — 게시대 선택·격자선·3×3·통신사 Cell을 켠 상태로 시작합니다. `&map=naver`를 붙이면 Naver 지도로 시작합니다.
+**데모 링크**
 
 ```text
 http://localhost:5173/?board=3&grid=1&cells=1&allcells=1
 ```
+
+- 게시대 선택·격자선·3×3·통신사 Cell을 켠 상태로 시작합니다.
+- `&map=naver`를 붙이면 Naver 지도로 시작합니다.
 
 ---
 
@@ -237,7 +275,8 @@ data/
 
 **`load`에서 테이블이 없다는 오류** (DB 적재 실패, 롤백됨)
 
-- Backend를 한 번도 실행하지 않았거나 코드를 받은 뒤 다시 실행하지 않아, Flyway migration이 적용되지 않은 상태입니다. Backend를 먼저 (다시) 실행합니다.
+- Flyway migration이 적용되지 않은 상태입니다. Backend를 한 번도 실행하지 않았거나, 새 코드를 받은 뒤 다시 실행하지 않은 경우입니다.
+- Backend를 먼저 (다시) 실행한 뒤 `load`를 다시 합니다.
 
 **Backend 시작 시 Flyway 검증(checksum) 오류**
 
