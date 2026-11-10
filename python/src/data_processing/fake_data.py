@@ -16,15 +16,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from data_processing.board import BOARD_COLUMNS
 from data_processing.preprocess import RawMapping, load_mapping
 
 # 250m에 해당하는 위경도 간격 (위도 37.4° 근처 근사값)
 LAT_STEP = 0.002246
 LNG_STEP = 0.002827
-# 가상 격자 범위 (대상 3개 시를 대략 덮는 사각형)
-ORIGIN_LAT, ORIGIN_LNG = 37.30, 126.73
-GRID_ROWS, GRID_COLS = 67, 89
+# 가상 격자 범위 (대상 3개 시를 덮는 사각형. 실제 게시대 위경도 37.32~37.46, 126.67~126.98 포함)
+ORIGIN_LAT, ORIGIN_LNG = 37.30, 126.65
+GRID_ROWS, GRID_COLS = 76, 121
 
 MONTHS = [f"2025{m:02d}" for m in range(1, 13)]
 # 표준 코드. CSV에 쓸 때 매핑 파일의 원본 코드로 바꾼다.
@@ -48,13 +47,31 @@ def cells_for_size(target_bytes: int) -> int:
     return max(1, round(target_bytes / (ROWS_PER_CELL * APPROX_BYTES_PER_ROW)))
 
 
-def _make_cells(n_cells: int, rng: np.random.Generator) -> pd.DataFrame:
-    if n_cells > GRID_ROWS * GRID_COLS:
-        raise ValueError(f"Cell 수는 최대 {GRID_ROWS * GRID_COLS}개입니다.")
-    # Cell이 이어져 있어야 3×3 이웃이 생긴다. 격자 중앙에서 가까운 칸부터 고른다.
-    all_rows, all_cols = np.divmod(np.arange(GRID_ROWS * GRID_COLS), GRID_COLS)
-    dist = np.hypot(all_rows - GRID_ROWS / 2, all_cols - GRID_COLS / 2) + rng.uniform(0, 1.5, all_rows.size)
-    picks = np.sort(np.argsort(dist)[:n_cells])
+def _cells_around_boards(board_csv: Path) -> np.ndarray:
+    """게시대마다 소속 칸과 주변 8칸의 격자 번호(행 * GRID_COLS + 열)를 모은다."""
+    boards = pd.read_csv(board_csv)
+    rows = np.floor((boards["latitude"].to_numpy() - ORIGIN_LAT) / LAT_STEP).astype(int)
+    cols = np.floor((boards["longitude"].to_numpy() - ORIGIN_LNG) / LNG_STEP).astype(int)
+    rows = (rows[:, None] + np.array([-1, -1, -1, 0, 0, 0, 1, 1, 1])).ravel()
+    cols = (cols[:, None] + np.array([-1, 0, 1, -1, 0, 1, -1, 0, 1])).ravel()
+    inside = (rows >= 0) & (rows < GRID_ROWS) & (cols >= 0) & (cols < GRID_COLS)
+    if not inside.all():
+        raise ValueError("가상 격자 범위를 벗어난 게시대가 있습니다. ORIGIN·GRID 값을 넓혀야 합니다.")
+    return np.unique(rows * GRID_COLS + cols)
+
+
+def _make_cells(n_cells: int, rng: np.random.Generator, board_csv: Path | None = None) -> pd.DataFrame:
+    if board_csv is not None:
+        # 게시대 3×3이 모두 채워지도록 게시대 주변 칸만 만든다 (n_cells 무시).
+        picks = _cells_around_boards(board_csv)
+        n_cells = len(picks)
+    else:
+        if n_cells > GRID_ROWS * GRID_COLS:
+            raise ValueError(f"Cell 수는 최대 {GRID_ROWS * GRID_COLS}개입니다.")
+        # Cell이 이어져 있어야 3×3 이웃이 생긴다. 격자 중앙에서 가까운 칸부터 고른다.
+        all_rows, all_cols = np.divmod(np.arange(GRID_ROWS * GRID_COLS), GRID_COLS)
+        dist = np.hypot(all_rows - GRID_ROWS / 2, all_cols - GRID_COLS / 2) + rng.uniform(0, 1.5, all_rows.size)
+        picks = np.sort(np.argsort(dist)[:n_cells])
     rows, cols = np.divmod(picks, GRID_COLS)
     # 서쪽은 시흥시, 동쪽 북부는 안양시, 동쪽 남부는 군포시
     city = np.where(cols < GRID_COLS * 0.45, "시흥시", np.where(rows >= GRID_ROWS * 0.45, "안양시", "군포시"))
@@ -63,7 +80,7 @@ def _make_cells(n_cells: int, rng: np.random.Generator) -> pd.DataFrame:
         "longitude": np.round(ORIGIN_LNG + (cols + 0.5) * LNG_STEP, 6),
         "latitude": np.round(ORIGIN_LAT + (rows + 0.5) * LAT_STEP, 6),
         "city_name": city,
-        "dong_name": [f"가상{(r // 8) * 12 + c // 8 + 1}동" for r, c in zip(rows, cols)],
+        "dong_name": [f"가상{(r // 8) * ((GRID_COLS + 7) // 8) + c // 8 + 1}동" for r, c in zip(rows, cols)],
         # Cell마다 인구 규모를 다르게 (소수 Cell에 인구 집중)
         "scale": rng.lognormal(mean=2.0, sigma=1.0, size=n_cells),
     })
@@ -129,11 +146,15 @@ def generate_fake_csv(
     null_rate: float = 0.005,
     cells_per_batch: int = 100,
     mapping_path: Path | None = None,
-) -> int:
-    """가짜 원본 CSV를 만든다. 쓴 행 수를 반환한다. 메모리를 아끼려고 Cell 묶음 단위로 쓴다."""
+    board_csv: Path | None = None,
+) -> tuple[int, int]:
+    """가짜 원본 CSV를 만든다. (Cell 수, 쓴 행 수)를 반환한다. 메모리를 아끼려고 Cell 묶음 단위로 쓴다.
+
+    board_csv를 주면 n_cells 대신 그 게시대들의 3×3 칸만 만든다.
+    """
     mapping = load_mapping(mapping_path)
     rng = np.random.default_rng(seed)
-    cells = _make_cells(n_cells, rng)
+    cells = _make_cells(n_cells, rng, board_csv)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     total = 0
@@ -142,41 +163,4 @@ def generate_fake_csv(
         batch.to_csv(output_path, mode="w" if start == 0 else "a", header=start == 0,
                      index=False, encoding="utf-8")
         total += len(batch)
-    return total
-
-
-def generate_fake_boards(cell_csv: Path, output_path: Path, n_boards: int = 60, seed: int = 7) -> int:
-    """전처리된 cell.csv 주변에 가짜 게시대를 만들어 표준 board.csv로 저장한다.
-
-    게시대 원본 형식은 아직 모르므로 전처리 없이 바로 표준 컬럼으로 만든다(데모용).
-    같은 좌표 게시대 1쌍과 행정용 게시대를 포함한다.
-    """
-    rng = np.random.default_rng(seed)
-    cells = pd.read_csv(cell_csv, dtype={"cell_id": str}).dropna(subset=["latitude", "longitude"])
-    picks = cells.sample(n=n_boards, replace=n_boards > len(cells), random_state=seed).reset_index(drop=True)
-
-    # Cell 중심에서 최대 ±110m 안쪽으로 흩뿌린다 (소속 Cell이 바뀌지 않을 정도).
-    lat = picks["latitude"].to_numpy() + rng.uniform(-0.45, 0.45, n_boards) * LAT_STEP
-    lng = picks["longitude"].to_numpy() + rng.uniform(-0.45, 0.45, n_boards) * LNG_STEP
-    lat[1], lng[1] = lat[0], lng[0]  # 같은 좌표 게시대 1쌍
-
-    purpose = rng.choice(["COMMERCIAL", "MIXED", "ADMINISTRATIVE"], size=n_boards, p=[0.55, 0.25, 0.20])
-    fee = rng.choice([30000, 40000, 50000, 60000], size=n_boards).astype(float)
-    fee[rng.random(n_boards) < 0.2] = np.nan  # 금액 미제공
-
-    boards = pd.DataFrame({
-        "board_id": np.arange(1, n_boards + 1),
-        "name": [f"가상 게시대 {i:03d}" for i in range(1, n_boards + 1)],
-        "city": picks["city_name"].to_numpy(),
-        "dong": picks["dong_name"].to_numpy(),
-        "address": [f"{c} {d} 가상로 {i}" for i, (c, d) in enumerate(zip(picks["city_name"], picks["dong_name"]), 1)],
-        "latitude": np.round(lat, 6),
-        "longitude": np.round(lng, 6),
-        "purpose": purpose,
-        "face_count": rng.integers(3, 11, n_boards),
-        "posting_fee": pd.array(fee, dtype="Int64"),
-        "data_reference_date": "2025-12-31",
-    })
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    boards[BOARD_COLUMNS].to_csv(output_path, index=False, encoding="utf-8")
-    return len(boards)
+    return len(cells), total

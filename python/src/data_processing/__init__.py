@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 from data_processing.board import convert_board_csv
-from data_processing.fake_data import cells_for_size, generate_fake_boards, generate_fake_csv
+from data_processing.fake_data import cells_for_size, generate_fake_csv
 from data_processing.load import load_all
 from data_processing.mapping import run_mapping
 from data_processing.preprocess import preprocess_csv
@@ -30,11 +30,7 @@ def main() -> None:
     fake.add_argument("--cells", type=int, help="Cell 수 직접 지정 (지정하면 --size-mb 무시)")
     fake.add_argument("--seed", type=int, default=42)
     fake.add_argument("--mapping", type=Path, help="원본 매핑 파일 (기본: raw_mapping.json, 없으면 예시 파일)")
-
-    fake_boards = sub.add_parser("fake-boards", help="cell.csv 주변에 가짜 게시대 board.csv 생성")
-    fake_boards.add_argument("cell_csv", type=Path)
-    fake_boards.add_argument("output", type=Path)
-    fake_boards.add_argument("--count", type=int, default=60)
+    fake.add_argument("--boards", type=Path, help="표준 board.csv. 주면 그 게시대들의 3×3 Cell만 생성 (--size-mb·--cells 무시)")
 
     mapping = sub.add_parser("map", help="게시대 ↔ Cell 3×3 매핑, board_population·grid_spec 생성")
     mapping.add_argument("processed_dir", type=Path, help="전처리 결과 폴더 (결과 CSV도 여기에 저장)")
@@ -59,11 +55,9 @@ def main() -> None:
         print(f"동 없음: {report['dong_missing']}, 금액 미제공: {report['fee_missing']}")
     elif args.command == "fake-data":
         n_cells = args.cells or cells_for_size(args.size_mb * 1024 * 1024)
-        rows = generate_fake_csv(args.output, n_cells, seed=args.seed, mapping_path=args.mapping)
-        print(f"가짜 데이터 생성: Cell {n_cells}개, {rows}행 → {args.output}")
-    elif args.command == "fake-boards":
-        count = generate_fake_boards(args.cell_csv, args.output, n_boards=args.count)
-        print(f"가짜 게시대 생성: {count}개 → {args.output}")
+        cells, rows = generate_fake_csv(args.output, n_cells, seed=args.seed, mapping_path=args.mapping,
+                                        board_csv=args.boards)
+        print(f"가짜 데이터 생성: Cell {cells}개, {rows}행 → {args.output}")
     elif args.command == "map":
         print(f"매핑 완료: {run_mapping(args.processed_dir, args.board_csv)}")
     elif args.command == "load":
