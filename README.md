@@ -82,13 +82,12 @@ flowsign/
 │   ├── raw_mapping.example.json    # 원본 컬럼명·코드값 매핑 예시
 │   └── src/data_processing/
 │       ├── __init__.py             # CLI: build fake|real, load fake|real
-│       ├── pipeline.py             # 모드별 원본 확인 → 생성 → 세트 검증 → 교체 → 적재
-│       ├── preprocess.py           # 유동인구 원본 → 표준 CSV (원본 형식은 매핑 파일로 읽음)
-│       ├── board.py                # 게시대 원본(공공데이터포털) → 표준 board.csv
-│       ├── fake_data.py            # 가짜 유동인구 CSV (게시대 3×3 주변 Cell만 만들 수 있음)
-│       ├── mapping.py              # 게시대 ↔ Cell 3×3 매핑, board_population, grid_spec
-│       ├── load.py                 # 표준 CSV → PostgreSQL 전체 재적재
-│       └── scoring.py              # 추천 점수 참고 구현 (서비스 점수는 Spring)
+│       ├── pipeline.py             # 전체 흐름(원본 확인 → 생성 → 검증 → 교체 → 적재). 맨 위에 부품 지도
+│       ├── board.py                #   1단계: 게시대 원본(공공데이터포털) → board.csv
+│       ├── fake_data.py            #   2단계(fake만): 가짜 통신사 원본 population_fake.csv
+│       ├── preprocess.py           #   3단계: 통신사 원본 → cell, population_fact, 리포트
+│       ├── mapping.py              #   4단계: 게시대 ↔ 3×3 Cell → board_cell, board_population, grid_spec
+│       └── load.py                 #   적재: 세트 → PostgreSQL (트랜잭션 하나로 교체)
 │
 ├── database/
 │   └── docker-compose.yml          # PostgreSQL 17 실행 설정

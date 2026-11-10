@@ -1,5 +1,18 @@
 """데이터 세트 단위 실행: 원본 확인 → 생성(전처리·매핑) → 검증 → 교체 → (요청 시) DB 적재.
 
+전체 흐름은 이 파일의 build()·load()에 순서대로 있다. 다른 파일은 여기서 부르는 부품이다.
+
+부품 지도 (명령: data-processing build fake|real [--load], load fake|real — __init__.py)
+  단계                 파일             결과 (data/generated_<모드>/)
+  0. 원본 확인          pipeline.py      find_inputs(): 빠진 원본·매핑 파일을 모아 중단
+  1. 게시대 변환        board.py         board.csv  (raw/board_raw.csv에서 대상 3개 시만)
+  2. 통신사 데이터      fake_data.py     population_fake.csv  (fake 모드에서만. real은 raw/population_raw_*.csv)
+  3. 전처리            preprocess.py    cell.csv, population_fact.csv, preprocess_report.json
+  4. 매핑              mapping.py       board_cell.csv, board_population.csv, grid_spec.csv
+  5. 세트 검증          pipeline.py      validate_set(): 파일·출처(dataset)·ID 일치
+  6. 교체              pipeline.py      <세트>.building → <세트>
+  7. DB 적재           load.py          load(): 검증 후 테이블 6개를 트랜잭션 하나로 교체
+
 폴더는 모드로 고정한다. 사용자는 경로를 입력하지 않으므로 다른 세트 폴더에 쓰는 실수가 생기지 않는다.
   data/raw/             사람이 넣는 실제 원본만. 어떤 명령도 여기에 쓰지 않는다.
   data/generated_real/  실제 게시대 + 실제 통신사 원본으로 만든 세트
