@@ -166,16 +166,12 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
     for (const cell of cells ?? []) {
       const color = cell.isCenter ? '#f59e0b' : '#8b5cf6'
       const title = `${cell.isCenter ? '소속 Cell ' : ''}${cell.cellId} / 인구 ${formatValue(cell.population.value)}`
-      const overlay = cell.geometry
-        ? new naver.maps.Polygon({
-          map,
-          paths: [cell.geometry.coordinates[0].map(([lng, lat]) => new naver.maps.LatLng(lat, lng))],
-          strokeColor: color, strokeWeight: 2, fillColor: color, fillOpacity: 0.15,
-        })
-        : new naver.maps.Circle({
-          map, center: new naver.maps.LatLng(cell.center.latitude, cell.center.longitude),
-          radius: 20, strokeColor: color, fillColor: color, fillOpacity: 0.3,
-        })
+      if (!cell.geometry) continue // 서버는 항상 사각형을 준다(명세 4.5). 계약상 null이면 그리지 않음
+      const overlay = new naver.maps.Polygon({
+        map,
+        paths: [cell.geometry.coordinates[0].map(([lng, lat]) => new naver.maps.LatLng(lat, lng))],
+        strokeColor: color, strokeWeight: 2, fillColor: color, fillOpacity: 0.15,
+      })
       naver.maps.Event.addListener(overlay, 'click', () => window.alert(title))
       overlays.current.cells.push(overlay)
     }

@@ -109,7 +109,7 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>FLOWSIGN</h1>
-        <p>유동인구 데이터 기반 옥외광고 게시대 추천 서비스 · 데모 초안 (가짜 데이터)</p>
+        <p>유동인구 데이터 기반 옥외광고 게시대 추천 서비스 · 데모 초안</p>
       </header>
 
       {loadError && <div className="banner error">데이터를 불러오지 못했습니다: {loadError}</div>}

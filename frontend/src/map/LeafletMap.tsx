@@ -128,12 +128,9 @@ function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, ce
     for (const cell of cells ?? []) {
       const label = `${cell.isCenter ? '소속 Cell ' : ''}${cell.cellId}<br>인구 ${formatValue(cell.population.value)}`
       const style = { color: cell.isCenter ? '#f59e0b' : '#8b5cf6', weight: 2, fillOpacity: 0.15 }
-      if (cell.geometry) {
-        const ring = cell.geometry.coordinates[0].map(([lng, lat]) => [lat, lng] as [number, number])
-        L.polygon(ring, style).bindTooltip(label).addTo(group)
-      } else {
-        L.circleMarker([cell.center.latitude, cell.center.longitude], { ...style, radius: 6 }).bindTooltip(label).addTo(group)
-      }
+      if (!cell.geometry) continue // 서버는 항상 사각형을 준다(명세 4.5). 계약상 null이면 그리지 않음
+      const ring = cell.geometry.coordinates[0].map(([lng, lat]) => [lat, lng] as [number, number])
+      L.polygon(ring, style).bindTooltip(label).addTo(group)
     }
   }, [cells])
 
