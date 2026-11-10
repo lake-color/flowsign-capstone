@@ -444,7 +444,7 @@ interface Criteria {
 
 **정렬:** 반올림 전 점수 내림차순 → 게시면수 내림차순 → 부착금액 오름차순(없음 뒤) → 게시대 ID 오름차순. 같은 영향권 점수 동점 가능. 추천 10개부터 시작해 `page=1`로 추가 10개 요청. `totalItems=0`이면 **정상 `200` + `items: []`**. `ADMINISTRATIVE`는 `purposes`에 포함된 경우만 추천되며 B2G 표시·문의 불가.
 
-**계산 위치(확정):** Spring이 E `board_population`을 읽어 **요청 시 점수 계산**한다. Python `scoring.py`는 EDA·검증용 참고 구현이다. 원본 `population_fact` 전체를 매 요청 스캔하지 않음. 캐시를 도입한다면 알고리즘 버전/데이터셋 버전 변경 시 무효화 필수.
+**계산 위치(확정):** Spring이 E `board_population`을 읽어 **요청 시 점수 계산**한다. 원본 `population_fact` 전체를 매 요청 스캔하지 않음. 캐시를 도입한다면 알고리즘 버전/데이터셋 버전 변경 시 무효화 필수.
 
 ### 4.7 `POST /api/v1/inquiries`
 
