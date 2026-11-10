@@ -89,13 +89,11 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
     const style = { map, strokeColor: ALL_CELL_COLOR, strokeWeight: 1, strokeOpacity: 0.7, fillColor: ALL_CELL_COLOR,
       fillOpacity: 0.06, clickable: false, zIndex: 0 }
     for (const cell of allCells ?? []) {
-      const b = cellBounds(cell, grid)
-      overlays.current.allCells.push(b
-        ? new naver.maps.Rectangle({ ...style, bounds: new naver.maps.LatLngBounds(
-          new naver.maps.LatLng(b.south, b.west), new naver.maps.LatLng(b.north, b.east)) })
-        : new naver.maps.Circle({ ...style, center: new naver.maps.LatLng(cell.latitude, cell.longitude), radius: 15 }))
+      const b = cellBounds(cell)
+      overlays.current.allCells.push(new naver.maps.Rectangle({ ...style, bounds: new naver.maps.LatLngBounds(
+        new naver.maps.LatLng(b.south, b.west), new naver.maps.LatLng(b.north, b.east)) }))
     }
-  }, [naver, allCells, grid])
+  }, [naver, allCells])
 
   // 게시대 마커 (게시대 자체 위경도). 행정용은 회색 사각형.
   useEffect(() => {

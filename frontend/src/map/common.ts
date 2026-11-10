@@ -33,11 +33,17 @@ export function gridLines(grid: GridSpec, b: Bounds): { lats: number[]; lngs: nu
   return { lats, lngs }
 }
 
-/** Cell 중심 ±반 칸 사각형 범위. 격자 검증 전이면 null(점으로 표시). */
-export function cellBounds(cell: MapCell, grid: GridSpec | null): Bounds | null {
-  if (!grid || grid.status !== 'VERIFIED') return null
-  const halfLat = grid.latitudeStepDeg / 2
-  const halfLng = grid.longitudeStepDeg / 2
+/** Cell 중심에서 사각형 변까지의 거리(m). 250m Cell의 반. */
+const CELL_HALF_METERS = 125
+const METERS_PER_DEG_LAT = 111_320
+
+/**
+ * Cell 중심 ±125m 사각형 범위 (변이 정남북·정동서인 근사).
+ * Cell 데이터에는 중심 좌표만 있으므로 격자 검증 여부와 관계없이 이 근사로 그린다.
+ */
+export function cellBounds(cell: MapCell): Bounds {
+  const halfLat = CELL_HALF_METERS / METERS_PER_DEG_LAT
+  const halfLng = CELL_HALF_METERS / (METERS_PER_DEG_LAT * Math.cos((cell.latitude * Math.PI) / 180))
   return {
     south: cell.latitude - halfLat,
     west: cell.longitude - halfLng,

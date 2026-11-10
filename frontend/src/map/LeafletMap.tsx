@@ -65,11 +65,10 @@ function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, ce
     layer.allCells.clearLayers()
     const style = { renderer: layer.canvas, color: ALL_CELL_COLOR, weight: 1, opacity: 0.7, fillOpacity: 0.06, interactive: false }
     for (const cell of allCells ?? []) {
-      const b = cellBounds(cell, grid)
-      if (b) L.rectangle([[b.south, b.west], [b.north, b.east]], style).addTo(layer.allCells)
-      else L.circleMarker([cell.latitude, cell.longitude], { ...style, radius: 2 }).addTo(layer.allCells)
+      const b = cellBounds(cell)
+      L.rectangle([[b.south, b.west], [b.north, b.east]], style).addTo(layer.allCells)
     }
-  }, [allCells, grid])
+  }, [allCells])
 
   // 게시대 마커 (게시대 자체 위경도). 행정용은 회색 사각형.
   useEffect(() => {
