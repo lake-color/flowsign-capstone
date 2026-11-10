@@ -11,14 +11,21 @@ interface Props extends MapProps {
   onShowGridChange: (v: boolean) => void
   showCells: boolean
   onShowCellsChange: (v: boolean) => void
+  showAllCells: boolean
+  onShowAllCellsChange: (v: boolean) => void
+  /** 통신사 Cell 레이어 안내 문구 (예: 범위가 넓어 확대 필요) */
+  allCellsNotice: string | null
 }
 
 /**
  * 지도 영역. Naver Maps(1순위)와 Leaflet(대안)을 같은 props로 바꿔 끼운다.
- * 250m 격자선(체크박스, /meta.grid로 화면 범위만 계산)과 선택 게시대 3×3 Cell 레이어를 켜고 끈다.
- * 지도 전체 인구 표시는 범위에서 제외되어 있다.
+ * 250m 격자선(/meta.grid로 화면 범위만 계산), 통신사 Cell 전체(화면 범위만 /cells로 조회, 인구값 없음),
+ * 선택 게시대 3×3 Cell(인구 포함) 레이어를 켜고 끈다. 지도 전체 인구 표시는 범위에서 제외되어 있다.
  */
-function MapView({ provider, onProviderChange, onShowGridChange, showCells, onShowCellsChange, ...mapProps }: Props) {
+function MapView({
+  provider, onProviderChange, onShowGridChange, showCells, onShowCellsChange,
+  showAllCells, onShowAllCellsChange, allCellsNotice, ...mapProps
+}: Props) {
   const gridReady = mapProps.grid?.status === 'VERIFIED'
   return (
     <section className="panel map-view">
@@ -35,6 +42,10 @@ function MapView({ provider, onProviderChange, onShowGridChange, showCells, onSh
             onChange={(e) => onShowGridChange(e.target.checked)} /> 250m 격자선
         </label>
         <label>
+          <input type="checkbox" checked={showAllCells}
+            onChange={(e) => onShowAllCellsChange(e.target.checked)} /> 통신사 Cell
+        </label>
+        <label>
           <input type="checkbox" disabled={!mapProps.selectedBoardId} checked={showCells}
             onChange={(e) => onShowCellsChange(e.target.checked)} /> 3×3 Cell 보기
         </label>
@@ -44,6 +55,7 @@ function MapView({ provider, onProviderChange, onShowGridChange, showCells, onSh
           ))}
         </div>
       </div>
+      {allCellsNotice && <div className="map-notice">{allCellsNotice}</div>}
       {provider === 'naver' ? <NaverMap {...mapProps} /> : <LeafletMap {...mapProps} />}
     </section>
   )

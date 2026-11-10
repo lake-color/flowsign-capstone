@@ -67,6 +67,21 @@ export interface CellItem {
   population: PopulationValue
 }
 
+/** 지도 Cell 레이어용 통신사 Cell 중심 (GET /cells, 인구값 없음) */
+export interface MapCell {
+  cellId: string
+  latitude: number
+  longitude: number
+}
+
+/** 지도 화면 범위 (위경도) */
+export interface Bounds {
+  south: number
+  west: number
+  north: number
+  east: number
+}
+
 /** 상세 인구 조회 조건 (API 명세 4.4 쿼리) */
 export interface PopulationQuery {
   gender: 'ALL' | 'MALE' | 'FEMALE'
@@ -87,4 +102,8 @@ export interface MapProps {
   grid: GridSpec | null
   showGrid: boolean
   cells: CellItem[] | null
+  /** 화면 범위 안의 통신사 Cell 전체 (레이어를 껐으면 null) */
+  allCells: MapCell[] | null
+  /** 지도 이동·확대가 끝날 때마다 화면 범위를 알린다 */
+  onViewChange: (bounds: Bounds) => void
 }

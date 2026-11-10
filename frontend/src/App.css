@@ -183,6 +183,14 @@
   vertical-align: -1px;
 }
 
+.map-notice {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: #f0f9ff;
+  color: #075985;
+  border-bottom: 1px solid #bae6fd;
+}
+
 .map-canvas {
   position: relative;
   flex: 1;

@@ -2,15 +2,17 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
 import type { MapProps } from '../types'
-import { GRID_MIN_PIXELS, PURPOSE_COLOR, formatValue, gridLines } from './common'
+import { ALL_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, formatValue, gridLines } from './common'
 
 /**
  * Leaflet 지도 (대안). 키 없이 OpenStreetMap 타일로 동작한다.
  */
-function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells }: MapProps) {
+function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
-  const layers = useRef<{ markers: L.LayerGroup; grid: L.LayerGroup; cells: L.LayerGroup } | null>(null)
+  const layers = useRef<{
+    markers: L.LayerGroup; grid: L.LayerGroup; cells: L.LayerGroup; allCells: L.LayerGroup; canvas: L.Renderer
+  } | null>(null)
   const fitted = useRef(false)
 
   // 지도 생성 (한 번)
@@ -21,7 +23,10 @@ function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, ce
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map)
+    // 추가 순서가 그리는 순서다: 통신사 Cell 전체(맨 아래) → 격자선 → 3×3 → 마커
     layers.current = {
+      allCells: L.layerGroup().addTo(map),
+      canvas: L.canvas({ padding: 0.5 }), // Cell 수천 개는 SVG보다 canvas가 가볍다
       grid: L.layerGroup().addTo(map),
       cells: L.layerGroup().addTo(map),
       markers: L.layerGroup().addTo(map),
@@ -37,6 +42,34 @@ function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, ce
       fitted.current = false
     }
   }, [])
+
+  // 지도 이동·확대가 끝나면 화면 범위를 알린다 (통신사 Cell 조회용)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const emit = () => {
+      const b = map.getBounds()
+      onViewChange({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() })
+    }
+    emit()
+    map.on('moveend', emit)
+    return () => {
+      map.off('moveend', emit)
+    }
+  }, [onViewChange])
+
+  // 통신사 Cell 전체 (화면 범위만, 인구값 없음)
+  useEffect(() => {
+    const layer = layers.current
+    if (!layer) return
+    layer.allCells.clearLayers()
+    const style = { renderer: layer.canvas, color: ALL_CELL_COLOR, weight: 1, opacity: 0.7, fillOpacity: 0.06, interactive: false }
+    for (const cell of allCells ?? []) {
+      const b = cellBounds(cell, grid)
+      if (b) L.rectangle([[b.south, b.west], [b.north, b.east]], style).addTo(layer.allCells)
+      else L.circleMarker([cell.latitude, cell.longitude], { ...style, radius: 2 }).addTo(layer.allCells)
+    }
+  }, [allCells, grid])
 
   // 게시대 마커 (게시대 자체 위경도). 행정용은 회색 사각형.
   useEffect(() => {

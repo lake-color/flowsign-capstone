@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MapProps } from '../types'
-import { GRID_MIN_PIXELS, PURPOSE_COLOR, formatValue, gridLines } from './common'
+import { ALL_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, formatValue, gridLines } from './common'
 
 /**
  * Naver Maps JS v3 지도 (1순위). VITE_NAVER_MAP_CLIENT_ID가 있어야 동작한다.
@@ -31,12 +31,14 @@ function loadSdk(): Promise<Naver> {
   return sdkPromise
 }
 
-function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells }: MapProps) {
+function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [naver, setNaver] = useState<Naver | null>(null)
   const [error, setError] = useState<string | null>(CLIENT_ID ? null : 'VITE_NAVER_MAP_CLIENT_ID가 설정되지 않았습니다.')
   const mapRef = useRef<Naver>(null)
-  const overlays = useRef<{ markers: Naver[]; grid: Naver[]; cells: Naver[] }>({ markers: [], grid: [], cells: [] })
+  const overlays = useRef<{ markers: Naver[]; grid: Naver[]; cells: Naver[]; allCells: Naver[] }>({
+    markers: [], grid: [], cells: [], allCells: [],
+  })
   const fitted = useRef(false)
 
   // SDK 로드 + 지도 생성
@@ -61,10 +63,39 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
     }
   }, [])
 
-  const clear = (key: 'markers' | 'grid' | 'cells') => {
+  const clear = (key: 'markers' | 'grid' | 'cells' | 'allCells') => {
     overlays.current[key].forEach((o) => o.setMap(null))
     overlays.current[key] = []
   }
+
+  // 지도 이동·확대가 끝나면(idle) 화면 범위를 알린다 (통신사 Cell 조회용)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!naver || !map) return
+    const emit = () => {
+      const b = map.getBounds()
+      onViewChange({ south: b.getSW().lat(), west: b.getSW().lng(), north: b.getNE().lat(), east: b.getNE().lng() })
+    }
+    emit()
+    const listener = naver.maps.Event.addListener(map, 'idle', emit)
+    return () => naver.maps.Event.removeListener(listener)
+  }, [naver, onViewChange])
+
+  // 통신사 Cell 전체 (화면 범위만, 인구값 없음). 다른 레이어보다 아래(zIndex)에 둔다.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!naver || !map) return
+    clear('allCells')
+    const style = { map, strokeColor: ALL_CELL_COLOR, strokeWeight: 1, strokeOpacity: 0.7, fillColor: ALL_CELL_COLOR,
+      fillOpacity: 0.06, clickable: false, zIndex: 0 }
+    for (const cell of allCells ?? []) {
+      const b = cellBounds(cell, grid)
+      overlays.current.allCells.push(b
+        ? new naver.maps.Rectangle({ ...style, bounds: new naver.maps.LatLngBounds(
+          new naver.maps.LatLng(b.south, b.west), new naver.maps.LatLng(b.north, b.east)) })
+        : new naver.maps.Circle({ ...style, center: new naver.maps.LatLng(cell.latitude, cell.longitude), radius: 15 }))
+    }
+  }, [naver, allCells, grid])
 
   // 게시대 마커 (게시대 자체 위경도). 행정용은 회색 사각형.
   useEffect(() => {

@@ -4,10 +4,10 @@ import BoardDetail from './components/BoardDetail'
 import FilterPanel from './components/FilterPanel'
 import { DEFAULT_QUERY } from './constants'
 import MapView, { type MapProvider } from './components/MapView'
-import type { Board, BoardPopulation, CellItem, Meta, PopulationQuery } from './types'
+import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery } from './types'
 import './App.css'
 
-// 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1
+// 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1&allcells=1
 const params = new URLSearchParams(window.location.search)
 const envProvider: MapProvider =
   import.meta.env.VITE_MAP_PROVIDER === 'naver' && import.meta.env.VITE_NAVER_MAP_CLIENT_ID ? 'naver' : 'leaflet'
@@ -22,6 +22,10 @@ function App() {
   const [provider, setProvider] = useState<MapProvider>(INITIAL_PROVIDER)
   const [showGrid, setShowGrid] = useState(params.get('grid') === '1')
   const [showCells, setShowCells] = useState(params.get('cells') === '1')
+  const [showAllCells, setShowAllCells] = useState(params.get('allcells') === '1')
+  const [view, setView] = useState<Bounds | null>(null)
+  const [allCells, setAllCells] = useState<MapCell[] | null>(null)
+  const [allCellsNotice, setAllCellsNotice] = useState<string | null>(null)
   const [query, setQuery] = useState<PopulationQuery>(DEFAULT_QUERY)
 
   const [selectedId, setSelectedId] = useState<string | null>(params.get('board'))
@@ -80,6 +84,25 @@ function App() {
     return () => ctrl.abort()
   }, [selectedId, showCells, query])
 
+  // 통신사 Cell 레이어: 켜져 있으면 지도 이동이 끝날 때마다 화면 범위의 Cell만 다시 조회
+  useEffect(() => {
+    if (!showAllCells || !view) {
+      setAllCells(null)
+      setAllCellsNotice(null)
+      return
+    }
+    const ctrl = new AbortController()
+    api.cellsInView(view, ctrl.signal)
+      .then((r) => {
+        setAllCells(r.cells)
+        setAllCellsNotice(r.truncated ? `화면 범위의 Cell이 ${r.limit.toLocaleString()}개를 넘습니다. 지도를 확대하면 표시됩니다.` : null)
+      })
+      .catch((e: Error) => {
+        if (!ctrl.signal.aborted) setAllCellsNotice(`통신사 Cell을 불러오지 못했습니다: ${e.message}`)
+      })
+    return () => ctrl.abort()
+  }, [showAllCells, view])
+
   const selectBoard = useCallback((id: string) => setSelectedId(id), [])
 
   return (
@@ -105,6 +128,11 @@ function App() {
           showCells={showCells}
           onShowCellsChange={setShowCells}
           cells={cells}
+          showAllCells={showAllCells}
+          onShowAllCellsChange={setShowAllCells}
+          allCells={allCells}
+          allCellsNotice={allCellsNotice}
+          onViewChange={setView}
         />
         <BoardDetail board={board} population={population} loading={detailLoading} error={detailError} />
       </main>
