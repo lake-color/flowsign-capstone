@@ -154,16 +154,11 @@ uv run data-processing build fake --load
    uv run data-processing load real
    ```
 
-### 3. Backend 설정 반영
+적재가 끝나면 Backend가 DB에 기록된 세트 종류(실제/가짜)를 읽어 응답에 자동으로 표시합니다. 설정을 바꾸거나 Backend를 재시작할 필요가 없습니다.
 
-**실제 데이터(2.2)를 적재했을 때만** 합니다.
+가짜 데이터로 돌아가려면 `uv run data-processing load fake`만 다시 실행합니다. 두 세트는 폴더가 따로라 서로 지워지지 않습니다.
 
-1. `backend/src/main/resources/application.yml`의 `flowsign.dataset.synthetic`을 `false`로 바꿉니다. **이 변경은 커밋하지 않습니다.**
-2. 1번 터미널에서 Backend를 `Ctrl + C`로 끄고 `gradlew.bat bootRun`으로 다시 실행합니다.
-
-가짜 데이터로 돌아가려면 `uv run data-processing load fake`를 실행하고 `synthetic`을 `true`로 되돌린 뒤 Backend를 재시작합니다. 두 세트는 폴더가 따로라 서로 지워지지 않습니다.
-
-### 4. Frontend 실행
+### 3. Frontend 실행
 
 세 번째 터미널에서 실행합니다.
 
@@ -242,7 +237,7 @@ data/
 
 **`load`에서 테이블이 없다는 오류** (DB 적재 실패, 롤백됨)
 
-- Backend를 한 번도 실행하지 않아 Flyway migration이 적용되지 않은 상태입니다. Backend를 먼저 실행합니다.
+- Backend를 한 번도 실행하지 않았거나 코드를 받은 뒤 다시 실행하지 않아, Flyway migration이 적용되지 않은 상태입니다. Backend를 먼저 (다시) 실행합니다.
 
 **Backend 시작 시 Flyway 검증(checksum) 오류**
 
@@ -413,7 +408,7 @@ gradlew.bat test
 
 - `bootRun`: 개발 서버 http://localhost:8080
 - `test`: Testcontainers가 임시 PostgreSQL을 띄웁니다. Docker는 필요하지만 `.env`나 로컬 DB는 필요 없습니다.
-- DB 구조를 바꿀 때는 기존 migration을 고치지 않고 `V2__...sql`처럼 새 파일을 추가합니다. (`ddl-auto: validate`)
+- DB 구조를 바꿀 때는 기존 migration을 고치지 않고 `V3__...sql`처럼 새 파일을 추가합니다. (`ddl-auto: validate`)
 
 **구현된 API** — 응답 형식은 명세 2장 `{data, meta}` / `{error}`
 

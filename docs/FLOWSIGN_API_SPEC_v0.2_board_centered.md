@@ -92,7 +92,7 @@
 - 전처리기 출력: `population_fact.csv`(키 6개 + 인구 6종), `cell.csv`(Cell ID·중심 위경도·시 이름·동 이름, Cell당 1행), `preprocess_report.json`(행 수·NULL 수·`UNKNOWN` 수·음수 값 수·연월 목록·좌표 범위. **원본 행은 담지 않음**).
 - `UNKNOWN` 행끼리는 키(Cell·월·주중구분·성별·연령·시간대)가 겹칠 수 있다. `population_fact`에는 키 UNIQUE 제약을 두지 않고, 조회·집계는 항상 `SUM`으로 한다.
 - 개발·테스트는 가짜 데이터로 한다(`data-processing build fake`, 실제 게시대 3×3 주변에 가상 Cell과 난수 인구 생성). 실제 원본과 실제 매핑 파일은 저장소에 두지 않는다.
-- **데이터 세트 분리:** 원본은 `data/raw/`에만 두고, 결과는 `data/generated_real/`(실제 통신사 원본 기반)과 `data/generated_fake/`(가짜 통신사 데이터 기반)에 각각 독립된 한 벌로 만든다. 가짜 세트의 `board_cell`은 실제 게시대 × 가상 Cell이므로 실제 매핑 결과가 아니다. 리포트에 `dataset`과 입력 파일 이름을 기록하고, 생성·적재 전에 세트가 모드와 맞는지 검증한다. 실제 모드는 원본이나 매핑 파일이 없으면 중단하며 가짜 데이터로 대신하지 않는다. DB 적재는 트랜잭션 하나로 테이블 6개를 교체한다.
+- **데이터 세트 분리:** 원본은 `data/raw/`에만 두고, 결과는 `data/generated_real/`(실제 통신사 원본 기반)과 `data/generated_fake/`(가짜 통신사 데이터 기반)에 각각 독립된 한 벌로 만든다. 가짜 세트의 `board_cell`은 실제 게시대 × 가상 Cell이므로 실제 매핑 결과가 아니다. 리포트에 `dataset`과 입력 파일 이름을 기록하고, 생성·적재 전에 세트가 모드와 맞는지 검증한다. 실제 모드는 원본이나 매핑 파일이 없으면 중단하며 가짜 데이터로 대신하지 않는다. DB 적재는 트랜잭션 하나로 테이블 6개를 교체하고, 같은 트랜잭션에서 세트 종류(`real`/`fake`)를 `dataset_info` 테이블에 기록한다. 백엔드는 요청마다 이 기록을 읽어 `meta.datasetVersion`(`<세트>-<적재일 YYYYMMDD>`)과 `meta.syntheticData`를 채운다. 기록이 없으면 `datasetVersion`은 `null`, `syntheticData`는 `true`다.
 
 ### 1.2 게시대 ↔ Cell 매핑 규칙
 

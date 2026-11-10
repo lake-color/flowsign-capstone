@@ -11,7 +11,7 @@
   4. 매핑              mapping.py       board_cell.csv, board_population.csv, grid_spec.csv
   5. 세트 검증          pipeline.py      validate_set(): 파일·출처(dataset)·ID 일치
   6. 교체              pipeline.py      <세트>.building → <세트>
-  7. DB 적재           load.py          load(): 검증 후 테이블 6개를 트랜잭션 하나로 교체
+  7. DB 적재           load.py          load(): 검증 후 테이블 6개를 트랜잭션 하나로 교체, 세트 종류 기록
 
 폴더는 모드로 고정한다. 사용자는 경로를 입력하지 않으므로 다른 세트 폴더에 쓰는 실수가 생기지 않는다.
   data/raw/             사람이 넣는 실제 원본만. 어떤 명령도 여기에 쓰지 않는다.
