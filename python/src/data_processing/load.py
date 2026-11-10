@@ -1,7 +1,8 @@
 """데이터 세트 폴더의 표준 CSV를 PostgreSQL에 적재한다 (테이블은 Flyway migration이 이미 만든 상태).
 
 로컬 PC에 psql을 설치하지 않아도 되도록 docker compose의 PostgreSQL 컨테이너 안의 psql을 쓴다.
-CSV를 컨테이너 임시 폴더로 복사한 뒤, TRUNCATE와 모든 COPY를 **트랜잭션 하나**로 실행한다.
+CSV를 컨테이너 임시 폴더로 복사한 뒤, TRUNCATE와 모든 COPY, 세트 종류 기록을 **트랜잭션 하나**로 실행한다.
+세트 종류(real/fake)는 dataset_info 테이블에 기록하고, 백엔드가 이 값을 읽어 응답에 표시한다.
 중간에 하나라도 실패하면 전체가 롤백되어 기존 DB 데이터가 그대로 남는다.
 복사한 임시 파일은 성공·실패와 관계없이 지운다.
 """
@@ -23,20 +24,26 @@ def _run(cmd: list[str], what: str) -> str:
     return stdout
 
 
-def load_set(set_dir: Path, container: str = "telecom-postgres",
+def load_set(set_dir: Path, dataset: str, container: str = "telecom-postgres",
              db: str = "telecom", user: str = "telecom") -> dict[str, int]:
-    """set_dir의 CSV 6개로 테이블 6개를 한 트랜잭션 안에서 교체한다. 테이블별 적재 행 수를 반환한다."""
+    """set_dir의 CSV 6개로 테이블 6개를 한 트랜잭션 안에서 교체하고 세트 종류(dataset)를 기록한다.
+
+    테이블별 적재 행 수를 반환한다.
+    """
+    if dataset not in ("real", "fake"):
+        raise ValueError(f"dataset은 real 또는 fake여야 합니다: {dataset}")
     files = {table: set_dir / f"{table}.csv" for table in LOAD_TABLES}
     missing = [p.name for p in files.values() if not p.exists()]
     if missing:
         raise FileNotFoundError(f"적재할 CSV가 없습니다: {missing}")
 
     remote_dir = f"/tmp/flowsign_load_{uuid.uuid4().hex}"
-    lines = ["TRUNCATE " + ", ".join(reversed(LOAD_TABLES)) + ";"]
+    lines = ["TRUNCATE " + ", ".join(["dataset_info", *reversed(LOAD_TABLES)]) + ";"]
     for table, path in files.items():
         with path.open(encoding="utf-8") as f:
             header = f.readline().strip()
         lines.append(f"\\copy {table} ({header}) FROM '{remote_dir}/{path.name}' WITH (FORMAT csv, HEADER true)")
+    lines.append(f"INSERT INTO dataset_info (id, dataset) VALUES (1, '{dataset}');")
     script = set_dir / ".load.sql"
     script.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

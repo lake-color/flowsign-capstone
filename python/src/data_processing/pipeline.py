@@ -288,15 +288,15 @@ def load(mode: str, data_dir: Path = DATA_DIR, log=print, **db) -> dict[str, int
 
     steps.start(2, "적재 (트랜잭션 하나, 실패 시 전체 롤백)")
     try:
-        counts = load_set(directory, **db)
+        counts = load_set(directory, mode, **db)
     except Exception as error:
-        raise DataSetError(f"{steps.current} 단계에서 오류 (기존 DB 데이터는 그대로): {error}") from error
+        message = f"{steps.current} 단계에서 오류 (기존 DB 데이터는 그대로): {error}"
+        if "dataset_info" in str(error):
+            message += "\ndataset_info 테이블이 없다면 Backend를 한 번 실행해 DB 구조를 최신으로 만든 뒤 다시 시도하세요."
+        raise DataSetError(message) from error
     for table, n in counts.items():
         log(_kv(table, f"{_n(n)}행"))
 
-    if mode == "real":
-        note = "※ backend application.yml의 flowsign.dataset.synthetic을 false로 바꾸세요 (커밋하지 말 것)."
-    else:
-        note = "※ backend application.yml의 flowsign.dataset.synthetic이 true인지 확인하세요."
-    _footer(log, f"완료   (소요 {_elapsed(start)})", note)
+    log(_kv("세트 종류 기록", mode, "Backend가 읽어 응답에 표시, 재시작 불필요"))
+    _footer(log, f"완료   (소요 {_elapsed(start)})")
     return counts
