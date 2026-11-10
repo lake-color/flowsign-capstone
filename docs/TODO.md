@@ -24,7 +24,7 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 - [x] 원본 컬럼명·코드값을 매핑 파일로 분리 (`raw_mapping.json`은 로컬 전용, 공개용 예시 `raw_mapping.example.json`)
 - [x] 매핑 형식 가짜 데이터 생성기 (`fake_data.py`, 실제 게시대 3×3 주변 Cell만 생성)
 - [x] NULL 처리 규칙과 품질 리포트(`preprocess_report.json`)
-- [ ] 실제 파일로 전처리기 실행해 매핑 오류·NULL 위치 확인 (리포트만 공유)
+- [x] 실제 파일로 전처리기 실행해 매핑 오류·NULL 위치 확인 (리포트만 공유)
 - [ ] 연령 `UNKNOWN`을 API에서 언제 포함할지 결정
 - [x] 원본 CSV 정제 → `population_fact.csv`, `cell.csv` 출력 (`preprocess.py`, 여러 파일로 나뉜 원본도 한 번에 처리)
 - [x] 게시대 원본 정제 (`board` 표준 CSV, `board.py` — 공공데이터포털 CSV에서 대상 3개 시 445개)
@@ -65,7 +65,7 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 - [x] 250m 격자선 표시와 체크박스 켜기/끄기 (픽셀 기준은 임시값)
 - [x] 선택 게시대의 3×3 Cell 표시
 - [x] 통신사 Cell 전체 레이어 (`GET /cells`, 화면 범위만 조회, 인구값 없음)
-- [ ] 실제 원본 Cell로 레이어가 지도와 맞는지 확인
+- [x] 실제 원본 Cell로 레이어 표시 확인 (Cell은 중심 ±125m 근사 사각형으로 그림)
 - [x] `FilterPanel.tsx` 조건 입력 폼과 draft/적용 상태 관리 (데모: 상세 인구 조회 조건)
 - [ ] 추천 조건(지역·게시대 용도) 추가와 추천 결과 목록
 - [x] `BoardDetail.tsx`에 선택한 게시대 정보와 3×3 인구 표시
