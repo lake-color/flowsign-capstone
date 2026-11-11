@@ -97,6 +97,16 @@ copy frontend\.env.example frontend\.env
 - **Naver 지도**는 Client ID가 없으면 안내 문구만 표시합니다.
 - Naver 지도를 쓰려면 NCP 콘솔의 Maps 애플리케이션에 웹 서비스 URL `http://localhost:5173`도 등록합니다.
 
+### `python/raw_mapping.json` — 원본 매핑 (실제 데이터만)
+
+```cmd
+copy python\raw_mapping.example.json python\raw_mapping.json
+```
+
+- 복사한 뒤 통신사 원본의 실제 컬럼명·코드값으로 채웁니다. 형식은 예시 파일의 `description`을 참고합니다.
+- 가짜 데이터만 쓸 때는 필요 없습니다. 파일이 없으면 예시 파일을 그대로 씁니다.
+- `raw_mapping.json`은 Git에 올리지 않습니다(`.gitignore`로 제외).
+
 ---
 
 ## 실행 방법
