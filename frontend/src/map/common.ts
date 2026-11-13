@@ -1,4 +1,4 @@
-import type { Bounds, GridSpec, MapCell, Purpose } from '../types'
+import type { Bounds, GridSpec, MapCell, Purpose } from '../lib/types'
 
 /** 격자 한 칸이 화면에서 이 픽셀보다 작으면 격자선을 그리지 않는다. 임시값(명세 9장 미정). */
 export const GRID_MIN_PIXELS = 12
@@ -9,12 +9,6 @@ export const PURPOSE_COLOR: Record<Purpose, string> = {
   COMMERCIAL: '#2563eb',
   MIXED: '#16a34a',
   ADMINISTRATIVE: '#6b7280',
-}
-
-export const PURPOSE_LABEL: Record<Purpose, string> = {
-  COMMERCIAL: '상업용',
-  MIXED: '겸용',
-  ADMINISTRATIVE: '행정용',
 }
 
 /** 화면 범위 안의 격자선 좌표. 위도선은 [lat, west→east], 경도선은 [lng, south→north]. */
@@ -54,8 +48,3 @@ export function cellBounds(cell: MapCell): Bounds {
 
 /** 통신사 Cell 레이어 선 색 */
 export const ALL_CELL_COLOR = '#0ea5e9'
-
-/** 표시용 숫자 포맷 */
-export function formatValue(v: number | null): string {
-  return v === null ? '-' : Math.round(v).toLocaleString('ko-KR')
-}

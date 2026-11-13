@@ -315,9 +315,10 @@ flowsign/
 │   ├── .env.example                # 지도 설정 예시
 │   └── src/
 │       ├── App.tsx                 # 화면 상태와 API 호출 흐름
-│       ├── api.ts / types.ts       # fetch 기반 API 모듈, 응답 타입
-│       ├── constants.ts            # 조건 코드·표시 이름
-│       ├── components/             # FilterPanel(조건) / MapView(지도 툴바) / BoardDetail(상세)
+│       ├── lib/
+│       │   ├── api.ts / types.ts   # fetch 기반 API 모듈, 응답 타입
+│       │   └── constants.ts        # 조건 코드·표시 이름
+│       ├── components/             # FilterPanel(조건) / MapView(지도 툴바) / RightPanel(우측 틀) / BoardDetail(상세)
 │       └── map/                    # NaverMap, LeafletMap, 격자선·Cell 사각형 계산(common.ts)
 │
 ├── backend/                        # Spring Boot

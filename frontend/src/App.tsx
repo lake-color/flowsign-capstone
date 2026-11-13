@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { api } from './api'
-import BoardDetail from './components/BoardDetail'
-import FilterPanel from './components/FilterPanel'
-import { DEFAULT_QUERY } from './constants'
-import MapView, { type MapProvider } from './components/MapView'
-import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery } from './types'
 import './App.css'
+import { api } from './lib/api'
+import FilterPanel from './components/FilterPanel'
+import RightPanel from './components/RightPanel'
+import { DEFAULT_QUERY } from './lib/constants'
+import MapView, { type MapProvider } from './components/MapView'
+import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery } from './lib/types'
 
 // 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1&allcells=1
 const params = new URLSearchParams(window.location.search)
@@ -145,7 +145,7 @@ function App() {
           allCellsNotice={allCellsNotice}
           onViewChange={setView}
         />
-        <BoardDetail board={board} population={population} loading={detailLoading} error={detailError} />
+        <RightPanel board={board} population={population} loading={detailLoading} error={detailError} />
       </main>
 
       <footer className="app-footer">

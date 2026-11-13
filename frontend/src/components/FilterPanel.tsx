@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { AGE_LABEL, DEFAULT_QUERY, TIME_BANDS, timeLabel } from '../constants'
-import type { PopulationQuery } from '../types'
+import { AGE_LABEL, DEFAULT_QUERY, TIME_BANDS, timeLabel } from '../lib/constants'
+import type { PopulationQuery } from '../lib/types'
+import './FilterPanel.css'
 
 interface Props {
   applied: PopulationQuery

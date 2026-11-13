@@ -1,4 +1,4 @@
-import type { PopulationQuery } from './types'
+import type { PopulationQuery, Purpose } from './types'
 
 // 조건·차트 공통 코드와 표시 이름
 
@@ -18,4 +18,17 @@ export const DEFAULT_QUERY: PopulationQuery = {
   season: 'SUMMER',
   month: 1,
   dayType: 'ALL',
+}
+
+export const PURPOSE_LABEL: Record<Purpose, string> = {
+  COMMERCIAL: '상업용',
+  MIXED: '겸용',
+  ADMINISTRATIVE: '행정용',
+}
+
+export const CITY_LABEL: Record<string, string> = { ANYANG: '안양시', GUNPO: '군포시', SIHEUNG: '시흥시' }
+
+/** 표시용 숫자 포맷 */
+export function formatValue(v: number | null): string {
+  return v === null ? '-' : Math.round(v).toLocaleString('ko-KR')
 }

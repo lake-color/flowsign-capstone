@@ -88,7 +88,7 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 
 ## 7. React ↔ Spring 실제 연동
 
-- [x] API 호출 모듈과 응답 타입 정의 (`src/api.ts`, `src/types.ts`)
+- [x] API 호출 모듈과 응답 타입 정의 (`src/lib/api.ts`, `src/lib/types.ts`)
 - [x] 로컬 연동 경로 → Vite dev server 프록시(`/api` → `localhost:8080`) 사용, CORS 미사용
 - [x] 화면의 임시 placeholder를 실제 API 데이터로 교체 (추천·문의 제외)
 - [x] 로딩 및 에러 상태 처리 (데모 수준: 상세 로딩 문구, 오류 배너)

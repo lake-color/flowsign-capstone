@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import type { MapProps } from '../types'
-import { ALL_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, formatValue, gridLines } from './common'
+import { formatValue } from '../lib/constants'
+import type { MapProps } from '../lib/types'
+import { ALL_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, gridLines } from './common'
 
 /**
  * Naver Maps JS v3 지도 (1순위). VITE_NAVER_MAP_CLIENT_ID가 있어야 동작한다.

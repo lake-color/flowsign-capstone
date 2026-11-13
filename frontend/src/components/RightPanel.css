@@ -1,0 +1,74 @@
+/* 게시대 상세 */
+.info {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.info dt {
+  color: var(--text);
+}
+
+.info dd {
+  margin: 0;
+  color: var(--text-h);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stats div {
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--panel-bg);
+}
+
+.stats b {
+  display: block;
+  font-size: 16px;
+  color: var(--text-h);
+}
+
+.stats span {
+  font-size: 12px;
+}
+
+.bars {
+  display: grid;
+  gap: 3px;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 62px 1fr 60px;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.bar-track {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--panel-bg);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.bar-fill.dim {
+  opacity: 0.3;
+}
+
+.bar-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

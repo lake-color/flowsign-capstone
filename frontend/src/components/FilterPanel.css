@@ -1,0 +1,45 @@
+/* 조건 패널 */
+.filter-panel fieldset {
+  border: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 13px;
+}
+
+.filter-panel legend {
+  font-weight: 600;
+  color: var(--text-h);
+  margin-bottom: 4px;
+}
+
+.filter-panel select {
+  font: inherit;
+  padding: 2px 4px;
+}
+
+.filter-panel button {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.filter-panel button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.filter-panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

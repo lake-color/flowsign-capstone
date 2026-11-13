@@ -1,8 +1,9 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
-import type { MapProps } from '../types'
-import { ALL_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, formatValue, gridLines } from './common'
+import { formatValue } from '../lib/constants'
+import type { MapProps } from '../lib/types'
+import { ALL_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, gridLines } from './common'
 
 /**
  * Leaflet 지도 (대안). 키 없이 OpenStreetMap 타일로 동작한다.

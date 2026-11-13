@@ -84,52 +84,6 @@
   background: #fef2f2;
 }
 
-/* 조건 패널 */
-.filter-panel fieldset {
-  border: none;
-  margin: 0 0 12px;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  font-size: 13px;
-}
-
-.filter-panel legend {
-  font-weight: 600;
-  color: var(--text-h);
-  margin-bottom: 4px;
-}
-
-.filter-panel select {
-  font: inherit;
-  padding: 2px 4px;
-}
-
-.filter-panel button {
-  display: block;
-  width: 100%;
-  margin-top: 8px;
-  padding: 8px;
-  font: inherit;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--panel-bg);
-  color: var(--text-h);
-  cursor: pointer;
-}
-
-.filter-panel button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.filter-panel button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* 지도 */
 .map-view {
   display: flex;
@@ -205,81 +159,6 @@
   border-radius: 6px;
   background: #fef2f2;
   color: #991b1b;
-}
-
-/* 게시대 상세 */
-.info {
-  display: grid;
-  grid-template-columns: 70px 1fr;
-  gap: 4px 8px;
-  margin: 0;
-  font-size: 13px;
-}
-
-.info dt {
-  color: var(--text);
-}
-
-.info dd {
-  margin: 0;
-  color: var(--text-h);
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.stats div {
-  padding: 8px;
-  border-radius: 6px;
-  background: var(--panel-bg);
-}
-
-.stats b {
-  display: block;
-  font-size: 16px;
-  color: var(--text-h);
-}
-
-.stats span {
-  font-size: 12px;
-}
-
-.bars {
-  display: grid;
-  gap: 3px;
-}
-
-.bar-row {
-  display: grid;
-  grid-template-columns: 62px 1fr 60px;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-}
-
-.bar-track {
-  height: 10px;
-  border-radius: 3px;
-  background: var(--panel-bg);
-  overflow: hidden;
-}
-
-.bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--accent);
-}
-
-.bar-fill.dim {
-  opacity: 0.3;
-}
-
-.bar-value {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 
 .app-footer {

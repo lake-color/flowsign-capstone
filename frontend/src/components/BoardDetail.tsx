@@ -1,6 +1,5 @@
-import { PURPOSE_LABEL, formatValue } from '../map/common'
-import type { Board, BoardPopulation, DistributionPoint } from '../types'
-import { AGE_LABEL, timeLabel } from '../constants'
+import type { Board, BoardPopulation, DistributionPoint } from '../lib/types'
+import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, formatValue, timeLabel } from '../lib/constants'
 
 interface Props {
   board: Board | null
@@ -9,7 +8,6 @@ interface Props {
   error: string | null
 }
 
-const CITY_LABEL: Record<string, string> = { ANYANG: '안양시', GUNPO: '군포시', SIHEUNG: '시흥시' }
 const GENDER_LABEL: Record<string, string> = { MALE: '남성', FEMALE: '여성', UNKNOWN: '미상' }
 const SERVICE_LABEL: Record<string, string> = { RESIDENCE: '거주', WORK: '근무', VISIT: '방문' }
 
