@@ -1,11 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import './App.css'
 import { api } from './lib/api'
 import FilterPanel from './components/FilterPanel'
 import RightPanel from './components/RightPanel'
+import ThemeToggle, { type Theme } from './components/ThemeToggle'
 import { DEFAULT_QUERY } from './lib/constants'
 import MapView, { type MapProvider } from './map/MapView'
 import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery } from './lib/types'
+
+// 라이트/다크: 저장된 선택이 있으면 그것을, 없으면 OS 설정을 따른다.
+const THEME_KEY = 'flowsign-theme'
+function initialTheme(): Theme {
+  try {
+    const saved = localStorage.getItem(THEME_KEY)
+    if (saved === 'light' || saved === 'dark') return saved
+  } catch {
+    // 저장소를 쓸 수 없으면 OS 설정으로 시작한다.
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
 
 // 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1&allcells=1
 const params = new URLSearchParams(window.location.search)
@@ -27,6 +40,20 @@ function App() {
   const [allCells, setAllCells] = useState<MapCell[] | null>(null)
   const [allCellsNotice, setAllCellsNotice] = useState<string | null>(null)
   const [query, setQuery] = useState<PopulationQuery>(DEFAULT_QUERY)
+  const [theme, setTheme] = useState<Theme>(initialTheme)
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = theme
+  }, [theme])
+  const toggleTheme = useCallback(() => {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    try {
+      localStorage.setItem(THEME_KEY, next)
+    } catch {
+      // 저장하지 못해도 이번 화면에서는 바뀐다.
+    }
+  }, [theme])
 
   const [selectedId, setSelectedId] = useState<string | null>(params.get('board'))
   const [board, setBoard] = useState<Board | null>(null)
@@ -119,8 +146,16 @@ function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>FLOWSIGN</h1>
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path d="M6 20V6h12M6 13h9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </svg>
+          </span>
+          <h1>FLOWSIGN</h1>
+        </div>
         <p>유동인구 데이터 기반 옥외광고 게시대 추천 서비스 · 데모 초안</p>
+        <ThemeToggle theme={theme} onToggle={toggleTheme} />
       </header>
 
       {loadError && <div className="banner error">데이터를 불러오지 못했습니다: {loadError}</div>}
