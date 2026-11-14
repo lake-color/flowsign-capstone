@@ -24,7 +24,7 @@
   border-radius: 12px;
   background: none;
   color: var(--text);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.2;
   cursor: pointer;
@@ -33,6 +33,11 @@
 .side-tabs svg {
   width: 20px;
   height: 20px;
+}
+
+/* 4글자 이름은 2글자씩 두 줄로 나눠 가운데 맞춘다 */
+.tab-label {
+  text-align: center;
 }
 
 .side-tabs button:hover {

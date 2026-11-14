@@ -1,4 +1,21 @@
-/* 지도 영역: 지도 캔버스를 전체 배경으로 깔고, 도구 모음·범례·안내 문구를 위에 띄운다 */
+/* 지도 영역: 지도 캔버스를 전체 배경으로 깔고, 도구 모음·범례·안내 문구를 위에 띄운다.
+   좌우 패널에 가리지 않도록 지도 위 요소의 왼쪽·오른쪽 여백을 변수로 둔다.
+   왼쪽: 세로 탭 + 조건/추천 패널(410px), 접으면 세로 탭만(96px).
+   오른쪽: 상세 패널 폭(--right-w, 화면 폭에 비례해 360~400px) + 좌우 여백 32px, 접으면 '상세' 탭만(96px). */
+.app-body {
+  --map-left: 410px;
+  --right-w: clamp(360px, 27vw, 400px);
+  --map-right: calc(var(--right-w) + 32px);
+}
+
+.app-body.left-closed {
+  --map-left: 96px;
+}
+
+.app-body.right-closed {
+  --map-right: 96px;
+}
+
 .map-view {
   position: absolute;
   inset: 0;
@@ -14,13 +31,13 @@
 .map-toolbar {
   position: absolute;
   top: 16px;
-  left: 410px;
+  left: var(--map-left);
   z-index: 5;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 18px;
-  max-width: calc(100% - 410px - 410px);
+  max-width: calc(100% - var(--map-left) - var(--map-right));
   min-height: 46px;
   padding: 8px 14px;
   background: var(--panel);
@@ -63,6 +80,17 @@
   width: 1px;
   height: 22px;
   background: var(--border);
+}
+
+/* 노트북 폭(1366px 이하)에서는 구분선을 빼고 간격을 줄여 도구 모음이 한 줄에 들어가게 한다 */
+@media (max-width: 1366px) {
+  .map-toolbar {
+    column-gap: 14px;
+  }
+
+  .map-toolbar .divider {
+    display: none;
+  }
 }
 
 .switch {
@@ -131,9 +159,9 @@
 .map-notice {
   position: absolute;
   top: 72px;
-  left: 410px;
+  left: var(--map-left);
   z-index: 5;
-  max-width: calc(100% - 410px - 410px);
+  max-width: calc(100% - var(--map-left) - var(--map-right));
   padding: 6px 12px;
   border: 1px solid var(--notice-border);
   border-radius: 10px;
@@ -145,7 +173,7 @@
 .legend {
   position: absolute;
   bottom: 28px;
-  left: 410px;
+  left: var(--map-left);
   z-index: 5;
   display: flex;
   gap: 16px;
@@ -171,7 +199,7 @@
 
 .map-error {
   position: absolute;
-  inset: 72px 410px auto 410px;
+  inset: 72px var(--map-right) auto var(--map-left);
   z-index: 5;
   padding: 10px 12px;
   font-size: 13px;
@@ -180,31 +208,16 @@
   color: var(--danger);
 }
 
-/* 왼쪽 패널을 닫으면 도구 모음·범례·안내를 세로 탭 바로 옆(96px)까지 당긴다 */
-@media (min-width: 1025px) {
-  .left-closed .map-toolbar,
-  .left-closed .map-notice,
-  .left-closed .legend,
-  .left-closed .map-error {
-    left: 96px;
-  }
-
-  .left-closed .map-toolbar,
-  .left-closed .map-notice {
-    max-width: calc(100% - 96px - 410px);
-  }
-}
-
 /* Leaflet 기본 컨트롤: 오른쪽 패널 왼쪽에 붙여 패널에 가려지지 않게 한다 */
 .map-view .leaflet-top.leaflet-left {
   top: auto;
-  right: 410px;
+  right: var(--map-right);
   bottom: 36px;
   left: auto;
 }
 
 .map-view .leaflet-bottom.leaflet-right {
-  right: 410px;
+  right: var(--map-right);
 }
 
 .map-view .leaflet-container {
