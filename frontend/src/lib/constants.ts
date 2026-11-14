@@ -28,6 +28,15 @@ export const PURPOSE_LABEL: Record<Purpose, string> = {
 
 export const CITY_LABEL: Record<string, string> = { ANYANG: '안양시', GUNPO: '군포시', SIHEUNG: '시흥시' }
 
+export type Palette = 'coral' | 'teal' | 'indigo'
+
+// 색상 팔레트 목록. color는 선택 점에 쓰는 라이트 모드 포인트 색이고, 실제 색은 index.css의 data-palette 값으로 바뀐다.
+export const PALETTES: { key: Palette; label: string; color: string }[] = [
+  { key: 'coral', label: 'Coral Warm', color: '#e5564a' },
+  { key: 'teal', label: 'Deep Teal', color: '#0e7c86' },
+  { key: 'indigo', label: 'Indigo Violet', color: '#5b4bdb' },
+]
+
 /** 표시용 숫자 포맷 */
 export function formatValue(v: number | null): string {
   return v === null ? '-' : Math.round(v).toLocaleString('ko-KR')
