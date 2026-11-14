@@ -3,12 +3,12 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
 import { formatValue } from '../lib/constants'
 import type { MapProps } from '../lib/types'
-import { ALL_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, gridLines } from './common'
+import { ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, cellColor, gridLines } from './common'
 
 /**
  * Leaflet 지도 (대안). 키 없이 OpenStreetMap 타일로 동작한다.
  */
-function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange }: MapProps) {
+function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange, palette }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const layers = useRef<{
@@ -128,12 +128,12 @@ function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, ce
     group.clearLayers()
     for (const cell of cells ?? []) {
       const label = `${cell.isCenter ? '소속 Cell ' : ''}${cell.cellId}<br>인구 ${formatValue(cell.population.value)}`
-      const style = { color: cell.isCenter ? '#f59e0b' : '#8b5cf6', weight: 2, fillOpacity: 0.15 }
+      const style = { color: cell.isCenter ? CENTER_CELL_COLOR : cellColor(), weight: 2, fillOpacity: 0.15 }
       if (!cell.geometry) continue // 서버는 항상 사각형을 준다(명세 4.5). 계약상 null이면 그리지 않음
       const ring = cell.geometry.coordinates[0].map(([lng, lat]) => [lat, lng] as [number, number])
       L.polygon(ring, style).bindTooltip(label).addTo(group)
     }
-  }, [cells])
+  }, [cells, palette])
 
   return <div ref={containerRef} className="map-canvas" />
 }

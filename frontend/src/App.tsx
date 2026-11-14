@@ -3,8 +3,9 @@ import './App.css'
 import { api } from './lib/api'
 import FilterPanel from './components/FilterPanel'
 import RightPanel from './components/RightPanel'
+import PaletteSelect from './components/PaletteSelect'
 import ThemeToggle, { type Theme } from './components/ThemeToggle'
-import { DEFAULT_QUERY } from './lib/constants'
+import { DEFAULT_QUERY, PALETTES, type Palette } from './lib/constants'
 import MapView, { type MapProvider } from './map/MapView'
 import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery } from './lib/types'
 
@@ -18,6 +19,19 @@ function initialTheme(): Theme {
     // 저장소를 쓸 수 없으면 OS 설정으로 시작한다.
   }
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+// 색상 팔레트: 저장된 선택이 있으면 그것을, 없으면 A안(coral)으로 시작한다.
+const PALETTE_KEY = 'flowsign-palette'
+function initialPalette(): Palette {
+  try {
+    const saved = localStorage.getItem(PALETTE_KEY)
+    const found = PALETTES.find((p) => p.key === saved)
+    if (found) return found.key
+  } catch {
+    // 저장소를 쓸 수 없으면 기본 팔레트로 시작한다.
+  }
+  return 'coral'
 }
 
 // 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1&allcells=1
@@ -54,6 +68,19 @@ function App() {
       // 저장하지 못해도 이번 화면에서는 바뀐다.
     }
   }, [theme])
+
+  const [palette, setPalette] = useState<Palette>(initialPalette)
+  useLayoutEffect(() => {
+    document.documentElement.dataset.palette = palette
+  }, [palette])
+  const changePalette = useCallback((next: Palette) => {
+    setPalette(next)
+    try {
+      localStorage.setItem(PALETTE_KEY, next)
+    } catch {
+      // 저장하지 못해도 이번 화면에서는 바뀐다.
+    }
+  }, [])
 
   const [selectedId, setSelectedId] = useState<string | null>(params.get('board'))
   const [board, setBoard] = useState<Board | null>(null)
@@ -155,7 +182,10 @@ function App() {
           <h1>FLOWSIGN</h1>
         </div>
         <p>유동인구 데이터 기반 옥외광고 게시대 추천 서비스 · 데모 초안</p>
-        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        <div className="header-tools">
+          <PaletteSelect palette={palette} onChange={changePalette} />
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        </div>
       </header>
 
       {loadError && <div className="banner error">데이터를 불러오지 못했습니다: {loadError}</div>}
@@ -178,6 +208,7 @@ function App() {
           onShowAllCellsChange={toggleAllCells}
           allCells={allCells}
           allCellsNotice={allCellsNotice}
+          palette={palette}
           onViewChange={setView}
         />
         <RightPanel board={board} population={population} loading={detailLoading} error={detailError} />

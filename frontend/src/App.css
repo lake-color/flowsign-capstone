@@ -44,6 +44,13 @@
   font-size: 12px;
 }
 
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
 .banner {
   padding: 8px 24px;
   font-size: 13px;

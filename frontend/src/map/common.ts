@@ -48,3 +48,11 @@ export function cellBounds(cell: MapCell): Bounds {
 
 /** 통신사 Cell 레이어 선 색 */
 export const ALL_CELL_COLOR = '#0ea5e9'
+
+/** 선택 게시대 3×3 Cell의 소속 Cell 강조 색 */
+export const CENTER_CELL_COLOR = '#f59e0b'
+
+/** 3×3 Cell 색. 팔레트마다 포인트 색과 겹치지 않도록 CSS 변수 --cell(index.css)에서 읽는다. */
+export function cellColor(): string {
+  return getComputedStyle(document.documentElement).getPropertyValue('--cell').trim() || '#8b5cf6'
+}

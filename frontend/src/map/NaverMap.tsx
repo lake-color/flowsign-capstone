@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatValue } from '../lib/constants'
 import type { MapProps } from '../lib/types'
-import { ALL_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, gridLines } from './common'
+import { ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, cellColor, gridLines } from './common'
 
 /**
  * Naver Maps JS v3 지도 (1순위). VITE_NAVER_MAP_CLIENT_ID가 있어야 동작한다.
@@ -32,7 +32,7 @@ function loadSdk(): Promise<Naver> {
   return sdkPromise
 }
 
-function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange }: MapProps) {
+function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange, palette }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [naver, setNaver] = useState<Naver | null>(null)
   const [error, setError] = useState<string | null>(CLIENT_ID ? null : 'VITE_NAVER_MAP_CLIENT_ID가 설정되지 않았습니다.')
@@ -165,7 +165,7 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
     if (!naver || !map) return
     clear('cells')
     for (const cell of cells ?? []) {
-      const color = cell.isCenter ? '#f59e0b' : '#8b5cf6'
+      const color = cell.isCenter ? CENTER_CELL_COLOR : cellColor()
       const title = `${cell.isCenter ? '소속 Cell ' : ''}${cell.cellId} / 인구 ${formatValue(cell.population.value)}`
       if (!cell.geometry) continue // 서버는 항상 사각형을 준다(명세 4.5). 계약상 null이면 그리지 않음
       const overlay = new naver.maps.Polygon({
@@ -176,7 +176,7 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
       naver.maps.Event.addListener(overlay, 'click', () => window.alert(title))
       overlays.current.cells.push(overlay)
     }
-  }, [naver, cells])
+  }, [naver, cells, palette])
 
   return (
     <div className="map-canvas">

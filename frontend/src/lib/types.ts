@@ -106,4 +106,6 @@ export interface MapProps {
   allCells: MapCell[] | null
   /** 지도 이동·확대가 끝날 때마다 화면 범위를 알린다 */
   onViewChange: (bounds: Bounds) => void
+  /** 색상 팔레트 이름. 바뀌면 지도가 색을 다시 읽어 3×3 Cell을 다시 그린다. */
+  palette: string
 }

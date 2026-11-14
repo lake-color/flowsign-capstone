@@ -11,6 +11,7 @@
   --accent-soft: #fbe7e6;
   --sub: #f4b79f;
   --panel-bg: var(--card); /* 이전 이름. 다른 담당 파일이 아직 쓰고 있을 수 있어 남겨 둔다. */
+  --cell: #8b5cf6; /* 지도의 3×3 Cell 색. 포인트 색과 겹치지 않게 팔레트마다 정한다. */
 
   --c-com: #2563eb;
   --c-mix: #16a34a;
@@ -61,6 +62,65 @@
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.5);
 
   color-scheme: dark;
+}
+
+/* ───────── 팔레트 선택 (<html data-palette="...">). 기본은 위의 A안(coral)이다.
+   라이트 값 다음에 다크 값을 두어야 다크 모드에서 덮어쓴다. */
+
+/* B안 Deep Teal */
+:root[data-palette='teal'] {
+  --bg: #f4f8f8;
+  --panel: #ffffff;
+  --card: #edf3f3;
+  --border: #dce6e6;
+  --text: #53666a;
+  --text-h: #0f2a2e;
+  --accent: #0e7c86;
+  --accent-on: #ffffff;
+  --accent-soft: #ddeded;
+  --sub: #8fd3d0;
+}
+
+:root[data-palette='teal'][data-theme='dark'] {
+  --bg: #0e1517;
+  --panel: #151f22;
+  --card: #1c292d;
+  --border: #283539;
+  --text: #9fb4b8;
+  --text-h: #e9f4f4;
+  --accent: #4fd1c5;
+  --accent-on: #06201e;
+  --accent-soft: #214343;
+  --sub: #2f6f6c;
+}
+
+/* C안 Indigo Violet. 3×3 Cell은 보라와 겹치지 않게 청록으로 그린다. */
+:root[data-palette='indigo'] {
+  --bg: #f7f7fb;
+  --panel: #ffffff;
+  --card: #f0f0f8;
+  --border: #e1e1ee;
+  --text: #5b5b74;
+  --text-h: #1d1b3a;
+  --accent: #5b4bdb;
+  --accent-on: #ffffff;
+  --accent-soft: #e8e6fa;
+  --sub: #9cc4f7;
+  --cell: #0ea5a4;
+}
+
+:root[data-palette='indigo'][data-theme='dark'] {
+  --bg: #121120;
+  --panel: #1b1931;
+  --card: #252342;
+  --border: #34315a;
+  --text: #adaacb;
+  --text-h: #f0effa;
+  --accent: #9a8cff;
+  --accent-on: #150f3d;
+  --accent-soft: #34305a;
+  --sub: #456c9e;
+  --cell: #0ea5a4;
 }
 
 * {
