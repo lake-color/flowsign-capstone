@@ -49,14 +49,14 @@ function RecommendationList({ items, query, selectedBoardId, onSelect, onEditCon
   }
   return (
     <section className="panel recommend-list" hidden={hidden}>
-      <h2>추천 결과 <small>{items.length}곳</small></h2>
-
-      <div className="rec-conditions">
-        <ul aria-label="적용한 조건">
-          {summarize(query).map((text) => <li key={text}>{text}</li>)}
-        </ul>
+      <div className="rec-head">
+        <h2>추천 결과 <small>{items.length}곳</small></h2>
         <button type="button" className="link" onClick={onEditConditions}>조건 수정</button>
       </div>
+
+      <ul className="rec-conditions" aria-label="적용한 조건">
+        {summarize(query).map((text) => <li key={text}>{text}</li>)}
+      </ul>
 
       <p className="notice sample-notice">시안입니다. 순위·점수·추천 이유는 예시 값이며 추천 API 연결 전입니다.</p>
 

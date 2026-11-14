@@ -11,20 +11,34 @@
   color: var(--text);
 }
 
+/* 제목 줄: '추천 결과 N곳'과 '조건 수정'을 같은 줄에 둔다 */
+.rec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rec-head .link {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rec-head .link:hover {
+  background: var(--accent-soft);
+}
+
 /* 이 결과를 만든 조건 요약 */
 .rec-conditions {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.rec-conditions ul {
-  display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin: 0;
+  margin: 10px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -36,13 +50,6 @@
   color: var(--text);
   font-size: 11px;
   font-weight: 600;
-}
-
-.rec-conditions .link {
-  flex: none;
-  margin-top: 2px;
-  color: var(--accent);
-  font-weight: 700;
 }
 
 .sample-notice {

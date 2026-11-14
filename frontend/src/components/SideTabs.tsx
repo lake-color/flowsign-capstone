@@ -13,22 +13,22 @@ interface Props {
 function SideTabs({ tab, onChange }: Props) {
   return (
     <nav className="side-tabs" role="tablist" aria-label="왼쪽 패널" aria-orientation="vertical">
-      <button type="button" role="tab" aria-selected={tab === 'filter'} className={tab === 'filter' ? 'active' : ''} onClick={() => onChange('filter')}>
+      <button type="button" role="tab" aria-selected={tab === 'filter'} aria-label="조건 설정" className={tab === 'filter' ? 'active' : ''} onClick={() => onChange('filter')}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 7h10M18 7h2M4 17h2M10 17h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
           <circle cx="16" cy="7" r="2.2" stroke="currentColor" strokeWidth="2" fill="none" />
           <circle cx="8" cy="17" r="2.2" stroke="currentColor" strokeWidth="2" fill="none" />
         </svg>
-        조건 설정
+        <span className="tab-label">조건<br />설정</span>
       </button>
-      <button type="button" role="tab" aria-selected={tab === 'result'} className={tab === 'result' ? 'active' : ''} onClick={() => onChange('result')}>
+      <button type="button" role="tab" aria-selected={tab === 'result'} aria-label="추천 결과" className={tab === 'result' ? 'active' : ''} onClick={() => onChange('result')}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M9 7h11M9 12h11M9 17h11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
           <circle cx="4.5" cy="7" r="1.3" fill="currentColor" />
           <circle cx="4.5" cy="12" r="1.3" fill="currentColor" />
           <circle cx="4.5" cy="17" r="1.3" fill="currentColor" />
         </svg>
-        추천 결과
+        <span className="tab-label">추천<br />결과</span>
       </button>
     </nav>
   )

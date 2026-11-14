@@ -1,7 +1,7 @@
 /* 우측 게시대 상세 패널 */
 .board-detail {
   right: 16px;
-  width: 360px;
+  width: var(--right-w, 360px); /* 화면 폭에 비례(360~400px). 값은 map/MapView.css에서 정한다. */
 }
 
 /* 접기 버튼(패널 오른쪽 위)과 접었을 때 오른쪽 가장자리에 남는 '상세' 탭 */
