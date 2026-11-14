@@ -1,31 +1,66 @@
+/* 색은 모두 변수로 둔다. 팔레트: A안 Coral Warm. 라이트가 기본이고 <html data-theme="dark">에서 다크로 바뀐다. */
 :root {
-  --text: #4b5563;
-  --text-h: #111827;
-  --bg: #ffffff;
-  --panel-bg: #f9fafb;
-  --border: #e5e7eb;
-  --accent: #2563eb;
+  --bg: #fbf8f5;
+  --panel: #ffffff;
+  --card: #f6f0ea;
+  --border: #e8dfd6;
+  --text: #6b5f57;
+  --text-h: #2a211c;
+  --accent: #e5564a;
+  --accent-on: #ffffff;
+  --accent-soft: #fbe7e6;
+  --sub: #f4b79f;
+  --panel-bg: var(--card); /* 이전 이름. 다른 담당 파일이 아직 쓰고 있을 수 있어 남겨 둔다. */
+
+  --c-com: #2563eb;
+  --c-mix: #16a34a;
+  --c-adm: #6b7280;
+  --danger: #dc2626;
+  --danger-bg: #fef2f2;
+  --notice: #8a4b00;
+  --notice-bg: #fff4e5;
+  --notice-border: #ffd9a8;
+
+  --shadow: 0 4px 18px rgba(42, 33, 28, 0.13);
+  --shadow-sm: 0 2px 6px rgba(42, 33, 28, 0.18);
 
   font:
-    16px/1.5 system-ui,
+    16px/1.5 'Pretendard',
+    system-ui,
     'Segoe UI',
     'Malgun Gothic',
     sans-serif;
-  color-scheme: light dark;
+  color-scheme: light;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --panel-bg: #1f2028;
-    --border: #2e303a;
-    --accent: #60a5fa;
-  }
+:root[data-theme='dark'] {
+  --bg: #171412;
+  --panel: #211d1a;
+  --card: #2b2622;
+  --border: #3a332e;
+  --text: #b8aba2;
+  --text-h: #f5eee8;
+  --accent: #ff7b6e;
+  --accent-on: #2a0f0b;
+  --accent-soft: #4d302b;
+  --sub: #8a5a4c;
+
+  --c-com: #60a5fa;
+  --c-mix: #4ade80;
+  --c-adm: #9ca3af;
+  --danger: #f87171;
+  --danger-bg: #3a1d1d;
+  --notice: #ffcf99;
+  --notice-bg: #3a2a16;
+  --notice-border: #5c4224;
+
+  --shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
 }
 
 * {
@@ -44,4 +79,8 @@ h2 {
 
 p {
   margin: 0;
+}
+
+button {
+  font: inherit;
 }

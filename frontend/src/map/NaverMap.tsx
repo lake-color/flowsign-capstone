@@ -142,7 +142,7 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
       const ne = b.getNE()
       const lines = gridLines(grid, { south: sw.lat(), west: sw.lng(), north: ne.lat(), east: ne.lng() })
       if (!lines) return
-      const style = { map, strokeColor: '#ef4444', strokeWeight: 1, strokeOpacity: 0.45, clickable: false }
+      const style = { map, strokeColor: '#6b7280', strokeWeight: 1, strokeOpacity: 0.45, clickable: false }
       for (const lat of lines.lats) {
         overlays.current.grid.push(new naver.maps.Polyline({
           ...style, path: [new naver.maps.LatLng(lat, sw.lng()), new naver.maps.LatLng(lat, ne.lng())],

@@ -1,9 +1,43 @@
-/* 게시대 상세 */
+/* 우측 게시대 상세 패널 */
+.board-detail {
+  right: 16px;
+  width: 360px;
+}
+
+.badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badge.COMMERCIAL {
+  background: color-mix(in srgb, var(--c-com) 14%, var(--panel));
+  color: var(--c-com);
+}
+
+.badge.MIXED {
+  background: color-mix(in srgb, var(--c-mix) 14%, var(--panel));
+  color: var(--c-mix);
+}
+
+.badge.ADMINISTRATIVE,
+.badge.muted {
+  background: color-mix(in srgb, var(--c-adm) 16%, var(--panel));
+  color: var(--c-adm);
+}
+
 .info {
   display: grid;
-  grid-template-columns: 70px 1fr;
+  grid-template-columns: 64px 1fr;
   gap: 4px 8px;
-  margin: 0;
+  margin: 12px 0 0;
   font-size: 13px;
 }
 
@@ -16,36 +50,177 @@
   color: var(--text-h);
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.hero {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+}
+
+.hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-}
-
-.stats div {
-  padding: 8px;
-  border-radius: 6px;
-  background: var(--panel-bg);
-}
-
-.stats b {
-  display: block;
-  font-size: 16px;
-  color: var(--text-h);
-}
-
-.stats span {
   font-size: 12px;
+  font-weight: 600;
+}
+
+.pill {
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.hero b {
+  display: block;
+  margin-top: 6px;
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 800;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-bar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+}
+
+.flow-bar span {
+  min-width: 0;
+  border-radius: 6px;
+}
+
+.tone1 {
+  background: var(--accent);
+}
+
+.tone2 {
+  background: var(--sub);
+}
+
+.tone3 {
+  background: color-mix(in srgb, var(--accent) 45%, var(--bg));
+}
+
+.flow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.flow-legend b {
+  margin-left: 2px;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 5px;
+  border-radius: 50%;
+}
+
+.tabs {
+  display: flex;
+  gap: 18px;
+  margin-top: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs button {
+  margin-bottom: -1px;
+  padding: 0 0 8px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+.tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cols {
+  display: flex;
+  gap: 8px;
+  height: 150px;
+  margin-top: 14px;
+}
+
+.col {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 18px 1fr 20px;
+  min-width: 0;
+}
+
+.col-value {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-h);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.col-track {
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+
+.col-bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 6px 6px 2px 2px;
+  background: color-mix(in srgb, var(--accent) 40%, var(--panel));
+}
+
+.col-bar.peak {
+  background: var(--accent);
+}
+
+.col-bar.dim {
+  opacity: 0.35;
+}
+
+.col-label {
+  padding-top: 4px;
+  text-align: center;
+  font-size: 11px;
 }
 
 .bars {
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
 .bar-row {
   display: grid;
-  grid-template-columns: 62px 1fr 60px;
+  grid-template-columns: 62px 1fr 64px;
   align-items: center;
   gap: 6px;
   font-size: 12px;
@@ -53,8 +228,8 @@
 
 .bar-track {
   height: 10px;
-  border-radius: 3px;
-  background: var(--panel-bg);
+  border-radius: 5px;
+  background: var(--card);
   overflow: hidden;
 }
 
@@ -71,4 +246,10 @@
 .bar-value {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1024px) {
+  .board-detail {
+    width: auto;
+  }
 }

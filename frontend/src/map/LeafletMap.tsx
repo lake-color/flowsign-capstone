@@ -110,7 +110,7 @@ function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, ce
       const b = map.getBounds()
       const lines = gridLines(grid, { south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() })
       if (!lines) return
-      const style = { color: '#ef4444', weight: 1, opacity: 0.45, interactive: false }
+      const style = { color: '#6b7280', weight: 1, opacity: 0.45, interactive: false }
       for (const lat of lines.lats) L.polyline([[lat, b.getWest()], [lat, b.getEast()]], style).addTo(group)
       for (const lng of lines.lngs) L.polyline([[b.getSouth(), lng], [b.getNorth(), lng]], style).addTo(group)
     }
