@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Board, BoardPopulation, DistributionPoint } from '../lib/types'
+import type { Board, BoardPopulation, DistributionPoint, RecommendationItem } from '../lib/types'
 import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, formatValue, timeLabel } from '../lib/constants'
 
 interface Props {
@@ -7,6 +7,23 @@ interface Props {
   population: BoardPopulation | null
   loading: boolean
   error: string | null
+  /** 이 게시대가 추천 결과에 들어 있을 때의 추천 정보. 없으면 점수를 표시하지 않는다. */
+  recommendation: RecommendationItem | null
+  /** 접혀 있으면 true (오른쪽 '상세' 탭만 보인다) */
+  hidden: boolean
+  /** 패널 오른쪽 위 접기 버튼 */
+  onCollapse: () => void
+}
+
+/** 패널 오른쪽 위의 접기 버튼 */
+function CollapseButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="panel-collapse" onClick={onClick} title="상세 접기" aria-label="상세 접기">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      </svg>
+    </button>
+  )
 }
 
 const GENDER_LABEL: Record<string, string> = { MALE: '남성', FEMALE: '여성', UNKNOWN: '미상' }
@@ -79,21 +96,23 @@ const dist = (points: DistributionPoint[], labels: Record<string, string>) =>
 
 /**
  * 게시대 상세 영역. 선택 게시대의 정보와 3×3 영향권 인구 집계·차트를 보여준다.
- * 추천 점수는 추천 결과에서 선택한 경우에만 표시한다(추천 API는 다음 단계).
+ * 추천 점수는 추천 결과에 들어 있는 게시대에만 표시한다(지금은 시안용 예시 값).
  */
-function BoardDetail({ board, population, loading, error }: Props) {
+function BoardDetail({ board, population, loading, error, recommendation, hidden, onCollapse }: Props) {
   const [tab, setTab] = useState<Tab>('time')
 
   if (!board) {
     return (
-      <section className="panel board-detail">
+      <section className="panel board-detail" hidden={hidden}>
+        <CollapseButton onClick={onCollapse} />
         <h2>게시대 상세</h2>
         <p className="placeholder">지도에서 게시대를 선택하세요.</p>
       </section>
     )
   }
   return (
-    <section className="panel board-detail">
+    <section className="panel board-detail" hidden={hidden}>
+      <CollapseButton onClick={onCollapse} />
       <h2>{board.name}</h2>
       <div className="badges">
         <span className={`badge ${board.purpose}`}>{PURPOSE_LABEL[board.purpose]}</span>
@@ -105,6 +124,21 @@ function BoardDetail({ board, population, loading, error }: Props) {
         <dt>게시면</dt><dd>{board.faceCount ?? '-'}</dd>
         <dt>부착금액</dt><dd>{board.postingFee === null ? '정보 없음' : `${board.postingFee.toLocaleString('ko-KR')}원`}</dd>
       </dl>
+
+      {recommendation && (
+        <div className="score-box">
+          <div className="hero-top">
+            <span>추천 점수 · {recommendation.rank}위</span>
+            <span className="pill">시안 예시 값</span>
+          </div>
+          <b>{recommendation.displayScore}<small>점</small></b>
+          <p>{recommendation.reason}</p>
+          <details className="score-details">
+            <summary>항목별 점수 보기</summary>
+            <Bars items={recommendation.scoreBreakdown.map((s) => ({ label: s.label, value: s.contribution }))} />
+          </details>
+        </div>
+      )}
 
       {loading && <p className="placeholder">인구 정보를 불러오는 중…</p>}
       {error && <p className="error">{error}</p>}

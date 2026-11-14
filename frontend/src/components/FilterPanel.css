@@ -1,6 +1,6 @@
-/* 좌측 조건 패널 */
+/* 좌측 조건 패널. 세로 탭(SideTabs) 오른쪽에 둔다. */
 .filter-panel {
-  left: 16px;
+  left: 80px;
   width: 300px;
   overflow: hidden;
 }

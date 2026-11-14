@@ -1,0 +1,162 @@
+/* 추천 결과 패널. 세로 탭(SideTabs) 오른쪽, 조건 패널과 같은 자리에 둔다. */
+.recommend-list {
+  left: 80px;
+  width: 306px;
+}
+
+.recommend-list h2 small {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* 제목 줄: '추천 결과 N곳'과 '조건 수정'을 같은 줄에 둔다 */
+.rec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rec-head .link {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rec-head .link:hover {
+  background: var(--accent-soft);
+}
+
+/* 이 결과를 만든 조건 요약 */
+.rec-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rec-conditions li {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.sample-notice {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.rec-cards {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rec-card {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rec-card:hover,
+.rec-card.active {
+  border-color: var(--accent);
+}
+
+.rec-card.active {
+  background: var(--accent-soft);
+}
+
+.rec-card:focus-visible,
+.rec-more:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.rec-rank {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--text-h);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.rec-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rec-body > b {
+  overflow: hidden;
+  color: var(--text-h);
+  font-size: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rec-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.rec-score {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.rec-score b {
+  margin-right: 1px;
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-more {
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+  .recommend-list {
+    width: auto;
+  }
+}

@@ -6,6 +6,10 @@ import './FilterPanel.css'
 interface Props {
   applied: PopulationQuery
   onApply: (q: PopulationQuery) => void
+  /** '추천 분석하기' 클릭. 입력 중인 조건을 넘긴다. */
+  onRecommend: (q: PopulationQuery) => void
+  /** 왼쪽 탭에서 다른 패널을 골랐을 때 true. 입력 중인 조건은 그대로 둔다. */
+  hidden: boolean
 }
 
 const GENDER_OPTIONS = [['ALL', '전체'], ['MALE', '남성'], ['FEMALE', '여성']] as const
@@ -20,9 +24,9 @@ const shortTime = (t: string) => `${t.slice(0, 2)}~${t.slice(3)}`
 
 /**
  * 조건 입력 영역. 입력 중인 조건(draft)은 '조건 적용'을 눌렀을 때만 반영한다.
- * 데모 단계에서는 선택 게시대의 상세 인구 조회 조건으로 쓰며, 추천 API는 아직 없다.
+ * '추천 분석하기'도 같은 조건을 쓴다. 추천 API는 아직 없어 시안용 예시 결과를 보여준다.
  */
-function FilterPanel({ applied, onApply }: Props) {
+function FilterPanel({ applied, onApply, onRecommend, hidden }: Props) {
   const [draft, setDraft] = useState<PopulationQuery>(applied)
   const set = <K extends keyof PopulationQuery>(key: K, value: PopulationQuery[K]) => setDraft({ ...draft, [key]: value })
   const toggle = (key: 'ageGroups' | 'timeBands', item: string, order: string[]) => {
@@ -33,7 +37,7 @@ function FilterPanel({ applied, onApply }: Props) {
   const invalid = draft.ageGroups.length === 0 || draft.timeBands.length === 0
 
   return (
-    <section className="panel filter-panel">
+    <section className="panel filter-panel" hidden={hidden}>
       <div className="panel-head">
         <h2>조건 설정</h2>
         <button type="button" className="link" onClick={() => setDraft(DEFAULT_QUERY)}>초기화</button>
@@ -120,8 +124,8 @@ function FilterPanel({ applied, onApply }: Props) {
       <div className="panel-actions">
         {invalid && <p className="hint">연령대와 시간대를 하나 이상 선택하세요.</p>}
         <button type="button" className="btn primary" disabled={invalid} onClick={() => onApply(draft)}>조건 적용</button>
-        <button type="button" className="btn" disabled title="추천 API는 다음 단계에서 구현합니다.">
-          추천 분석하기 <span className="soon">준비중</span>
+        <button type="button" className="btn" disabled={invalid} title="추천 API 연결 전이라 예시 결과를 보여줍니다." onClick={() => onRecommend(draft)}>
+          추천 분석하기 <span className="soon">시안</span>
         </button>
       </div>
     </section>

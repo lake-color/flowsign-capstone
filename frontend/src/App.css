@@ -88,6 +88,11 @@
   box-shadow: var(--shadow);
 }
 
+/* 탭에서 고르지 않은 패널. 입력 중인 값이 남도록 지우지 않고 숨기기만 한다. */
+.panel[hidden] {
+  display: none;
+}
+
 /* 패널 내용이 높이에 맞춰 찌그러지지 않고, 넘치면 패널 안에서 스크롤되게 한다 */
 .panel > * {
   flex-shrink: 0;

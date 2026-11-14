@@ -32,7 +32,7 @@ function loadSdk(): Promise<Naver> {
   return sdkPromise
 }
 
-function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange, palette }: MapProps) {
+function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange, focus, palette }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [naver, setNaver] = useState<Naver | null>(null)
   const [error, setError] = useState<string | null>(CLIENT_ID ? null : 'VITE_NAVER_MAP_CLIENT_ID가 설정되지 않았습니다.')
@@ -124,6 +124,11 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
       fitted.current = true
     }
   }, [naver, boards, selectedBoardId, onSelectBoard])
+
+  // 추천 카드에서 고른 게시대로 지도 중심을 옮긴다.
+  useEffect(() => {
+    if (naver && focus) mapRef.current?.panTo(new naver.maps.LatLng(focus.latitude, focus.longitude))
+  }, [naver, focus])
 
   // 250m 격자선
   useEffect(() => {
