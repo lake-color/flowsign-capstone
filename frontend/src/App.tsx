@@ -158,7 +158,12 @@ function App() {
     return () => ctrl.abort()
   }, [showAllCells, view])
 
-  const selectBoard = useCallback((id: string) => setSelectedId(id), [])
+  // 오른쪽 상세 패널을 접었는지. 게시대를 새로 고르면 다시 펼친다.
+  const [rightOpen, setRightOpen] = useState(true)
+  const selectBoard = useCallback((id: string) => {
+    setSelectedId(id)
+    setRightOpen(true)
+  }, [])
 
   // 왼쪽 탭에서 고른 패널. 열려 있는 탭을 다시 누르면 null이 되어 패널이 닫힌다.
   const [leftTab, setLeftTab] = useState<LeftTab | null>('filter')
@@ -174,6 +179,7 @@ function App() {
   // 추천 카드를 고르면 게시대를 선택하고 지도를 그 위치로 옮긴다.
   const selectRecommended = useCallback((id: string) => {
     setSelectedId(id)
+    setRightOpen(true)
     const target = boards.find((b) => b.boardId === id)
     if (target) setFocus({ latitude: target.latitude, longitude: target.longitude })
   }, [boards])
@@ -211,10 +217,11 @@ function App() {
 
       {loadError && <div className="banner error">데이터를 불러오지 못했습니다: {loadError}</div>}
 
-      <main className={`app-body${leftTab ? '' : ' left-closed'}`}>
+      <main className={`app-body${leftTab ? '' : ' left-closed'}${rightOpen ? '' : ' right-closed'}`}>
         <SideTabs tab={leftTab} onChange={toggleLeftTab} />
         <FilterPanel applied={query} onApply={setQuery} onRecommend={recommend} hidden={leftTab !== 'filter'} />
-        <RecommendationList items={recommendations} selectedBoardId={selectedId} onSelect={selectRecommended} hidden={leftTab !== 'result'} />
+        <RecommendationList items={recommendations} query={query} selectedBoardId={selectedId} onSelect={selectRecommended}
+          onEditConditions={() => setLeftTab('filter')} hidden={leftTab !== 'result'} />
         <MapView
           provider={provider}
           onProviderChange={setProvider}
@@ -240,6 +247,8 @@ function App() {
           population={population}
           loading={detailLoading}
           error={detailError}
+          open={rightOpen}
+          onToggle={() => setRightOpen((open) => !open)}
           recommendation={recommendations?.find((r) => r.boardId === board?.boardId) ?? null}
         />
       </main>

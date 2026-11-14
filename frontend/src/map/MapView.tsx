@@ -43,20 +43,21 @@ function MapView({
           ))}
         </div>
         <span className="divider" />
-        <label className="switch" title={gridReady ? '' : '격자 검증 전에는 사용할 수 없습니다.'}>
+        {/* 라벨은 좁은 화면에서도 한 줄에 들어가도록 줄이고, 전체 이름은 title로 보여준다. */}
+        <label className="switch" title={gridReady ? '250m 격자선' : '250m 격자선 (격자 검증 전에는 사용할 수 없습니다.)'}>
           <input type="checkbox" role="switch" disabled={!gridReady} checked={mapProps.showGrid}
             onChange={(e) => onShowGridChange(e.target.checked)} />
-          <span className="track" />250m 격자선
+          <span className="track" />격자선
         </label>
-        <label className="switch">
+        <label className="switch" title="통신사 Cell 전체 보기">
           <input type="checkbox" role="switch" checked={showAllCells}
             onChange={(e) => onShowAllCellsChange(e.target.checked)} />
           <span className="track" />통신사 Cell
         </label>
-        <label className="switch">
+        <label className="switch" title="선택한 게시대의 3×3 Cell 보기">
           <input type="checkbox" role="switch" disabled={!mapProps.selectedBoardId} checked={showCells}
             onChange={(e) => onShowCellsChange(e.target.checked)} />
-          <span className="track" />3×3 Cell 보기
+          <span className="track" />3×3 Cell
         </label>
       </div>
 
