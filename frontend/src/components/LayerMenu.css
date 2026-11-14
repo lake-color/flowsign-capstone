@@ -1,0 +1,175 @@
+/* 왼쪽 탭 아래 '가시성' 버튼과 팝오버.
+   팝오버는 버튼이 아니라 왼쪽 메뉴(SideTabs, position: absolute) 맨 위를 기준으로 열어서, 화면 높이가 작아도 잘리지 않게 한다. */
+.layer-btn {
+  position: relative;
+  width: 100%;
+}
+
+.layer-btn[aria-expanded='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 800;
+}
+
+/* 숨긴 용도가 있을 때 버튼 모서리에 개수를 표시한다 */
+.layer-badge {
+  position: absolute;
+  top: 8px;
+  right: 6px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-on);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* 팝오버: 탭 바로 오른쪽(왼쪽 패널과 같은 위치)에 겹쳐서 연다 */
+.layer-pop {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 12px);
+  z-index: 8;
+  width: 264px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.layer-pop h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+.layer-title {
+  margin: 14px 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.layer-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  cursor: pointer;
+}
+
+.layer-row.disabled {
+  cursor: not-allowed;
+}
+
+.layer-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.layer-text b {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-h);
+}
+
+.layer-text i {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 8px;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 1px #0008;
+}
+
+.layer-text small {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.layer-row.disabled .layer-text b {
+  color: var(--text);
+}
+
+.layer-note {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* 스위치 (입력은 숨기고 트랙만 그린다) */
+.layer-row input {
+  position: absolute;
+  right: 0;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.layer-row .track {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.layer-row .track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.layer-row input:checked + .track {
+  background: var(--accent);
+}
+
+.layer-row input:checked + .track::after {
+  transform: translateX(14px);
+}
+
+.layer-row input:disabled + .track {
+  opacity: 0.45;
+}
+
+.layer-row input:focus-visible + .track,
+.layer-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 좁은 화면: 탭이 가로로 눕기 때문에 팝오버를 화면 가운데 위쪽에 띄운다 */
+@media (max-width: 1024px) {
+  .layer-wrap {
+    flex: 1;
+  }
+
+  .layer-pop {
+    position: fixed;
+    top: 120px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+}

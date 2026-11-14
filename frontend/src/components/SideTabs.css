@@ -1,9 +1,10 @@
-/* 왼쪽 세로 탭. 조건 패널·추천 결과 패널은 이 탭(왼쪽 16px + 폭 56px) 오른쪽 80px에서 시작한다. */
+/* 왼쪽 세로 메뉴. 조건 패널·추천 결과 패널은 이 메뉴(왼쪽 16px + 폭 56px) 오른쪽 80px에서 시작한다.
+   가시성 팝오버가 아래의 패널 위로 열리므로 패널(z-index 5)보다 위에 둔다. */
 .side-tabs {
   position: absolute;
   top: 16px;
   left: 16px;
-  z-index: 5;
+  z-index: 8;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -40,6 +41,21 @@
   text-align: center;
 }
 
+.tab-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 탭 아래 구분선: 위는 패널을 고르는 탭, 아래는 패널과 무관한 버튼 */
+.rail-sep {
+  width: 32px;
+  height: 1px;
+  margin: 2px auto;
+  border: none;
+  background: var(--border);
+}
+
 .side-tabs button:hover {
   color: var(--text-h);
 }
@@ -60,10 +76,22 @@
   .side-tabs {
     position: static;
     flex-direction: row;
+    align-items: stretch;
     width: auto;
+  }
+
+  .tab-group {
+    flex: 2;
+    flex-direction: row;
   }
 
   .side-tabs button {
     flex: 1;
+  }
+
+  .rail-sep {
+    width: 1px;
+    height: auto;
+    margin: 6px 2px;
   }
 }

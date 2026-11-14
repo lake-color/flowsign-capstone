@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'reac
 import './App.css'
 import { api } from './lib/api'
 import FilterPanel from './components/FilterPanel'
+import LayerMenu from './components/LayerMenu'
 import RecommendationList from './components/RecommendationList'
 import RightPanel from './components/RightPanel'
 import SideTabs, { type LeftTab } from './components/SideTabs'
@@ -10,7 +11,7 @@ import ThemeToggle, { type Theme } from './components/ThemeToggle'
 import { DEFAULT_QUERY, PALETTES, type Palette } from './lib/constants'
 import { sampleRecommendations } from './lib/sampleRecommendations'
 import MapView, { type MapProvider } from './map/MapView'
-import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery, RecommendationItem } from './lib/types'
+import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery, Purpose, RecommendationItem } from './lib/types'
 
 // 라이트/다크: 저장된 선택이 있으면 그것을, 없으면 OS 설정을 따른다.
 const THEME_KEY = 'flowsign-theme'
@@ -53,6 +54,11 @@ function App() {
   const [showGrid, setShowGrid] = useState(params.get('grid') === '1')
   const [showCells, setShowCells] = useState(params.get('cells') === '1')
   const [showAllCells, setShowAllCells] = useState(params.get('allcells') === '1')
+  // 용도별 게시대 마커 표시 (가시성 메뉴). 지도 마커만 거르고 추천 결과 목록에는 영향이 없다.
+  const [purposeVisible, setPurposeVisible] = useState<Record<Purpose, boolean>>({ COMMERCIAL: true, MIXED: true, ADMINISTRATIVE: true })
+  const changePurposeVisible = useCallback((purpose: Purpose, visible: boolean) => {
+    setPurposeVisible((current) => ({ ...current, [purpose]: visible }))
+  }, [])
   const [view, setView] = useState<Bounds | null>(null)
   const [allCells, setAllCells] = useState<MapCell[] | null>(null)
   const [allCellsNotice, setAllCellsNotice] = useState<string | null>(null)
@@ -184,6 +190,12 @@ function App() {
     if (target) setFocus({ latitude: target.latitude, longitude: target.longitude })
   }, [boards])
 
+  // 지도에 그릴 게시대. 숨긴 용도는 거르되, 선택한 게시대는 용도를 숨겨도 남겨 둔다.
+  const visibleBoards = useMemo(
+    () => boards.filter((b) => purposeVisible[b.purpose] || b.boardId === selectedId),
+    [boards, purposeVisible, selectedId],
+  )
+
   // 레이어를 끄면 그려 둔 Cell도 함께 비운다 (다시 켰을 때 이전 결과가 잠깐 보이지 않도록)
   const toggleCells = useCallback((on: boolean) => {
     setShowCells(on)
@@ -218,24 +230,32 @@ function App() {
       {loadError && <div className="banner error">데이터를 불러오지 못했습니다: {loadError}</div>}
 
       <main className={`app-body${leftTab ? '' : ' left-closed'}${rightOpen ? '' : ' right-closed'}`}>
-        <SideTabs tab={leftTab} onChange={toggleLeftTab} />
+        <SideTabs tab={leftTab} onChange={toggleLeftTab}>
+          <LayerMenu
+            showGrid={showGrid}
+            onShowGridChange={setShowGrid}
+            gridReady={meta?.grid?.status === 'VERIFIED'}
+            showAllCells={showAllCells}
+            onShowAllCellsChange={toggleAllCells}
+            showCells={showCells}
+            onShowCellsChange={toggleCells}
+            hasSelectedBoard={selectedId !== null}
+            purposeVisible={purposeVisible}
+            onPurposeVisibleChange={changePurposeVisible}
+          />
+        </SideTabs>
         <FilterPanel applied={query} onApply={setQuery} onRecommend={recommend} hidden={leftTab !== 'filter'} />
         <RecommendationList items={recommendations} query={query} selectedBoardId={selectedId} onSelect={selectRecommended}
           onEditConditions={() => setLeftTab('filter')} hidden={leftTab !== 'result'} />
         <MapView
           provider={provider}
           onProviderChange={setProvider}
-          boards={boards}
+          boards={visibleBoards}
           selectedBoardId={selectedId}
           onSelectBoard={selectBoard}
           grid={meta?.grid ?? null}
           showGrid={showGrid}
-          onShowGridChange={setShowGrid}
-          showCells={showCells}
-          onShowCellsChange={toggleCells}
           cells={cells}
-          showAllCells={showAllCells}
-          onShowAllCellsChange={toggleAllCells}
           allCells={allCells}
           allCellsNotice={allCellsNotice}
           focus={focus}
