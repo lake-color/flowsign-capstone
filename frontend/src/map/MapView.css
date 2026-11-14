@@ -1,0 +1,76 @@
+/* 지도 영역: 툴바, 범례, 안내 문구, 지도 캔버스 */
+.map-view {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segmented button {
+  font: inherit;
+  padding: 4px 12px;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.segmented button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.legend {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+
+.map-notice {
+  padding: 6px 12px;
+  font-size: 12px;
+  background: #f0f9ff;
+  color: #075985;
+  border-bottom: 1px solid #bae6fd;
+}
+
+.map-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 300px;
+}
+
+.map-error {
+  position: absolute;
+  inset: 16px 16px auto;
+  padding: 10px 12px;
+  font-size: 13px;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #991b1b;
+}

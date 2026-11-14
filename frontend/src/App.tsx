@@ -4,7 +4,7 @@ import { api } from './lib/api'
 import FilterPanel from './components/FilterPanel'
 import RightPanel from './components/RightPanel'
 import { DEFAULT_QUERY } from './lib/constants'
-import MapView, { type MapProvider } from './components/MapView'
+import MapView, { type MapProvider } from './map/MapView'
 import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery } from './lib/types'
 
 // 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1&allcells=1

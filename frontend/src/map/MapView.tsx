@@ -1,8 +1,9 @@
-import LeafletMap from '../map/LeafletMap'
-import NaverMap from '../map/NaverMap'
+import LeafletMap from './LeafletMap'
+import NaverMap from './NaverMap'
 import { PURPOSE_LABEL } from '../lib/constants'
 import type { MapProps, Purpose } from '../lib/types'
-import { PURPOSE_COLOR } from '../map/common'
+import { PURPOSE_COLOR } from './common'
+import './MapView.css'
 
 export type MapProvider = 'naver' | 'leaflet'
 

@@ -318,8 +318,8 @@ flowsign/
 │       ├── lib/
 │       │   ├── api.ts / types.ts   # fetch 기반 API 모듈, 응답 타입
 │       │   └── constants.ts        # 조건 코드·표시 이름
-│       ├── components/             # FilterPanel(조건) / MapView(지도 툴바) / RightPanel(우측 틀) / BoardDetail(상세)
-│       └── map/                    # NaverMap, LeafletMap, 격자선·Cell 사각형 계산(common.ts)
+│       ├── components/             # FilterPanel(조건) / RightPanel(우측 틀) / BoardDetail(상세)
+│       └── map/                    # MapView(지도 툴바·스타일), NaverMap, LeafletMap, 격자선·Cell 사각형 계산(common.ts)
 │
 ├── backend/                        # Spring Boot
 │   └── src/main/
