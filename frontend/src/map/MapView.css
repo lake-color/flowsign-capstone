@@ -14,13 +14,13 @@
 .map-toolbar {
   position: absolute;
   top: 16px;
-  left: 340px;
+  left: 410px;
   z-index: 5;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 18px;
-  max-width: calc(100% - 340px - 392px);
+  max-width: calc(100% - 410px - 410px);
   min-height: 46px;
   padding: 8px 14px;
   background: var(--panel);
@@ -131,9 +131,9 @@
 .map-notice {
   position: absolute;
   top: 72px;
-  left: 340px;
+  left: 410px;
   z-index: 5;
-  max-width: calc(100% - 340px - 392px);
+  max-width: calc(100% - 410px - 410px);
   padding: 6px 12px;
   border: 1px solid var(--notice-border);
   border-radius: 10px;
@@ -145,7 +145,7 @@
 .legend {
   position: absolute;
   bottom: 28px;
-  left: 340px;
+  left: 410px;
   z-index: 5;
   display: flex;
   gap: 16px;
@@ -171,7 +171,7 @@
 
 .map-error {
   position: absolute;
-  inset: 72px 392px auto 340px;
+  inset: 72px 410px auto 410px;
   z-index: 5;
   padding: 10px 12px;
   font-size: 13px;
@@ -180,16 +180,31 @@
   color: var(--danger);
 }
 
+/* 왼쪽 패널을 닫으면 도구 모음·범례·안내를 세로 탭 바로 옆(96px)까지 당긴다 */
+@media (min-width: 1025px) {
+  .left-closed .map-toolbar,
+  .left-closed .map-notice,
+  .left-closed .legend,
+  .left-closed .map-error {
+    left: 96px;
+  }
+
+  .left-closed .map-toolbar,
+  .left-closed .map-notice {
+    max-width: calc(100% - 96px - 410px);
+  }
+}
+
 /* Leaflet 기본 컨트롤: 오른쪽 패널 왼쪽에 붙여 패널에 가려지지 않게 한다 */
 .map-view .leaflet-top.leaflet-left {
   top: auto;
-  right: 392px;
+  right: 410px;
   bottom: 36px;
   left: auto;
 }
 
 .map-view .leaflet-bottom.leaflet-right {
-  right: 392px;
+  right: 410px;
 }
 
 .map-view .leaflet-container {

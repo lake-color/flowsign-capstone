@@ -106,6 +106,21 @@ export interface MapProps {
   allCells: MapCell[] | null
   /** 지도 이동·확대가 끝날 때마다 화면 범위를 알린다 */
   onViewChange: (bounds: Bounds) => void
+  /** 지도 중심을 옮길 위치. 새 객체가 올 때마다 그곳으로 이동한다 (추천 카드 선택 시). */
+  focus: { latitude: number; longitude: number } | null
   /** 색상 팔레트 이름. 바뀌면 지도가 색을 다시 읽어 3×3 Cell을 다시 그린다. */
   palette: string
+}
+
+/** 추천 결과 한 건 (API 명세 4.6 items 중 화면에 쓰는 필드만) */
+export interface RecommendationItem {
+  rank: number
+  boardId: string
+  name: string
+  city: string | null
+  dong: string | null
+  purpose: Purpose
+  displayScore: number
+  reason: string
+  scoreBreakdown: { key: string; label: string; contribution: number }[]
 }

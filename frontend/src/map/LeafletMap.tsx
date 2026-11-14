@@ -8,7 +8,7 @@ import { ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cell
 /**
  * Leaflet 지도 (대안). 키 없이 OpenStreetMap 타일로 동작한다.
  */
-function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange, palette }: MapProps) {
+function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange, focus, palette }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const layers = useRef<{
@@ -95,6 +95,11 @@ function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, ce
       fitted.current = true
     }
   }, [boards, selectedBoardId, onSelectBoard])
+
+  // 추천 카드에서 고른 게시대로 지도 중심을 옮긴다.
+  useEffect(() => {
+    if (focus) mapRef.current?.panTo([focus.latitude, focus.longitude])
+  }, [focus])
 
   // 250m 격자선: 화면 범위만 계산해 그린다. 칸이 GRID_MIN_PIXELS보다 작으면 생략.
   useEffect(() => {

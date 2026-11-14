@@ -1,0 +1,64 @@
+/* 왼쪽 세로 탭. 조건 패널·추천 결과 패널은 이 탭(왼쪽 16px + 폭 56px) 오른쪽 80px에서 시작한다. */
+.side-tabs {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 56px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.side-tabs button {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 18px 0;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.side-tabs svg {
+  width: 20px;
+  height: 20px;
+}
+
+.side-tabs button:hover {
+  color: var(--text-h);
+}
+
+.side-tabs button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.side-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 좁은 화면: 탭을 가로로 눕혀 패널 위에 둔다 */
+@media (max-width: 1024px) {
+  .side-tabs {
+    position: static;
+    flex-direction: row;
+    width: auto;
+  }
+
+  .side-tabs button {
+    flex: 1;
+  }
+}

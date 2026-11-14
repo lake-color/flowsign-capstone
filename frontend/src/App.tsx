@@ -2,12 +2,15 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'reac
 import './App.css'
 import { api } from './lib/api'
 import FilterPanel from './components/FilterPanel'
+import RecommendationList from './components/RecommendationList'
 import RightPanel from './components/RightPanel'
+import SideTabs, { type LeftTab } from './components/SideTabs'
 import PaletteSelect from './components/PaletteSelect'
 import ThemeToggle, { type Theme } from './components/ThemeToggle'
 import { DEFAULT_QUERY, PALETTES, type Palette } from './lib/constants'
+import { sampleRecommendations } from './lib/sampleRecommendations'
 import MapView, { type MapProvider } from './map/MapView'
-import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery } from './lib/types'
+import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery, RecommendationItem } from './lib/types'
 
 // 라이트/다크: 저장된 선택이 있으면 그것을, 없으면 OS 설정을 따른다.
 const THEME_KEY = 'flowsign-theme'
@@ -157,6 +160,24 @@ function App() {
 
   const selectBoard = useCallback((id: string) => setSelectedId(id), [])
 
+  // 왼쪽 탭에서 고른 패널. 열려 있는 탭을 다시 누르면 null이 되어 패널이 닫힌다.
+  const [leftTab, setLeftTab] = useState<LeftTab | null>('filter')
+  const toggleLeftTab = useCallback((tab: LeftTab) => setLeftTab((current) => (current === tab ? null : tab)), [])
+  // 추천 결과(시안: 예시 값). 아직 분석하지 않았으면 null
+  const [recommendations, setRecommendations] = useState<RecommendationItem[] | null>(null)
+  const [focus, setFocus] = useState<{ latitude: number; longitude: number } | null>(null)
+  const recommend = useCallback((q: PopulationQuery) => {
+    setQuery(q)
+    setRecommendations(sampleRecommendations(boards))
+    setLeftTab('result')
+  }, [boards])
+  // 추천 카드를 고르면 게시대를 선택하고 지도를 그 위치로 옮긴다.
+  const selectRecommended = useCallback((id: string) => {
+    setSelectedId(id)
+    const target = boards.find((b) => b.boardId === id)
+    if (target) setFocus({ latitude: target.latitude, longitude: target.longitude })
+  }, [boards])
+
   // 레이어를 끄면 그려 둔 Cell도 함께 비운다 (다시 켰을 때 이전 결과가 잠깐 보이지 않도록)
   const toggleCells = useCallback((on: boolean) => {
     setShowCells(on)
@@ -190,8 +211,10 @@ function App() {
 
       {loadError && <div className="banner error">데이터를 불러오지 못했습니다: {loadError}</div>}
 
-      <main className="app-body">
-        <FilterPanel applied={query} onApply={setQuery} />
+      <main className={`app-body${leftTab ? '' : ' left-closed'}`}>
+        <SideTabs tab={leftTab} onChange={toggleLeftTab} />
+        <FilterPanel applied={query} onApply={setQuery} onRecommend={recommend} hidden={leftTab !== 'filter'} />
+        <RecommendationList items={recommendations} selectedBoardId={selectedId} onSelect={selectRecommended} hidden={leftTab !== 'result'} />
         <MapView
           provider={provider}
           onProviderChange={setProvider}
@@ -208,10 +231,17 @@ function App() {
           onShowAllCellsChange={toggleAllCells}
           allCells={allCells}
           allCellsNotice={allCellsNotice}
+          focus={focus}
           palette={palette}
           onViewChange={setView}
         />
-        <RightPanel board={board} population={population} loading={detailLoading} error={detailError} />
+        <RightPanel
+          board={board}
+          population={population}
+          loading={detailLoading}
+          error={detailError}
+          recommendation={recommendations?.find((r) => r.boardId === board?.boardId) ?? null}
+        />
       </main>
 
       <footer className="app-footer">
