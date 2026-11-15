@@ -18,8 +18,9 @@ import com.capstone.backend.common.PopulationValue;
 /**
  * 게시대 3×3 영향권 인구 조회 (API 명세 4.4, 4.5).
  *
- * 데모 초안: 월 값의 단위(평균/합계)가 확인되지 않았지만 화면 확인을 위해 기간 내 값을 합산해 보여준다.
- * 모든 수치는 status=UNVERIFIED로 내려 단위 미확정임을 표시한다.
+ * 인구값은 선택 기간·요일 구분의 일평균(명/일)이다 (팀 결정 2026-11-16, {@link DayCount}).
+ * 원본 월 값이 합계이므로(명세 9장 L3) 합계를 구한 뒤 해당 일수로 나눈다. 월별 차트는 그 달의 일수로 나눈다.
+ * 마스킹·공개 가능 여부(L5)가 확인되지 않아 status는 UNVERIFIED로 둔다.
  */
 @Service
 public class BoardPopulationService {
@@ -34,12 +35,13 @@ public class BoardPopulationService {
     }
 
     public Map<String, Object> population(long boardId, PopulationFilter f) {
+        int days = f.days();
         Map<String, Object> totals = totals(boardId, f);
-        Double stay = (Double) totals.get("stay");
-        Double walk = (Double) totals.get("walk");
-        Double drive = (Double) totals.get("drive");
+        Double stay = DayCount.perDay((Double) totals.get("stay"), days);
+        Double walk = DayCount.perDay((Double) totals.get("walk"), days);
+        Double drive = DayCount.perDay((Double) totals.get("drive"), days);
 
-        Map<String, Double> hourly = groupBy(boardId, f, "time_slot", Axis.TIME);
+        Map<String, Double> hourly = perDay(groupBy(boardId, f, "time_slot", Axis.TIME), days);
         Map<String, Double> monthly = groupBy(boardId, f, "base_month", Axis.PERIOD);
         List<String> selectedMonths = f.months();
 
@@ -63,17 +65,20 @@ public class BoardPopulationService {
                 "selected", f.timeBands().contains(t))).toList());
         data.put("monthly", java.util.stream.IntStream.rangeClosed(1, 12).mapToObj(m -> {
             String ym = String.format("%d%02d", Codes.DATA_YEAR, m);
-            return Map.of("month", m, "value", PopulationValue.of(monthly.get(ym)),
+            Double monthAverage = DayCount.perDay(monthly.get(ym), DayCount.of(List.of(ym), f.dayType()));
+            return Map.of("month", m, "value", PopulationValue.of(monthAverage),
                     "selected", selectedMonths.contains(ym));
         }).toList());
-        data.put("genderDistribution", distribution(groupBy(boardId, f, "gender", Axis.GENDER),
+        data.put("genderDistribution", distribution(perDay(groupBy(boardId, f, "gender", Axis.GENDER), days),
                 List.of("MALE", "FEMALE", "UNKNOWN")));
-        data.put("ageDistribution", distribution(groupBy(boardId, f, "age_group", Axis.AGE),
+        data.put("ageDistribution", distribution(perDay(groupBy(boardId, f, "age_group", Axis.AGE), days),
                 concat(Codes.AGE_GROUPS, "UNKNOWN")));
         data.put("flowDistribution", distribution(mapOf("STAY", stay, "WALK", walk, "DRIVE", drive),
                 List.of("STAY", "WALK", "DRIVE")));
-        data.put("servicePopulation", distribution(mapOf("RESIDENCE", (Double) totals.get("residence"),
-                        "WORK", (Double) totals.get("work"), "VISIT", (Double) totals.get("visit")),
+        data.put("servicePopulation", distribution(mapOf(
+                        "RESIDENCE", DayCount.perDay((Double) totals.get("residence"), days),
+                        "WORK", DayCount.perDay((Double) totals.get("work"), days),
+                        "VISIT", DayCount.perDay((Double) totals.get("visit"), days)),
                 List.of("RESIDENCE", "WORK", "VISIT")));
         data.put("expectedCellCount", expected);
         data.put("matchedCellCount", matched);
@@ -84,6 +89,7 @@ public class BoardPopulationService {
 
     public Map<String, Object> cells(BoardRepository.Board board, PopulationFilter f) {
         long boardId = Long.parseLong(board.boardId());
+        int days = f.days();
         MapSqlParameterSource p = new MapSqlParameterSource("id", boardId);
         String sql = """
                 SELECT bc.cell_id, bc.is_center, bc.distance_meters, c.latitude, c.longitude, pf.value
@@ -108,7 +114,7 @@ public class BoardPopulationService {
             cell.put("center", Map.of("latitude", lat, "longitude", lng));
             cell.put("geometry", square(lat, lng));
             cell.put("geometryStatus", "AVAILABLE");
-            cell.put("population", PopulationValue.of(rs.getObject("value", Double.class)));
+            cell.put("population", PopulationValue.of(DayCount.perDay(rs.getObject("value", Double.class), days)));
             return cell;
         });
 
@@ -158,6 +164,12 @@ public class BoardPopulationService {
         jdbc.query(sql, p, rs -> {
             result.put(rs.getString("k"), rs.getObject("v", Double.class));
         });
+        return result;
+    }
+
+    private static Map<String, Double> perDay(Map<String, Double> sums, int days) {
+        Map<String, Double> result = new LinkedHashMap<>();
+        sums.forEach((k, v) -> result.put(k, DayCount.perDay(v, days)));
         return result;
     }
 

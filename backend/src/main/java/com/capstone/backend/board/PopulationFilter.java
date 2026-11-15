@@ -83,6 +83,11 @@ public record PopulationFilter(String gender, List<String> ageGroups, String flo
         };
     }
 
+    /** 일평균을 낼 때 나누는 일수: 선택 기간 안에서 dayType에 해당하는 날 수. */
+    public int days() {
+        return DayCount.of(months(), dayType);
+    }
+
     /** WHERE 절 조건들(앞에 AND를 붙여 쓴다). skip 축의 조건은 넣지 않는다. */
     public String where(Axis skip, MapSqlParameterSource params) {
         List<String> parts = new ArrayList<>();

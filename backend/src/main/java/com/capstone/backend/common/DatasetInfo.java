@@ -11,7 +11,7 @@ public record DatasetInfo(String version, boolean synthetic) {
     /** 적재 기록이 없을 때. 실제 데이터로 오해하지 않도록 가짜로 간주한다. */
     public static final DatasetInfo UNLABELED = new DatasetInfo(null, true);
 
-    private static final String UNIT_NOTICE = "인구 단위 확인 전이므로 수치는 기간 내 합산 참고값입니다.";
+    private static final String UNIT_NOTICE = "인구값은 선택 기간의 하루 평균(06~20시 집계 유동 규모, 명/일)입니다.";
 
     /** 인구 응답에 붙이는 안내 문구. */
     public String populationNotice() {

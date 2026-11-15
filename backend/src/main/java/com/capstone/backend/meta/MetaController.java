@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.capstone.backend.common.ApiResponse;
 import com.capstone.backend.common.Codes;
 import com.capstone.backend.common.DatasetInfoReader;
+import com.capstone.backend.common.PopulationValue;
 
 /**
  * GET /api/v1/meta — 필터 선택지, 격자 기준값, 데이터 준비 상태 (API 명세 4.1).
@@ -56,9 +57,11 @@ public class MetaController {
         data.put("cellSizeMeters", grid == null ? 250 : grid.cellSizeMeters());
         data.put("influenceArea", "CELL_3X3");
         data.put("grid", grid);
-        data.put("populationUnitLabel", null);
-        data.put("populationUnitStatus", "UNCONFIRMED");
-        data.put("combinationRuleStatus", "UNCONFIRMED");
+        // 원본 월 값 = 합계로 확인(명세 9장 L3), 표시는 일평균 (팀 결정 2026-11-16)
+        data.put("populationUnitLabel", PopulationValue.UNIT_LABEL);
+        data.put("populationUnitStatus", "CONFIRMED");
+        // 주중·주말은 합계를 더한 뒤 해당 일수로 나눈다 (L7)
+        data.put("combinationRuleStatus", "CONFIRMED");
         data.put("algorithmStatus", "PROVISIONAL");
         data.put("algorithmVersion", "provisional-v1");
         data.put("recommendationAvailable", false);

@@ -610,8 +610,8 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 
 | ID/항목 | 현재 상태 | 대응 |
 |---|---|---|
-| 원본 인구 값 단위 L3 | 미확인(월평균/월합계 등) | `populationUnitLabel=null`, 결합 불가하면 422/503 |
-| 원본 주중/주말 L7 | 구분 있음 확인 | 주중·주말을 합칠 때의 결합 방법은 단위(L3) 확인 후 결정 |
+| 원본 인구 값 단위 L3 | **월 합계로 확인**(2026-11-14 실제 원본: 주중/주말 합계 비율 2.47 ≈ 2025년 일수 비율 261/104=2.51, 월별 합계가 그 달 일수에 비례) | **일평균으로 표시(팀 결정 2026-11-16)**: 기간·`dayType` 합계 ÷ 해당 일수, `unitLabel=명/일` |
+| 원본 주중/주말 L7 | 구분 있음 확인 | **합계를 더한 뒤 해당 일수로 나눔(확정)**. 일수는 달력 기준(주중=월~금, 주말=토·일), 원본의 공휴일 구분 기준은 미확인 |
 | 원본 코드값 | 성별·연령·시간대·주중/주말 표기 확인, 일부 값은 표기 규칙으로 추정 | 로컬 매핑 파일에 채움. 실제 파일에서 매핑 오류 없는지 확인 |
 | 원본 성별 UNKNOWN L4 | **NULL → `UNKNOWN` 보존, `ALL`에 포함(확정)** | — |
 | 연령 UNKNOWN | 연령 NULL → 전처리에서 `UNKNOWN` 보존(확정) | API에서 언제 포함할지 미정. 제안: `ageGroups`가 6개 전체일 때만 포함 |
@@ -645,7 +645,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 |---|---|
 | 연령·시간대 `UNKNOWN` | 해당 축을 **전체 선택했을 때만** 합계에 포함 (9장 미정 항목의 제안안) |
 | 주중구분 `UNKNOWN` | `dayType=ALL`이면 포함 |
-| 기간 합산 | 월 값 단위(L3)가 미확정이지만 화면 확인을 위해 기간 내 값을 **합산**해 표시. 모든 수치는 `status=UNVERIFIED`, `unitLabel=null` |
+| 기간·요일 일평균 | 선택 기간·`dayType`의 합계 ÷ 해당 일수(`backend/.../board/DayCount.java`). 월별 차트는 각 달의 일수로 나눔. `unitLabel=명/일`, 마스킹(L5) 확인 전이라 `status=UNVERIFIED` 유지 |
 | `totalFlow` | 체류+보행+주행 합. `flowType`은 시간대·월·성별·연령 차트와 Cell별 값에 적용 |
 | 분포 `ratio` | 항목 합 대비 비율을 계산해 반환 (의미 검증 전 참고값) |
 | `matchedCellCount` | 조건에 맞는 `board_population` 행의 `cell_count` 최댓값 |
