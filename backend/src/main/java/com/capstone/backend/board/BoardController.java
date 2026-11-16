@@ -13,7 +13,7 @@ import com.capstone.backend.common.ApiResponse;
 import com.capstone.backend.common.DatasetInfoReader;
 
 /**
- * 게시대 API (API 명세 4.2 ~ 4.5).
+ * 게시대 API (API 명세 4.2 ~ 4.5, 4.8).
  */
 @RestController
 @RequestMapping("/api/v1/boards")
@@ -21,11 +21,14 @@ public class BoardController {
 
     private final BoardRepository boards;
     private final BoardPopulationService population;
+    private final BoardStoreRepository stores;
     private final DatasetInfoReader dataset;
 
-    public BoardController(BoardRepository boards, BoardPopulationService population, DatasetInfoReader dataset) {
+    public BoardController(BoardRepository boards, BoardPopulationService population, BoardStoreRepository stores,
+                           DatasetInfoReader dataset) {
         this.boards = boards;
         this.population = population;
+        this.stores = stores;
         this.dataset = dataset;
     }
 
@@ -60,5 +63,13 @@ public class BoardController {
                                                   @RequestParam Map<String, String> query) {
         BoardRepository.Board board = boards.get(BoardRepository.parseId(boardId));
         return ApiResponse.of(population.cells(board, PopulationFilter.from(query)), dataset.current());
+    }
+
+    /** 3×3 Cell 안의 상가 목록과 업종별 개수 (상세 패널·지도 레이어 공용) */
+    @GetMapping("/{boardId}/stores")
+    public ApiResponse<Map<String, Object>> stores(@PathVariable String boardId) {
+        long id = BoardRepository.parseId(boardId);
+        boards.get(id);
+        return ApiResponse.of(stores.stores(id), dataset.current());
     }
 }

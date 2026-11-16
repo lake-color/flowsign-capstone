@@ -52,6 +52,9 @@ class BoardControllerTest {
     BoardPopulationService population;
 
     @MockitoBean
+    BoardStoreRepository stores;
+
+    @MockitoBean
     DatasetInfoReader dataset;
 
     @BeforeEach
@@ -238,6 +241,31 @@ class BoardControllerTest {
         mockMvc.perform(get("/api/v1/boards/999/cells"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("BOARD_NOT_FOUND"));
+    }
+
+    // ---- GET /boards/{boardId}/stores (4.8)
+
+    @Test
+    void storesReturnsRepositoryResult() throws Exception {
+        when(boards.get(1L)).thenReturn(SAMPLE);
+        when(stores.stores(1L)).thenReturn(Map.of("baseMonth", "202609", "totalCount", 0,
+                "categories", List.of(), "stores", List.of()));
+
+        mockMvc.perform(get("/api/v1/boards/1/stores"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.baseMonth").value("202609"))
+                .andExpect(jsonPath("$.data.totalCount").value(0));
+    }
+
+    @Test
+    void storesOfUnknownBoardIsBoardNotFound() throws Exception {
+        when(boards.get(999L)).thenThrow(boardNotFound());
+
+        mockMvc.perform(get("/api/v1/boards/999/stores"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("BOARD_NOT_FOUND"));
+
+        verifyNoInteractions(stores);
     }
 
     private static ApiException boardNotFound() {

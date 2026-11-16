@@ -21,6 +21,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import com.capstone.backend.board.BoardController;
 import com.capstone.backend.board.BoardRepository;
+import com.capstone.backend.board.BoardStoreRepository;
 import com.capstone.backend.cell.CellController;
 import com.capstone.backend.common.ApiException;
 import com.capstone.backend.common.PopulationValue;
@@ -64,7 +65,7 @@ class BoardApiIntegrationTest {
 
     @BeforeEach
     void seed() {
-        jdbc.execute("TRUNCATE board_population, board_cell, population_fact, board, cell, grid_spec, dataset_info");
+        jdbc.execute("TRUNCATE store, board_population, board_cell, population_fact, board, cell, grid_spec, dataset_info");
 
         jdbc.update("INSERT INTO cell (cell_id, latitude, longitude) VALUES ('C0', 37.40000, 126.95), ('C1', 37.40225, 126.95), ('C2', 37.39775, 126.95), ('C9', 37.50, 127.10)");
 
@@ -92,6 +93,15 @@ class BoardApiIntegrationTest {
                 INSERT INTO population_fact (cell_id, base_month, day_type, gender, age_group, time_slot, stay)
                 VALUES ('C0', '202501', 'WEEKDAY', 'MALE', 'AGE_20S', '08_10', 124),
                        ('C1', '202501', 'WEEKDAY', 'MALE', 'AGE_20S', '08_10', 186)
+                """);
+
+        // 상가: 게시대 1의 3×3(C0·C1)에 3곳, 3×3 밖 Cell(C9)에 1곳
+        jdbc.update("""
+                INSERT INTO store (store_id, name, category, sub_category_name, latitude, longitude, base_month, cell_id)
+                VALUES ('S1', '카페1', 'CAFE', '카페', 37.4001, 126.9502, '202609', 'C0'),
+                       ('S2', '카페2', 'CAFE', '카페', 37.4022, 126.9501, '202609', 'C1'),
+                       ('S3', NULL, 'PHARMACY', '약국', 37.4002, 126.9499, '202609', 'C0'),
+                       ('S9', '먼 상가', 'BAR', '요리 주점', 37.5000, 127.1000, '202609', 'C9')
                 """);
     }
 
@@ -269,6 +279,33 @@ class BoardApiIntegrationTest {
         assertThat(((PopulationValue) cells.get(1).get("population")).value()).isEqualTo(6.0);
         assertThat(((PopulationValue) cells.get(2).get("population")).status()).isEqualTo("MISSING");
         assertThat(cells.get(0).get("geometry")).isNotNull();
+    }
+
+    // ---- /boards/{id}/stores (4.8)
+
+    @Test
+    void storesInThreeByThreeAreListedAndCounted() {
+        Map<String, Object> data = boardController.stores("1").data();
+        List<BoardStoreRepository.Store> stores = list(data, "stores");
+
+        assertThat(data.get("baseMonth")).isEqualTo("202609");
+        assertThat(data.get("totalCount")).isEqualTo(3);
+        assertThat(stores).extracting(BoardStoreRepository.Store::storeId).containsExactly("S1", "S2", "S3");
+        assertThat(stores.get(2).name()).isNull();
+        assertThat(list(data, "categories")).containsExactly(
+                new BoardStoreRepository.CategoryCount("CAFE", 2),
+                new BoardStoreRepository.CategoryCount("PHARMACY", 1));
+    }
+
+    @Test
+    void boardWithoutStoresReturnsEmpty() {
+        Map<String, Object> data = boardController.stores("2").data();
+
+        assertThat(data.get("totalCount")).isEqualTo(0);
+        assertThat(data.get("baseMonth")).isNull();
+        assertThat(list(data, "categories")).isEmpty();
+        assertThatThrownBy(() -> boardController.stores("999"))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("BOARD_NOT_FOUND"));
     }
 
     // ---- /meta (4.1)
