@@ -67,7 +67,7 @@ function Bars({ items }: { items: { label: string; value: number | null; highlig
   )
 }
 
-/** 세로 막대. 모든 막대에 수치를 붙이고, 조건에 포함된 항목 중 가장 큰 막대만 진하게 칠한다. */
+/** 세로 막대. 조건에 포함된 항목 중 가장 큰 막대만 진하게 칠하고 수치를 붙인다. 나머지 수치는 막대에 마우스를 올리면 보인다. */
 function Columns({ items }: { items: { label: string; short: string; value: number | null; highlight?: boolean }[] }) {
   const max = Math.max(1, ...items.map((i) => i.value ?? 0))
   const peak = Math.max(...items.filter((i) => i.highlight !== false).map((i) => i.value ?? 0))
@@ -77,7 +77,7 @@ function Columns({ items }: { items: { label: string; short: string; value: numb
         const isPeak = i.highlight !== false && (i.value ?? 0) === peak && peak > 0
         return (
           <div key={i.label} className="col" title={`${i.label} ${formatValue(i.value)}`}>
-            <span className={`col-value${i.highlight === false ? ' dim' : ''}`}>{compactValue(i.value)}</span>
+            <span className={`col-value${isPeak ? ' peak' : ''}${i.highlight === false ? ' dim' : ''}`}>{compactValue(i.value)}</span>
             <span className="col-track">
               <span className={`col-bar${isPeak ? ' peak' : ''}${i.highlight === false ? ' dim' : ''}`} style={{ height: `${((i.value ?? 0) / max) * 100}%` }} />
             </span>
@@ -119,7 +119,6 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
   if (!stores) return <p className="placeholder">주변 업종을 불러오는 중…</p>
   if (stores.totalCount === 0) return <p className="placeholder">3×3 Cell 안에 상가가 없습니다.</p>
   const max = Math.max(1, ...stores.categories.map((c) => c.count))
-  const month = stores.baseMonth ? `${stores.baseMonth.slice(0, 4)}-${stores.baseMonth.slice(4)} 기준 · ` : ''
   const countOf = (category: StoreCategory) => stores.categories.find((c) => c.category === category)?.count ?? 0
   const colored = DONUT_CATEGORIES.reduce((sum, c) => sum + countOf(c), 0)
   const donut: DonutItem[] = [
@@ -132,7 +131,6 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
   }
   return (
     <>
-      <p className="store-meta">3×3 Cell · {month}총 {stores.totalCount.toLocaleString('ko-KR')}곳</p>
       <Donut items={donut} centerLabel="상가" />
       <ChartUnit>곳 · 3×3 Cell 안 상가 수</ChartUnit>
       <h3>업종별</h3>

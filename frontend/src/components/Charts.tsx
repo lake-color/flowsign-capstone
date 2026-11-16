@@ -72,12 +72,28 @@ export function ChartUnit({ children }: { children: string }) {
   return <p className="chart-unit">({children})</p>
 }
 
-/** 꺾은선 그래프 (단일 계열). 값이 없는 구간에서 선을 끊고, 모든 점에 수치를 붙인다(조건 밖 구간은 흐리게). */
+/**
+ * 0부터 최댓값을 덮는 보기 좋은 눈금 (약 4칸). 간격은 1·2·2.5·5 × 10ⁿ 중에서 고른다.
+ * 예: 최댓값 52 → 0, 20, 40, 60 / 최댓값 1,830 → 0, 500, 1,000, 1,500, 2,000
+ */
+function niceTicks(max: number, count = 4): number[] {
+  const raw = Math.max(max, 1) / count
+  const magnitude = 10 ** Math.floor(Math.log10(raw))
+  const step = ([1, 2, 2.5, 5, 10].find((m) => m * magnitude >= raw) ?? 10) * magnitude
+  const top = Math.ceil(Math.max(max, 1) / step) * step
+  return Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step)
+}
+
+/**
+ * 꺾은선 그래프 (단일 계열). 왼쪽에 자동 눈금과 옅은 기준선을 그린다.
+ * 값이 없는 구간에서 선을 끊고, 모든 점에 수치를 붙인다(조건 밖 구간은 흐리게).
+ */
 export function LineChart({ points }: { points: LinePoint[] }) {
   const width = 300
-  const height = 140
-  const pad = { top: 24, right: 16, bottom: 24, left: 16 }
-  const max = Math.max(1, ...points.map((p) => p.value ?? 0))
+  const height = 150
+  const pad = { top: 24, right: 14, bottom: 24, left: 36 }
+  const ticks = niceTicks(Math.max(0, ...points.map((p) => p.value ?? 0)))
+  const max = ticks[ticks.length - 1]
   const step = (width - pad.left - pad.right) / Math.max(1, points.length - 1)
   const x = (i: number) => pad.left + i * step
   const y = (v: number) => pad.top + (1 - v / max) * (height - pad.top - pad.bottom)
@@ -97,7 +113,12 @@ export function LineChart({ points }: { points: LinePoint[] }) {
 
   return (
     <svg className="line-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="시간대별 인구 꺾은선 그래프">
-      <line x1={pad.left} x2={width - pad.right} y1={height - pad.bottom} y2={height - pad.bottom} className="line-base" />
+      {ticks.map((t) => (
+        <g key={t}>
+          <line x1={pad.left} x2={width - pad.right} y1={y(t)} y2={y(t)} className={t === 0 ? 'line-base' : 'line-grid'} />
+          <text x={pad.left - 6} y={y(t) + 4} textAnchor="end" className="line-tick">{compactValue(t)}</text>
+        </g>
+      ))}
       {segments.map((d) => <path key={d} d={d} className="line-path" />)}
       {points.map((p, i) => {
         return (

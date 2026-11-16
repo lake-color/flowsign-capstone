@@ -1,7 +1,7 @@
 /* 우측 게시대 상세 패널 */
 .board-detail {
   right: 16px;
-  width: var(--right-w, 360px); /* 화면 폭에 비례(360~400px). 값은 map/MapView.css에서 정한다. */
+  width: var(--right-w, 396px); /* 화면 폭에 비례(396~440px). 값은 map/MapView.css에서 정한다. */
 }
 
 /* 접기 버튼(패널 오른쪽 위)과 접었을 때 오른쪽 가장자리에 남는 '상세' 탭 */
@@ -258,6 +258,16 @@
   color: var(--text-h);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  visibility: hidden; /* 최댓값만 늘 보이고, 나머지는 막대에 마우스를 올렸을 때 */
+}
+
+.col-value.peak,
+.col:hover .col-value {
+  visibility: visible;
+}
+
+.col:hover .col-bar {
+  filter: brightness(0.92);
 }
 
 .col-track {
@@ -365,13 +375,26 @@
 
 .line-value {
   fill: var(--text-h);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .line-label {
   fill: var(--text);
-  font-size: 12px;
+  font-size: 11px;
+}
+
+/* 자동 눈금(기준선)과 그 값 */
+.line-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.line-tick {
+  fill: var(--text);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 조건 밖 구간의 수치는 흐린 글자 */
@@ -479,9 +502,9 @@
 }
 
 /* ───────── 주변 업종 (막대 한 줄이 버튼, 누르면 지도에서 강조) */
-.store-meta {
-  margin: 12px 0 8px;
-  font-size: 12px;
+/* 주변 업종 탭은 도넛이 탭 바로 아래에 온다 */
+.tabs + .donut {
+  margin-top: 14px;
 }
 
 .store-list {
