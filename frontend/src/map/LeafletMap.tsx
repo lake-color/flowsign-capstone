@@ -3,16 +3,22 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
 import { formatValue } from '../lib/constants'
 import type { MapProps } from '../lib/types'
-import { ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, cellColor, gridLines } from './common'
+import {
+  ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, STORE_COLOR, cellBounds, cellColor, gridLines,
+  storeHighlightColor, storeLabel,
+} from './common'
 
 /**
  * Leaflet 지도 (대안). 키 없이 OpenStreetMap 타일로 동작한다.
  */
-function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange, focus, palette }: MapProps) {
+function LeafletMap({
+  boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange, focus, palette, stores, highlightCategory,
+}: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<L.Map | null>(null)
   const layers = useRef<{
     markers: L.LayerGroup; grid: L.LayerGroup; cells: L.LayerGroup; allCells: L.LayerGroup; canvas: L.Renderer
+    stores: L.LayerGroup; storeCanvas: L.Renderer
   } | null>(null)
   const fitted = useRef(false)
 
@@ -25,11 +31,15 @@ function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, ce
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map)
     // 추가 순서가 그리는 순서다: 통신사 Cell 전체(맨 아래) → 격자선 → 3×3 → 마커
+    // 상가 점은 Cell 도형 위·게시대 마커 아래에 오도록 전용 pane(overlay 400 < 450 < marker 600)에 그린다.
+    map.createPane('stores').style.zIndex = '450'
     layers.current = {
       allCells: L.layerGroup().addTo(map),
       canvas: L.canvas({ padding: 0.5 }), // Cell 수천 개는 SVG보다 canvas가 가볍다
       grid: L.layerGroup().addTo(map),
       cells: L.layerGroup().addTo(map),
+      stores: L.layerGroup().addTo(map),
+      storeCanvas: L.canvas({ pane: 'stores', padding: 0.5 }),
       markers: L.layerGroup().addTo(map),
     }
     mapRef.current = map
@@ -139,6 +149,24 @@ function LeafletMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, ce
       L.polygon(ring, style).bindTooltip(label).addTo(group)
     }
   }, [cells, palette])
+
+  // 선택 게시대 3×3 Cell 안의 상가. 고른 업종은 포인트 색으로 크게, 나머지는 흐리게 그린다.
+  useEffect(() => {
+    const layer = layers.current
+    if (!layer) return
+    layer.stores.clearLayers()
+    const accent = storeHighlightColor()
+    const isOn = (category: string) => highlightCategory !== null && category === highlightCategory
+    // 고른 업종을 나중에 그려 다른 점 위에 오게 한다.
+    const ordered = [...(stores ?? [])].sort((a, b) => Number(isOn(a.category)) - Number(isOn(b.category)))
+    for (const s of ordered) {
+      const on = isOn(s.category)
+      L.circleMarker([s.latitude, s.longitude], {
+        renderer: layer.storeCanvas, pane: 'stores', radius: on ? 5 : 3, color: '#ffffff', weight: on ? 1 : 0.5,
+        fillColor: on ? accent : STORE_COLOR, fillOpacity: highlightCategory !== null && !on ? 0.25 : 0.85,
+      }).bindTooltip(storeLabel(s)).addTo(layer.stores)
+    }
+  }, [stores, highlightCategory, palette])
 
   return <div ref={containerRef} className="map-canvas" />
 }

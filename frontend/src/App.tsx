@@ -11,7 +11,9 @@ import ThemeToggle, { type Theme } from './components/ThemeToggle'
 import { DEFAULT_QUERY, PALETTES, type Palette } from './lib/constants'
 import { sampleRecommendations } from './lib/sampleRecommendations'
 import MapView, { type MapProvider } from './map/MapView'
-import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery, Purpose, RecommendationItem } from './lib/types'
+import type {
+  Board, BoardPopulation, BoardStores, Bounds, CellItem, MapCell, Meta, PopulationQuery, Purpose, RecommendationItem, StoreCategory,
+} from './lib/types'
 
 // 라이트/다크: 저장된 선택이 있으면 그것을, 없으면 OS 설정을 따른다.
 const THEME_KEY = 'flowsign-theme'
@@ -38,7 +40,7 @@ function initialPalette(): Palette {
   return 'coral'
 }
 
-// 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1&allcells=1
+// 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1&allcells=1&stores=1
 const params = new URLSearchParams(window.location.search)
 const envProvider: MapProvider =
   import.meta.env.VITE_MAP_PROVIDER === 'naver' && import.meta.env.VITE_NAVER_MAP_CLIENT_ID ? 'naver' : 'leaflet'
@@ -54,6 +56,9 @@ function App() {
   const [showGrid, setShowGrid] = useState(params.get('grid') === '1')
   const [showCells, setShowCells] = useState(params.get('cells') === '1')
   const [showAllCells, setShowAllCells] = useState(params.get('allcells') === '1')
+  const [showStores, setShowStores] = useState(params.get('stores') === '1')
+  // 상세 패널에서 고른 업종 (지도에서 강조). 같은 업종을 다시 누르면 해제한다.
+  const [highlightCategory, setHighlightCategory] = useState<StoreCategory | null>(null)
   // 용도별 게시대 마커 표시 (가시성 메뉴). 지도 마커만 거르고 추천 결과 목록에는 영향이 없다.
   const [purposeVisible, setPurposeVisible] = useState<Record<Purpose, boolean>>({ COMMERCIAL: true, MIXED: true, ADMINISTRATIVE: true })
   const changePurposeVisible = useCallback((purpose: Purpose, visible: boolean) => {
@@ -136,6 +141,28 @@ function App() {
     return () => ctrl.abort()
   }, [request])
 
+  // 게시대 선택: 주변 상가 조회 (인구 조건과 무관하므로 게시대가 바뀔 때만). 패널 개수와 지도 점이 같은 응답을 쓴다.
+  const [stores, setStores] = useState<{ boardId: string; data: BoardStores } | null>(null)
+  const [storesFailure, setStoresFailure] = useState<{ boardId: string; message: string } | null>(null)
+  useEffect(() => {
+    if (!selectedId) return
+    const ctrl = new AbortController()
+    api.stores(selectedId, ctrl.signal)
+      .then((data) => setStores({ boardId: selectedId, data }))
+      .catch((e: Error) => {
+        if (!ctrl.signal.aborted) setStoresFailure({ boardId: selectedId, message: e.message })
+      })
+    return () => ctrl.abort()
+  }, [selectedId])
+  const currentStores = stores?.boardId === selectedId ? stores.data : null
+  const storesError = storesFailure?.boardId === selectedId && !currentStores ? storesFailure.message : null
+
+  // 업종을 고르면 강조하고, 레이어가 꺼져 있으면 켠다.
+  const selectCategory = useCallback((category: StoreCategory) => {
+    setHighlightCategory((current) => (current === category ? null : category))
+    setShowStores(true)
+  }, [])
+
   // 3×3 Cell 보기를 켰을 때만 /cells 호출
   useEffect(() => {
     const { selectedId, query } = request
@@ -169,6 +196,7 @@ function App() {
   const selectBoard = useCallback((id: string) => {
     setSelectedId(id)
     setRightOpen(true)
+    setHighlightCategory(null)
   }, [])
 
   // 왼쪽 탭에서 고른 패널. 열려 있는 탭을 다시 누르면 null이 되어 패널이 닫힌다.
@@ -186,6 +214,7 @@ function App() {
   const selectRecommended = useCallback((id: string) => {
     setSelectedId(id)
     setRightOpen(true)
+    setHighlightCategory(null)
     const target = boards.find((b) => b.boardId === id)
     if (target) setFocus({ latitude: target.latitude, longitude: target.longitude })
   }, [boards])
@@ -240,6 +269,8 @@ function App() {
             showCells={showCells}
             onShowCellsChange={toggleCells}
             hasSelectedBoard={selectedId !== null}
+            showStores={showStores}
+            onShowStoresChange={setShowStores}
             purposeVisible={purposeVisible}
             onPurposeVisibleChange={changePurposeVisible}
           />
@@ -261,12 +292,18 @@ function App() {
           focus={focus}
           palette={palette}
           onViewChange={setView}
+          stores={showStores ? currentStores?.stores ?? null : null}
+          highlightCategory={highlightCategory}
         />
         <RightPanel
           board={board}
           population={population}
           loading={detailLoading}
           error={detailError}
+          stores={currentStores}
+          storesError={storesError}
+          highlightCategory={highlightCategory}
+          onSelectCategory={selectCategory}
           open={rightOpen}
           onToggle={() => setRightOpen((open) => !open)}
           recommendation={recommendations?.find((r) => r.boardId === board?.boardId) ?? null}

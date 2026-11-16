@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { formatValue } from '../lib/constants'
 import type { MapProps } from '../lib/types'
-import { ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, cellBounds, cellColor, gridLines } from './common'
+import {
+  ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, STORE_COLOR, cellBounds, cellColor, gridLines,
+  storeHighlightColor, storeLabel,
+} from './common'
 
 /**
  * Naver Maps JS v3 지도 (1순위). VITE_NAVER_MAP_CLIENT_ID가 있어야 동작한다.
@@ -32,13 +35,15 @@ function loadSdk(): Promise<Naver> {
   return sdkPromise
 }
 
-function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange, focus, palette }: MapProps) {
+function NaverMap({
+  boards, selectedBoardId, onSelectBoard, grid, showGrid, cells, allCells, onViewChange, focus, palette, stores, highlightCategory,
+}: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [naver, setNaver] = useState<Naver | null>(null)
   const [error, setError] = useState<string | null>(CLIENT_ID ? null : 'VITE_NAVER_MAP_CLIENT_ID가 설정되지 않았습니다.')
   const mapRef = useRef<Naver>(null)
-  const overlays = useRef<{ markers: Naver[]; grid: Naver[]; cells: Naver[]; allCells: Naver[] }>({
-    markers: [], grid: [], cells: [], allCells: [],
+  const overlays = useRef<{ markers: Naver[]; grid: Naver[]; cells: Naver[]; allCells: Naver[]; stores: Naver[] }>({
+    markers: [], grid: [], cells: [], allCells: [], stores: [],
   })
   const fitted = useRef(false)
 
@@ -64,7 +69,7 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
     }
   }, [])
 
-  const clear = (key: 'markers' | 'grid' | 'cells' | 'allCells') => {
+  const clear = (key: 'markers' | 'grid' | 'cells' | 'allCells' | 'stores') => {
     overlays.current[key].forEach((o) => o.setMap(null))
     overlays.current[key] = []
   }
@@ -109,6 +114,7 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
         map,
         position: new naver.maps.LatLng(b.latitude, b.longitude),
         title: b.name,
+        zIndex: 100, // 상가 점(zIndex 1~2)보다 위
         icon: {
           content: `<div style="width:${size}px;height:${size}px;border-radius:${shape};background:${PURPOSE_COLOR[b.purpose]};border:2px solid ${selected ? '#f59e0b' : '#fff'};box-shadow:0 0 2px #0008"></div>`,
           anchor: new naver.maps.Point(size / 2, size / 2),
@@ -182,6 +188,29 @@ function NaverMap({ boards, selectedBoardId, onSelectBoard, grid, showGrid, cell
       overlays.current.cells.push(overlay)
     }
   }, [naver, cells, palette])
+
+  // 선택 게시대 3×3 Cell 안의 상가. 고른 업종은 포인트 색으로 크게, 나머지는 흐리게 그린다.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!naver || !map) return
+    clear('stores')
+    const accent = storeHighlightColor()
+    for (const s of stores ?? []) {
+      const on = highlightCategory !== null && s.category === highlightCategory
+      const size = on ? 10 : 6
+      const opacity = highlightCategory !== null && !on ? 0.25 : 0.85
+      overlays.current.stores.push(new naver.maps.Marker({
+        map,
+        position: new naver.maps.LatLng(s.latitude, s.longitude),
+        title: storeLabel(s),
+        zIndex: on ? 2 : 1,
+        icon: {
+          content: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${on ? accent : STORE_COLOR};opacity:${opacity};border:1px solid #fff"></div>`,
+          anchor: new naver.maps.Point(size / 2, size / 2),
+        },
+      }))
+    }
+  }, [naver, stores, highlightCategory, palette])
 
   return (
     <div className="map-canvas">

@@ -1,4 +1,4 @@
-import type { PopulationQuery, Purpose } from './types'
+import type { PopulationQuery, Purpose, StoreCategory } from './types'
 
 // 조건·차트 공통 코드와 표시 이름
 
@@ -27,6 +27,24 @@ export const PURPOSE_LABEL: Record<Purpose, string> = {
 }
 
 export const CITY_LABEL: Record<string, string> = { ANYANG: '안양시', GUNPO: '군포시', SIHEUNG: '시흥시' }
+
+export const STORE_CATEGORY_LABEL: Record<StoreCategory, string> = {
+  RESTAURANT: '음식점',
+  CAFE: '카페',
+  BAR: '주점',
+  RETAIL: '소매',
+  PHARMACY: '약국',
+  LIVING_SERVICE: '생활서비스',
+  EDUCATION: '학원·교육',
+  MEDICAL: '병원·의원',
+  VETERINARY: '동물병원',
+  STUDY_ROOM: '독서실·스터디카페',
+  SCIENCE_TECH: '과학·기술',
+  ARTS_SPORTS: '예술·스포츠',
+  REAL_ESTATE: '부동산',
+  FACILITY_RENTAL: '시설관리·임대',
+  LODGING: '숙박',
+}
 
 export type Palette = 'coral' | 'teal' | 'indigo'
 
