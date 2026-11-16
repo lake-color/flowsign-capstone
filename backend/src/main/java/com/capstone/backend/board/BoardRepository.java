@@ -61,6 +61,11 @@ public class BoardRepository {
             params.addValue("cities", dbCities);
         }
         if (!purposes.isEmpty()) {
+            for (String purpose : purposes) {
+                if (!Codes.PURPOSES.contains(purpose)) {
+                    throw ApiException.badRequest("알 수 없는 용도 코드입니다: " + purpose);
+                }
+            }
             where.add("b.purpose IN (:purposes)");
             params.addValue("purposes", purposes);
         }

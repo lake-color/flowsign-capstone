@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * 오류 응답 공통 형태 {@code {error: {code, message, requestId}}} (API 명세 2.1, 5장).
@@ -23,6 +24,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorBody> handleApi(ApiException e) {
         return body(e.status(), e.code(), e.getMessage());
+    }
+
+    /** 숫자 자리에 문자가 오는 등 쿼리 형식 오류. 아래 Exception 처리에 잡혀 500이 되지 않도록 400으로 돌려준다(명세 5장). */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorBody> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        return body(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", e.getName() + " 값이 올바르지 않습니다: " + e.getValue());
     }
 
     @ExceptionHandler(Exception.class)
