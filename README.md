@@ -503,7 +503,7 @@ npm run lint
 - `dev`: http://localhost:5173 — `/api` 요청은 Vite 프록시가 Backend로 전달합니다. (CORS 대신 프록시 사용)
 - 프록시 대상은 `API_PROXY_TARGET` 환경변수로 바꿀 수 있습니다. (기본 `http://localhost:8080`)
 - HTTP 호출은 `fetch`만 쓰고, 10초 타임아웃을 둡니다.
-- 차트 라이브러리는 아직 정하지 않아 상세 차트는 CSS 막대로 그립니다.
+- 차트 라이브러리는 아직 정하지 않아 상세 차트는 의존성 없이 SVG·CSS로 그립니다(`components/Charts.tsx`). 시간대별 꺾은선, 월별 세로 막대, 성별·서비스 인구·주변 업종 도넛, 연령대·업종별 가로 막대입니다.
 
 </details>
 

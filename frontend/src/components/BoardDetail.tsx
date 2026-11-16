@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Board, BoardPopulation, BoardStores, DistributionPoint, RecommendationItem, StoreCategory } from '../lib/types'
 import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, STORE_CATEGORY_LABEL, formatValue, timeLabel } from '../lib/constants'
+import { Donut, LineChart, type DonutItem } from './Charts'
 
 interface Props {
   board: Board | null
@@ -35,10 +36,20 @@ function CollapseButton({ onClick }: { onClick: () => void }) {
 const GENDER_LABEL: Record<string, string> = { MALE: '남성', FEMALE: '여성', UNKNOWN: '미상' }
 const SERVICE_LABEL: Record<string, string> = { RESIDENCE: '거주', WORK: '근무', VISIT: '방문' }
 
-const TABS = [['time', '시간대'], ['people', '성별·연령'], ['service', '서비스']] as const
+// 도넛 색은 순위가 아니라 항목에 고정한다. 미상은 범주색이 아닌 회색.
+const GENDER_COLOR: Record<string, string> = { MALE: 'var(--series-1)', FEMALE: 'var(--series-2)', UNKNOWN: 'var(--series-other)' }
+const SERVICE_COLOR: Record<string, string> = { RESIDENCE: 'var(--series-1)', WORK: 'var(--series-2)', VISIT: 'var(--series-3)' }
+
+/**
+ * 주변 업종 도넛에 색을 주는 업종 (고정 6개, 이 순서로 그림). 15개를 모두 색으로 나누면 구분이 안 되므로
+ * 나머지는 '기타' 회색 한 조각으로 묶고, 전체 업종은 도넛 아래 막대 목록에서 본다.
+ */
+const DONUT_CATEGORIES: StoreCategory[] = ['RESTAURANT', 'CAFE', 'EDUCATION', 'RETAIL', 'MEDICAL', 'LIVING_SERVICE']
+
+const TABS = [['time', '시간대'], ['people', '성별·연령'], ['service', '서비스'], ['stores', '주변 업종']] as const
 type Tab = (typeof TABS)[number][0]
 
-/** 차트 라이브러리는 미정이므로 데모에서는 CSS 막대로 표시한다. */
+/** 가로 막대 (연령대 등). 차트 라이브러리는 미정이므로 CSS로 그린다. */
 function Bars({ items }: { items: { label: string; value: number | null; highlight?: boolean }[] }) {
   const max = Math.max(1, ...items.map((i) => i.value ?? 0))
   return (
@@ -109,15 +120,27 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
   if (stores.totalCount === 0) return <p className="placeholder">3×3 Cell 안에 상가가 없습니다.</p>
   const max = Math.max(1, ...stores.categories.map((c) => c.count))
   const month = stores.baseMonth ? `${stores.baseMonth.slice(0, 4)}-${stores.baseMonth.slice(4)} 기준 · ` : ''
+  const countOf = (category: StoreCategory) => stores.categories.find((c) => c.category === category)?.count ?? 0
+  const colored = DONUT_CATEGORIES.reduce((sum, c) => sum + countOf(c), 0)
+  const donut: DonutItem[] = [
+    ...DONUT_CATEGORIES.map((c, i) => ({ key: c, label: STORE_CATEGORY_LABEL[c], value: countOf(c), color: `var(--series-${i + 1})` })),
+    { key: 'OTHER', label: '기타', value: stores.totalCount - colored, color: 'var(--series-other)' },
+  ]
+  const swatch = (category: StoreCategory) => {
+    const i = DONUT_CATEGORIES.indexOf(category)
+    return i >= 0 ? `var(--series-${i + 1})` : 'var(--series-other)'
+  }
   return (
     <>
       <p className="store-meta">3×3 Cell · {month}총 {stores.totalCount.toLocaleString('ko-KR')}곳</p>
+      <Donut items={donut} centerLabel="상가" />
+      <h3>업종별</h3>
       <ul className="store-list">
         {stores.categories.map((c) => (
           <li key={c.category}>
             <button type="button" className={`bar-row${highlight === c.category ? ' active' : ''}`}
               aria-pressed={highlight === c.category} onClick={() => onSelect(c.category)}>
-              <span className="bar-label">{STORE_CATEGORY_LABEL[c.category] ?? c.category}</span>
+              <span className="bar-label"><i className="swatch" style={{ background: swatch(c.category) }} />{STORE_CATEGORY_LABEL[c.category] ?? c.category}</span>
               <span className="bar-track">
                 <span className={`bar-fill${highlight && highlight !== c.category ? ' dim' : ''}`} style={{ width: `${(c.count / max) * 100}%` }} />
               </span>
@@ -133,6 +156,9 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
 
 const dist = (points: DistributionPoint[], labels: Record<string, string>) =>
   points.map((p) => ({ label: labels[p.key] ?? p.key, value: p.population.value }))
+
+const donutItems = (points: DistributionPoint[], labels: Record<string, string>, colors: Record<string, string>): DonutItem[] =>
+  points.map((p) => ({ key: p.key, label: labels[p.key] ?? p.key, value: p.population.value, color: colors[p.key] ?? 'var(--series-other)' }))
 
 /**
  * 게시대 상세 영역. 선택 게시대의 정보와 3×3 영향권 인구 집계·차트를 보여준다.
@@ -202,27 +228,35 @@ function BoardDetail({
             { label: '보행', value: population.population.walk.value, tone: 2 },
             { label: '주행', value: population.population.drive.value, tone: 3 },
           ]} />
+        </>
+      )}
 
-          <div className="tabs" role="tablist">
-            {TABS.map(([key, label]) => (
-              <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''}
-                onClick={() => setTab(key)}>{label}</button>
-            ))}
-          </div>
+      {/* 주변 업종 탭은 인구와 무관하므로 탭 줄은 인구가 없어도 보인다. */}
+      <div className="tabs" role="tablist">
+        {TABS.map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''}
+            onClick={() => setTab(key)}>{label}</button>
+        ))}
+      </div>
 
+      {population && !loading && tab !== 'stores' && (
+        <>
           {tab === 'time' && (
             <>
-              <Columns items={population.hourly.map((h) => ({
-                label: timeLabel(h.timeBand), short: h.timeBand.slice(0, 2), value: h.value.value, highlight: h.selected,
+              <h3>시간대별</h3>
+              <LineChart points={population.hourly.map((h) => ({
+                label: timeLabel(h.timeBand), short: h.timeBand.slice(0, 2), value: h.value.value, selected: h.selected,
               }))} />
               <h3>월별</h3>
-              <Bars items={population.monthly.map((m) => ({ label: `${m.month}월`, value: m.value.value, highlight: m.selected }))} />
+              <Columns items={population.monthly.map((m) => ({
+                label: `${m.month}월`, short: String(m.month), value: m.value.value, highlight: m.selected,
+              }))} />
             </>
           )}
           {tab === 'people' && (
             <>
               <h3>성별</h3>
-              <Bars items={dist(population.genderDistribution, GENDER_LABEL)} />
+              <Donut items={donutItems(population.genderDistribution, GENDER_LABEL, GENDER_COLOR)} centerLabel="합계" />
               <h3>연령대</h3>
               <Bars items={dist(population.ageDistribution, AGE_LABEL)} />
             </>
@@ -230,15 +264,16 @@ function BoardDetail({
           {tab === 'service' && (
             <>
               <h3>서비스 인구</h3>
-              <Bars items={dist(population.servicePopulation, SERVICE_LABEL)} />
+              <Donut items={donutItems(population.servicePopulation, SERVICE_LABEL, SERVICE_COLOR)} centerLabel="합계" />
             </>
           )}
           <p className="notice">{population.dataNotice}</p>
         </>
       )}
 
-      <h3>주변 업종</h3>
-      <NearbyStores stores={stores} error={storesError} highlight={highlightCategory} onSelect={onSelectCategory} />
+      {tab === 'stores' && (
+        <NearbyStores stores={stores} error={storesError} highlight={highlightCategory} onSelect={onSelectCategory} />
+      )}
     </section>
   )
 }

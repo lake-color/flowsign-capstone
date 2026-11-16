@@ -323,9 +323,132 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ───────── 꺾은선 그래프 (시간대별) */
+.line-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.line-base {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.line-path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.line-dot {
+  fill: var(--accent);
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+
+.line-dot.dim {
+  fill: var(--panel);
+  stroke: color-mix(in srgb, var(--accent) 45%, var(--panel));
+}
+
+.line-hit {
+  fill: transparent;
+}
+
+.line-hit:hover {
+  fill: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.line-value {
+  fill: var(--text-h);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.line-label {
+  fill: var(--text);
+  font-size: 11px;
+}
+
+/* ───────── 도넛 (성별·서비스·주변 업종). 범례에 이름·값·비율을 함께 써서 색만으로 읽지 않게 한다. */
+.donut {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  align-items: center;
+  gap: 14px;
+}
+
+.donut svg {
+  width: 112px;
+  height: 112px;
+}
+
+.donut svg circle:not(.donut-track):hover {
+  opacity: 0.8;
+}
+
+.donut-track {
+  stroke: var(--card);
+}
+
+.donut-caption {
+  fill: var(--text);
+  font-size: 10px;
+}
+
+.donut-total {
+  fill: var(--text-h);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.donut-legend {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.donut-legend li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto 34px;
+  align-items: center;
+  gap: 6px;
+}
+
+.donut-legend i,
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.donut-legend b {
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.donut-legend small {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.swatch {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
 /* ───────── 주변 업종 (막대 한 줄이 버튼, 누르면 지도에서 강조) */
 .store-meta {
-  margin: 0 0 6px;
+  margin: 12px 0 8px;
   font-size: 12px;
 }
 
@@ -338,7 +461,7 @@
 }
 
 .store-list .bar-row {
-  grid-template-columns: 112px 1fr 44px;
+  grid-template-columns: 132px 1fr 40px;
   width: 100%;
   padding: 3px 6px;
   border: 1px solid transparent;

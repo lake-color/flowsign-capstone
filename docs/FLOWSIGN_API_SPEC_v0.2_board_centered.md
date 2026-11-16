@@ -23,7 +23,7 @@
 | F 전역 분포 | `grid250_population` 관련 화면/서비스 API | **MVP 제외**; DB 잔존 시 즉시 삭제 필요 없음 |
 | 전체 격자 인구 | 모든 250m Cell의 인구 정보 제공 | **확장 기능**, MVP에서 구현하지 않음 |
 | 추천 | 조건 입력 후 TOP 10, 10개씩 더 보기, 추천 이유와 점수 구성 | 기능 확정. **계산 위치는 Spring 요청 시 계산(확정)**, 가중치·산식은 임시값(미결) |
-| 게시대 상세 차트 | 시간대별·성별 등 인구 차트 포함 | 포함 확정, 차트 구성·라이브러리 미정 |
+| 게시대 상세 차트 | 시간대별 꺾은선, 월별 세로 막대, 성별·서비스 인구·주변 업종 도넛, 연령대 가로 막대. 탭: 시간대·성별·연령·서비스·주변 업종 | 구성 확정(2026-11-17), 라이브러리 미정 |
 | 지도 | Naver Maps JS 1순위, Leaflet 2순위(대안) | 확정 |
 | 기술 미사용 | PostGIS, pyproj 사용 안 함. 거리 계산은 Python(numpy) 근사식 | 확정 |
 | DB 적재 | Python이 표준 CSV 생성 → `psql \copy`로 적재. 테이블은 **Flyway migration만** 생성 | 확정 |
@@ -678,7 +678,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 | 추천 공식 Q7 | 가중치·산식 모두 임시값, 팀 미확정 | `algorithmStatus=PROVISIONAL`, 실데이터 분석 후 확정 |
 | 게시대 원본 파일 형식 | **공공데이터포털 전국현수막게시대표준데이터 CSV(CP949), 대상 3개 시 445개, 위경도 포함 확인** | 변환 규칙은 `python/src/data_processing/board.py` |
 | 게시대 가격/원본 ID 등 | 원본에 고유 ID 없음 → `board_id`는 순번. 부착금액 "무료" → 0, 빈 값 → `null`(106개) | 원본이 갱신되면 순번이 바뀔 수 있음 |
-| 상세 차트 구성·라이브러리 | 차트 포함 확정, 목록(시간대별 성별 등)·라이브러리 미정 | 확정 후 4.4 응답 필드 보완 |
+| 상세 차트 라이브러리 | 차트 구성은 확정(0장), 라이브러리 미정 | 데모는 SVG·CSS로 직접 그림. 4.4 응답 필드는 그대로 사용 |
 | `population_fact` 적재 범위 | 전체 Cell vs 게시대 3×3 Cell만. 250m 기준이면 전체도 수백만 행 수준 | 확장 기능(전체 격자 인구) 일정과 함께 결정 |
 | 문의 업종 선택지·개인정보 동의 문구/보관 종료일 | 미확정 | 필드/저장 동작만 제안, 실제 동의문은 별도 합의 |
 
@@ -708,7 +708,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 | 격자 검증 허용 오차 | 격자 간격의 5% (`mapping.py` `GRID_TOLERANCE`) |
 | 격자선 표시 기준 | 화면에서 한 칸이 12px 이상일 때 (`frontend/src/map/common.ts` `GRID_MIN_PIXELS`) |
 | 3×3 이웃 판정 | 소속 Cell 중심에서 430m 이내 Cell (`mapping.py` `NEIGHBOR_MAX_METERS`) |
-| 상세 차트 | 차트 라이브러리 미정이라 CSS 막대로 표시 |
+| 상세 차트 | 차트 라이브러리 미정이라 SVG·CSS로 직접 그림. 주변 업종 도넛은 고정 6개 업종(음식점, 카페, 학원·교육, 소매, 병원·의원, 생활서비스)만 색을 주고 나머지는 '기타' |
 
 **명세와 다른 점:**
 
