@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Board, BoardPopulation, BoardStores, DistributionPoint, RecommendationItem, StoreCategory } from '../lib/types'
-import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, STORE_CATEGORY_LABEL, compactValue, formatValue, timeLabel } from '../lib/constants'
-import { ChartUnit, Donut, LineChart, type DonutItem } from './Charts'
+import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, STORE_CATEGORY_LABEL, formatValue, timeLabel } from '../lib/constants'
+import { ChartUnit, ColumnChart, LineChart, PieChart, type PieItem } from './Charts'
 
 interface Props {
   board: Board | null
@@ -67,28 +67,6 @@ function Bars({ items }: { items: { label: string; value: number | null; highlig
   )
 }
 
-/** 세로 막대. 조건에 포함된 항목 중 가장 큰 막대만 진하게 칠하고 수치를 붙인다. 나머지 수치는 막대에 마우스를 올리면 보인다. */
-function Columns({ items }: { items: { label: string; short: string; value: number | null; highlight?: boolean }[] }) {
-  const max = Math.max(1, ...items.map((i) => i.value ?? 0))
-  const peak = Math.max(...items.filter((i) => i.highlight !== false).map((i) => i.value ?? 0))
-  return (
-    <div className="cols">
-      {items.map((i) => {
-        const isPeak = i.highlight !== false && (i.value ?? 0) === peak && peak > 0
-        return (
-          <div key={i.label} className="col" title={`${i.label} ${formatValue(i.value)}`}>
-            <span className={`col-value${isPeak ? ' peak' : ''}${i.highlight === false ? ' dim' : ''}`}>{compactValue(i.value)}</span>
-            <span className="col-track">
-              <span className={`col-bar${isPeak ? ' peak' : ''}${i.highlight === false ? ' dim' : ''}`} style={{ height: `${((i.value ?? 0) / max) * 100}%` }} />
-            </span>
-            <span className="col-label">{i.short}</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 /** 체류·보행·주행 비율을 하나의 누적 막대로 보여준다. */
 function FlowStack({ items }: { items: { label: string; value: number | null; tone: 1 | 2 | 3 }[] }) {
   const total = items.reduce((sum, i) => sum + (i.value ?? 0), 0)
@@ -121,7 +99,7 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
   const max = Math.max(1, ...stores.categories.map((c) => c.count))
   const countOf = (category: StoreCategory) => stores.categories.find((c) => c.category === category)?.count ?? 0
   const colored = DONUT_CATEGORIES.reduce((sum, c) => sum + countOf(c), 0)
-  const donut: DonutItem[] = [
+  const donut: PieItem[] = [
     ...DONUT_CATEGORIES.map((c, i) => ({ key: c, label: STORE_CATEGORY_LABEL[c], value: countOf(c), color: `var(--series-${i + 1})` })),
     { key: 'OTHER', label: '기타', value: stores.totalCount - colored, color: 'var(--series-other)' },
   ]
@@ -131,7 +109,7 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
   }
   return (
     <>
-      <Donut items={donut} centerLabel="상가" />
+      <PieChart items={donut} label="주변 업종" />
       <ChartUnit>곳 · 3×3 Cell 안 상가 수</ChartUnit>
       <h3>업종별</h3>
       <ul className="store-list">
@@ -157,7 +135,7 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
 const dist = (points: DistributionPoint[], labels: Record<string, string>) =>
   points.map((p) => ({ label: labels[p.key] ?? p.key, value: p.population.value }))
 
-const donutItems = (points: DistributionPoint[], labels: Record<string, string>, colors: Record<string, string>): DonutItem[] =>
+const donutItems = (points: DistributionPoint[], labels: Record<string, string>, colors: Record<string, string>): PieItem[] =>
   points.map((p) => ({ key: p.key, label: labels[p.key] ?? p.key, value: p.population.value, color: colors[p.key] ?? 'var(--series-other)' }))
 
 /**
@@ -253,8 +231,8 @@ function BoardDetail({
               }))} />
               <ChartUnit>{`${unit} · 시간대(2시간)별 하루 평균`}</ChartUnit>
               <h3>월별</h3>
-              <Columns items={population.monthly.map((m) => ({
-                label: `${m.month}월`, short: String(m.month), value: m.value.value, highlight: m.selected,
+              <ColumnChart items={population.monthly.map((m) => ({
+                label: `${m.month}월`, short: String(m.month), value: m.value.value, selected: m.selected,
               }))} />
               <ChartUnit>{`${unit} · 각 달의 하루 평균 (월 합계 ÷ 그 달 일수)`}</ChartUnit>
             </>
@@ -262,7 +240,7 @@ function BoardDetail({
           {tab === 'people' && (
             <>
               <h3>성별</h3>
-              <Donut items={donutItems(population.genderDistribution, GENDER_LABEL, GENDER_COLOR)} centerLabel="합계" />
+              <PieChart items={donutItems(population.genderDistribution, GENDER_LABEL, GENDER_COLOR)} label="성별" />
               <ChartUnit>{`${unit} · 선택 기간 하루 평균`}</ChartUnit>
               <h3>연령대</h3>
               <Bars items={dist(population.ageDistribution, AGE_LABEL)} />
@@ -272,7 +250,7 @@ function BoardDetail({
           {tab === 'service' && (
             <>
               <h3>서비스 인구</h3>
-              <Donut items={donutItems(population.servicePopulation, SERVICE_LABEL, SERVICE_COLOR)} centerLabel="합계" />
+              <PieChart items={donutItems(population.servicePopulation, SERVICE_LABEL, SERVICE_COLOR)} label="서비스 인구" className="pie-service" />
               <ChartUnit>{`${unit} · 선택 기간 하루 평균`}</ChartUnit>
             </>
           )}
