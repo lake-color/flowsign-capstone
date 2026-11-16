@@ -6,12 +6,13 @@
   단계                 파일             결과 (data/generated_<모드>/)
   0. 원본 확인          pipeline.py      find_inputs(): 빠진 원본·매핑 파일을 모아 중단
   1. 게시대 변환        board.py         board.csv  (raw/board_raw.csv에서 대상 3개 시만)
-  2. 통신사 데이터      fake_data.py     population_fake.csv  (fake 모드에서만. real은 raw/population_raw_*.csv)
-  3. 전처리            preprocess.py    cell.csv, population_fact.csv, preprocess_report.json
-  4. 매핑              mapping.py       board_cell.csv, board_population.csv, grid_spec.csv
-  5. 세트 검증          pipeline.py      validate_set(): 파일·출처(dataset)·ID 일치
-  6. 교체              pipeline.py      <세트>.building → <세트>
-  7. DB 적재           load.py          load(): 검증 후 테이블 6개를 트랜잭션 하나로 교체, 세트 종류 기록
+  2. 상가 변환          store.py         store_source.csv  (raw/store_raw_<YYYYMM>.csv에서 대상 3개 시만. 두 모드 모두 실제 공공데이터)
+  3. 통신사 데이터      fake_data.py     population_fake.csv  (fake 모드에서만. real은 raw/population_raw_*.csv)
+  4. 전처리            preprocess.py    cell.csv, population_fact.csv, preprocess_report.json
+  5. 매핑              mapping.py       board_cell.csv, board_population.csv, grid_spec.csv, store.csv
+  6. 세트 검증          pipeline.py      validate_set(): 파일·출처(dataset)·ID 일치
+  7. 교체              pipeline.py      <세트>.building → <세트>
+  8. DB 적재           load.py          load(): 검증 후 테이블 7개를 트랜잭션 하나로 교체, 세트 종류 기록
 
 폴더는 모드로 고정한다. 사용자는 경로를 입력하지 않으므로 다른 세트 폴더에 쓰는 실수가 생기지 않는다.
   data/raw/             사람이 넣는 실제 원본만. 어떤 명령도 여기에 쓰지 않는다.
@@ -39,6 +40,7 @@ from data_processing.fake_data import generate_fake_csv
 from data_processing.load import LOAD_TABLES, load_set
 from data_processing.mapping import run_mapping
 from data_processing.preprocess import LOCAL_MAPPING, preprocess_csv
+from data_processing.store import convert_store_csv, find_store_raw
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 RAW_DIR = DATA_DIR / "raw"
@@ -64,13 +66,14 @@ def set_dir(mode: str, data_dir: Path = DATA_DIR) -> Path:
 def find_inputs(mode: str, raw_dir: Path = RAW_DIR, mapping_path: Path = LOCAL_MAPPING) -> list[Path]:
     """모드에 필요한 원본을 확인한다. 없으면 빠진 파일을 모두 모아 한 번에 알려 주고 중단한다.
 
-    fake: 게시대 원본만 필요. 통신사 원본은 읽지 않는다.
-    real: 게시대 원본 + population_raw_1.csv부터 번호가 이어지는 통신사 원본 + 실제 매핑 파일.
+    fake: 게시대 원본 + 상가 원본. 통신사 원본은 읽지 않는다.
+    real: 게시대 원본 + 상가 원본 + population_raw_1.csv부터 번호가 이어지는 통신사 원본 + 실제 매핑 파일.
     반환: real이면 통신사 원본 목록(번호순), fake면 빈 목록.
     """
     problems = []
     if not (raw_dir / BOARD_RAW).is_file():
         problems.append(f"게시대 원본이 없습니다: {raw_dir / BOARD_RAW}")
+    problems += find_store_raw(raw_dir)[1]
     if mode == "fake":
         if problems:
             raise DataSetError("\n".join(problems))
@@ -129,6 +132,11 @@ def validate_set(directory: Path, mode: str) -> dict:
         problems.append("board_cell.csv에 board.csv에 없는 게시대가 있습니다")
     if not links["cell_id"].isin(cells).all():
         problems.append("board_cell.csv에 cell.csv에 없는 Cell이 있습니다")
+    stores = pd.read_csv(directory / "store.csv", usecols=["store_id", "cell_id"], dtype=str)
+    if stores["store_id"].duplicated().any():
+        problems.append("store.csv에 store_id가 중복됩니다")
+    if not stores["cell_id"].isin(links["cell_id"]).all():
+        problems.append("store.csv에 게시대 3×3 Cell이 아닌 Cell이 있습니다")
     if problems:
         raise DataSetError(f"{directory.name} 검증 실패:\n" + "\n".join(problems))
     return report
@@ -198,11 +206,13 @@ def build(mode: str, raw_dir: Path = RAW_DIR, data_dir: Path = DATA_DIR, encodin
     start = time.monotonic()
     final = set_dir(mode, data_dir)
     _header(log, f"FLOWSIGN 데이터 생성 · {MODE_LABEL[mode]} 모드", f"결과 폴더: {final}")
-    steps = _Steps(log, 5)
+    steps = _Steps(log, 6)
 
     steps.start(0, "원본 확인")
     population_files = find_inputs(mode, raw_dir, mapping_path)
+    store_raw = find_store_raw(raw_dir)[0]
     log(_kv("게시대 원본", BOARD_RAW, "OK"))
+    log(_kv("상가 원본", store_raw.name, "OK"))
     if mode == "real":
         log(_kv(f"통신사 원본 {len(population_files)}개", ", ".join(p.name for p in population_files), "OK"))
         log(_kv("매핑 파일", mapping_path.name, "OK"))
@@ -221,7 +231,12 @@ def build(mode: str, raw_dir: Path = RAW_DIR, data_dir: Path = DATA_DIR, encodin
         log(_kv("동 없음", f"{_n(board['dong_missing'])}개"))
         log(_kv("금액 미제공", f"{_n(board['fee_missing'])}개"))
 
-        steps.start(2, "통신사 데이터")
+        steps.start(2, "상가 변환")
+        store = convert_store_csv(store_raw, staging / "store_source.csv")
+        by_city = " · ".join(f"{city} {_n(n)}" for city, n in store["by_city"].items())
+        log(_kv("상가 (대상 3개 시)", f"{_n(store['stores'])}개", f"{store['base_month']} 기준 · {by_city}"))
+
+        steps.start(3, "통신사 데이터")
         if mode == "fake":
             n_cells, n_rows = generate_fake_csv(staging / POPULATION_FAKE, staging / "board.csv")
             log(_kv("가짜 데이터 생성", f"Cell {_n(n_cells)}개, {_n(n_rows)}행", POPULATION_FAKE))
@@ -230,7 +245,7 @@ def build(mode: str, raw_dir: Path = RAW_DIR, data_dir: Path = DATA_DIR, encodin
             log(_kv("실제 원본 사용", f"{len(population_files)}개 파일을 번호순으로 이어 읽음"))
             inputs, mapping = population_files, mapping_path
 
-        steps.start(3, "전처리")
+        steps.start(4, "전처리")
         report = preprocess_csv(inputs, staging, encoding=encoding, mapping_path=mapping, dataset=mode)
         dropped = report["rows_dropped"]
         log(_kv("population_fact", f"{_n(report['rows_written'])}행"))
@@ -240,7 +255,7 @@ def build(mode: str, raw_dir: Path = RAW_DIR, data_dir: Path = DATA_DIR, encodin
         log(_kv("UNKNOWN(빈 분류값)", ", ".join(f"{UNKNOWN_LABEL[k]} {_n(v)}"
                                              for k, v in report["unknown_counts"].items())))
 
-        steps.start(4, "매핑")
+        steps.start(5, "매핑")
         mapped = run_mapping(staging)
         log(_kv("9칸이 모두 있는 게시대", f"{_n(mapped['boards_with_9_cells'])} / {_n(mapped['boards'])}",
                 "나머지는 주변에 데이터가 없는 칸 제외"))
@@ -248,8 +263,10 @@ def build(mode: str, raw_dir: Path = RAW_DIR, data_dir: Path = DATA_DIR, encodin
         log(_kv("board_population", f"{_n(mapped['board_population_rows'])}행"))
         grid_note = "" if mapped["grid_status"] == "VERIFIED" else "지도에서 250m 격자선 없음. Cell 사각형·매핑은 영향 없음"
         log(_kv("격자 검증", mapped["grid_status"], grid_note))
+        log(_kv("store (3×3 안 상가)", f"{_n(mapped['stores_kept'])}개",
+                f"Cell 사각형 밖 {_n(mapped['outside_cells'])}, 게시대 3×3 밖 {_n(mapped['outside_board_area'])} 제외"))
 
-        steps.start(5, "세트 검증")
+        steps.start(6, "세트 검증")
         validate_set(staging, mode)
         log(_kv("파일·출처·ID 일치", "통과"))
     except DataSetError:
