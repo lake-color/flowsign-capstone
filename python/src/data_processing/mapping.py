@@ -36,12 +36,17 @@ GRID_TOLERANCE = 0.05
 KEY_COLUMNS = [c for c in FACT_KEY_COLUMNS if c != "cell_id"]
 
 
-def _distance_meters(lat1, lng1, lat2, lng2):
-    """짧은 거리용 평면 근사 거리(m). 수 km 이내에서 오차가 무시할 수준이다."""
+def _offsets_meters(lat1, lng1, lat2, lng2):
+    """점1 → 점2의 동서(dx)·남북(dy) 거리(m). 짧은 거리용 평면 근사로, 수 km 이내에서 오차가 무시할 수준이다."""
     mean_lat = np.radians((np.asarray(lat1) + np.asarray(lat2)) / 2)
     dy = (np.asarray(lat2) - np.asarray(lat1)) * METERS_PER_DEG_LAT
     dx = (np.asarray(lng2) - np.asarray(lng1)) * METERS_PER_DEG_LAT * np.cos(mean_lat)
-    return np.hypot(dx, dy)
+    return dx, dy
+
+
+def _distance_meters(lat1, lng1, lat2, lng2):
+    """짧은 거리용 평면 근사 거리(m)."""
+    return np.hypot(*_offsets_meters(lat1, lng1, lat2, lng2))
 
 
 def map_boards_to_cells(boards: pd.DataFrame, cells: pd.DataFrame) -> pd.DataFrame:
@@ -139,9 +144,9 @@ def map_stores_to_cells(stores: pd.DataFrame, cells: pd.DataFrame, board_cell: p
     # 상가 × Cell 거리 행렬이 메모리를 넘지 않도록 상가를 나눠 계산한다.
     chunk = max(1, 2_000_000 // max(1, len(cells)))
     for start in range(0, len(stores), chunk):
-        lat = s_lat[start:start + chunk, None]
-        dy = (lat - c_lat[None, :]) * METERS_PER_DEG_LAT
-        dx = (s_lng[start:start + chunk, None] - c_lng[None, :]) * METERS_PER_DEG_LAT * np.cos(np.radians(lat))
+        # 상가(행) × Cell 중심(열)의 동서·남북 거리. 사각형 안인지 보려면 두 방향을 따로 봐야 한다.
+        dx, dy = _offsets_meters(s_lat[start:start + chunk, None], s_lng[start:start + chunk, None],
+                                 c_lat[None, :], c_lng[None, :])
         idx = np.argmin(dx * dx + dy * dy, axis=1)
         rows = np.arange(len(idx))
         nearest[start:start + chunk] = idx

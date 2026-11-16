@@ -63,21 +63,23 @@ def set_dir(mode: str, data_dir: Path = DATA_DIR) -> Path:
     return data_dir / SET_DIR_NAMES[mode]
 
 
-def find_inputs(mode: str, raw_dir: Path = RAW_DIR, mapping_path: Path = LOCAL_MAPPING) -> list[Path]:
+def find_inputs(mode: str, raw_dir: Path = RAW_DIR,
+                mapping_path: Path = LOCAL_MAPPING) -> tuple[list[Path], Path]:
     """모드에 필요한 원본을 확인한다. 없으면 빠진 파일을 모두 모아 한 번에 알려 주고 중단한다.
 
     fake: 게시대 원본 + 상가 원본. 통신사 원본은 읽지 않는다.
     real: 게시대 원본 + 상가 원본 + population_raw_1.csv부터 번호가 이어지는 통신사 원본 + 실제 매핑 파일.
-    반환: real이면 통신사 원본 목록(번호순), fake면 빈 목록.
+    반환: (통신사 원본 목록 — real이면 번호순, fake면 빈 목록, 상가 원본)
     """
     problems = []
     if not (raw_dir / BOARD_RAW).is_file():
         problems.append(f"게시대 원본이 없습니다: {raw_dir / BOARD_RAW}")
-    problems += find_store_raw(raw_dir)[1]
+    store_raw, store_problems = find_store_raw(raw_dir)
+    problems += store_problems
     if mode == "fake":
         if problems:
             raise DataSetError("\n".join(problems))
-        return []
+        return [], store_raw
 
     numbered, unexpected = {}, []
     for p in sorted(raw_dir.glob("population_raw*")) if raw_dir.is_dir() else []:
@@ -97,7 +99,7 @@ def find_inputs(mode: str, raw_dir: Path = RAW_DIR, mapping_path: Path = LOCAL_M
         problems.append(f"실제 원본 매핑 파일이 없습니다: {mapping_path} (예시 파일로 대신하지 않습니다)")
     if problems:
         raise DataSetError("\n".join(problems))
-    return [numbered[n] for n in sorted(numbered)]
+    return [numbered[n] for n in sorted(numbered)], store_raw
 
 
 def validate_set(directory: Path, mode: str) -> dict:
@@ -209,8 +211,7 @@ def build(mode: str, raw_dir: Path = RAW_DIR, data_dir: Path = DATA_DIR, encodin
     steps = _Steps(log, 6)
 
     steps.start(0, "원본 확인")
-    population_files = find_inputs(mode, raw_dir, mapping_path)
-    store_raw = find_store_raw(raw_dir)[0]
+    population_files, store_raw = find_inputs(mode, raw_dir, mapping_path)
     log(_kv("게시대 원본", BOARD_RAW, "OK"))
     log(_kv("상가 원본", store_raw.name, "OK"))
     if mode == "real":
