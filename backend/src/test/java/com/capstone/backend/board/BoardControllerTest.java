@@ -33,7 +33,7 @@ import com.capstone.backend.common.DatasetInfoReader;
 
 /**
  * 게시대 API (명세 4.2~4.5)의 요청 해석·응답 형태·오류 코드를 DB 없이 검증한다.
- * 조회 결과의 수치(기간 합산 등)는 팀 미확정이므로 Repository·Service는 가짜(mock)로 대신한다.
+ * 조회 결과의 수치는 BoardApiIntegrationTest(실제 DB)에서 검증하므로 여기서는 Repository·Service를 가짜(mock)로 대신한다.
  */
 @WebMvcTest(BoardController.class)
 class BoardControllerTest {

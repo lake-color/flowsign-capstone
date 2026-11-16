@@ -30,13 +30,14 @@ import com.capstone.backend.meta.MetaController;
  * 실제 PostgreSQL(Testcontainers)에 작은 데이터를 넣고 조회 API를 끝까지 실행한다.
  * Controller 단위 테스트는 DB를 mock으로 대신하므로, 여기서 실제 SQL과 집계 결과를 확인한다.
  *
- * 기간 합산·주중/주말 결합은 팀 미확정(명세 9장)이므로 모든 인구 조회를 "1개월 + 주중 1종" 데이터로 한정해,
- * 미확정 규칙에 따라 값이 달라지지 않게 했다.
+ * 인구값은 선택 기간·요일 구분의 일평균이다(합계 ÷ 일수, DayCount). 준비 데이터의 월 합계는
+ * 1월(31일)·2월(28일)로 나누면 딱 떨어지게 넣었다. 예: 1월 남 stay 310 → 하루 10.0
  *
- * 준비 데이터 (게시대 1의 3×3 = Cell 3개)
- *   board_population 2025-01 주중 20대 08~10시: 남 stay 10·walk 0 (Cell 3) / 여 stay 20 (Cell 2) / 성별 UNKNOWN stay 5 (Cell 1)
- *   board_population 2025-02 주중 30대 18~20시: 남 stay 7 (Cell 3)
- *   population_fact  2025-01: C0 stay 4, C1 stay 6, C2 없음
+ * 준비 데이터 (게시대 1의 3×3 = Cell 3개, 값은 월 합계)
+ *   board_population 2025-01 주중 20대 08~10시: 남 stay 310·walk 0 (Cell 3) / 여 stay 620 (Cell 2) / 성별 UNKNOWN stay 155 (Cell 1)
+ *   board_population 2025-02 주중 30대 18~20시: 남 stay 196 (Cell 3)
+ *   population_fact  2025-01: C0 stay 124, C1 stay 186, C2 없음
+ *   → 1월 전체(÷31): 남 10, 여 20, 미상 5, 합 35 / 2월(÷28): 7 / C0 4, C1 6
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -81,16 +82,16 @@ class BoardApiIntegrationTest {
 
         jdbc.update("""
                 INSERT INTO board_population (board_id, base_month, day_type, gender, age_group, time_slot, cell_count, stay, walk, drive)
-                VALUES (1, '202501', 'WEEKDAY', 'MALE',    'AGE_20S', '08_10', 3, 10, 0,    NULL),
-                       (1, '202501', 'WEEKDAY', 'FEMALE',  'AGE_20S', '08_10', 2, 20, NULL, NULL),
-                       (1, '202501', 'WEEKDAY', 'UNKNOWN', 'AGE_20S', '08_10', 1, 5,  NULL, NULL),
-                       (1, '202502', 'WEEKDAY', 'MALE',    'AGE_30S', '18_20', 3, 7,  NULL, NULL)
+                VALUES (1, '202501', 'WEEKDAY', 'MALE',    'AGE_20S', '08_10', 3, 310, 0,    NULL),
+                       (1, '202501', 'WEEKDAY', 'FEMALE',  'AGE_20S', '08_10', 2, 620, NULL, NULL),
+                       (1, '202501', 'WEEKDAY', 'UNKNOWN', 'AGE_20S', '08_10', 1, 155, NULL, NULL),
+                       (1, '202502', 'WEEKDAY', 'MALE',    'AGE_30S', '18_20', 3, 196, NULL, NULL)
                 """);
 
         jdbc.update("""
                 INSERT INTO population_fact (cell_id, base_month, day_type, gender, age_group, time_slot, stay)
-                VALUES ('C0', '202501', 'WEEKDAY', 'MALE', 'AGE_20S', '08_10', 4),
-                       ('C1', '202501', 'WEEKDAY', 'MALE', 'AGE_20S', '08_10', 6)
+                VALUES ('C0', '202501', 'WEEKDAY', 'MALE', 'AGE_20S', '08_10', 124),
+                       ('C1', '202501', 'WEEKDAY', 'MALE', 'AGE_20S', '08_10', 186)
                 """);
     }
 
@@ -164,6 +165,35 @@ class BoardApiIntegrationTest {
     void otherMonthIsNotMixedIn() {
         Map<String, Object> february = population(Map.of("periodKind", "MONTH", "month", "2"));
         assertThat(value(february, "population", "stay")).isEqualTo(7.0);
+    }
+
+    // ---- 일평균 (팀 결정 2026-11-16)
+
+    @Test
+    void valuesAreDailyAverageWithUnitLabel() {
+        PopulationValue stay = pv(population(JANUARY), "population", "stay");
+        assertThat(stay.value()).isEqualTo(35.0);          // 1월 합계 1,085 ÷ 31일
+        assertThat(stay.unitLabel()).isEqualTo("명/일");
+    }
+
+    @Test
+    void weekdayDividesByWeekdaysOfMonth() {
+        Map<String, String> januaryWeekdayMale = with(with(JANUARY, "dayType", "WEEKDAY"), "gender", "MALE");
+        assertThat(value(population(januaryWeekdayMale), "population", "stay")).isEqualTo(13.5); // 310 ÷ 23일
+    }
+
+    @Test
+    void yearDividesBy365Days() {
+        // 연간 = 1월 1,085 + 2월 196 = 1,281 ÷ 365일
+        assertThat(value(population(Map.of()), "population", "stay")).isEqualTo(3.5);
+    }
+
+    @Test
+    void monthlyChartDividesEachMonthByItsOwnDays() {
+        List<Map<String, Object>> monthly = list(population(with(JANUARY, "dayType", "WEEKDAY")), "monthly");
+
+        assertThat(((PopulationValue) monthly.get(0).get("value")).value()).isEqualTo(47.2); // 1,085 ÷ 1월 주중 23일
+        assertThat(((PopulationValue) monthly.get(1).get("value")).value()).isEqualTo(9.8);  // 196 ÷ 2월 주중 20일
     }
 
     @Test

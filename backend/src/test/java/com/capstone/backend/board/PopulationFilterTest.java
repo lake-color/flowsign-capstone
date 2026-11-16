@@ -20,7 +20,7 @@ import com.capstone.backend.common.Codes;
 /**
  * 인구 조회 쿼리 해석과 값 검사 (API 명세 2장, 4.4). DB 불필요.
  *
- * 기간 합산 방식·연령 UNKNOWN 포함 규칙은 팀 미확정(명세 9장)이므로 여기서 검증하지 않는다.
+ * 연령 UNKNOWN 포함 규칙은 팀 미확정(명세 9장)이므로 여기서 검증하지 않는다.
  */
 class PopulationFilterTest {
 
@@ -86,6 +86,16 @@ class PopulationFilterTest {
 
         assertThat(f.month()).isEqualTo(3);
         assertThat(f.months()).containsExactly(Codes.DATA_YEAR + "03");
+    }
+
+    @Test
+    void daysFollowPeriodAndDayType() {
+        assertThat(PopulationFilter.from(Map.of()).days()).isEqualTo(365);
+        assertThat(PopulationFilter.from(Map.of("dayType", "WEEKEND")).days()).isEqualTo(104);
+        assertThat(PopulationFilter.from(Map.of("periodKind", "MONTH", "month", "2")).days()).isEqualTo(28);
+        assertThat(PopulationFilter.from(Map.of("periodKind", "MONTH", "month", "1", "dayType", "WEEKDAY")).days())
+                .isEqualTo(23);
+        assertThat(PopulationFilter.from(Map.of("periodKind", "SEASON", "season", "WINTER")).days()).isEqualTo(90);
     }
 
     static Stream<Map<String, String>> invalidQueries() {
