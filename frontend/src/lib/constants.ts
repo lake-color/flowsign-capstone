@@ -59,3 +59,9 @@ export const PALETTES: { key: Palette; label: string; color: string }[] = [
 export function formatValue(v: number | null): string {
   return v === null ? '-' : Math.round(v).toLocaleString('ko-KR')
 }
+
+/** 좁은 자리(막대·점 위)에 쓰는 짧은 수치. 1만 이상은 '1.2만'처럼 줄인다. */
+export function compactValue(v: number | null): string {
+  if (v === null) return '-'
+  return v >= 10_000 ? `${(v / 10_000).toFixed(1).replace(/\.0$/, '')}만` : formatValue(v)
+}

@@ -1,4 +1,4 @@
-import { formatValue } from '../lib/constants'
+import { compactValue, formatValue } from '../lib/constants'
 
 /**
  * 상세 패널용 SVG 차트 (차트 라이브러리는 미정이라 의존성 없이 그린다).
@@ -67,16 +67,20 @@ export interface LinePoint {
   selected: boolean
 }
 
-/** 꺾은선 그래프 (단일 계열). 값이 없는 구간에서 선을 끊고, 조건에 포함된 구간 중 최댓값에만 수치를 붙인다. */
+/** 그래프 아래의 작은 단위 설명. 예: (명/일 · 선택 기간 하루 평균) */
+export function ChartUnit({ children }: { children: string }) {
+  return <p className="chart-unit">({children})</p>
+}
+
+/** 꺾은선 그래프 (단일 계열). 값이 없는 구간에서 선을 끊고, 모든 점에 수치를 붙인다(조건 밖 구간은 흐리게). */
 export function LineChart({ points }: { points: LinePoint[] }) {
   const width = 300
-  const height = 130
-  const pad = { top: 20, right: 12, bottom: 22, left: 12 }
+  const height = 140
+  const pad = { top: 24, right: 16, bottom: 24, left: 16 }
   const max = Math.max(1, ...points.map((p) => p.value ?? 0))
   const step = (width - pad.left - pad.right) / Math.max(1, points.length - 1)
   const x = (i: number) => pad.left + i * step
   const y = (v: number) => pad.top + (1 - v / max) * (height - pad.top - pad.bottom)
-  const peak = Math.max(...points.filter((p) => p.selected).map((p) => p.value ?? 0))
 
   // null에서 끊긴 구간별 경로
   const segments: string[] = []
@@ -96,13 +100,14 @@ export function LineChart({ points }: { points: LinePoint[] }) {
       <line x1={pad.left} x2={width - pad.right} y1={height - pad.bottom} y2={height - pad.bottom} className="line-base" />
       {segments.map((d) => <path key={d} d={d} className="line-path" />)}
       {points.map((p, i) => {
-        const isPeak = p.selected && p.value !== null && p.value === peak && peak > 0
         return (
           <g key={p.label}>
             {p.value !== null && (
               <>
                 <circle cx={x(i)} cy={y(p.value)} r={4} className={`line-dot${p.selected ? '' : ' dim'}`} />
-                {isPeak && <text x={x(i)} y={y(p.value) - 9} textAnchor="middle" className="line-value">{formatValue(p.value)}</text>}
+                <text x={x(i)} y={y(p.value) - 10} textAnchor="middle" className={`line-value${p.selected ? '' : ' dim'}`}>
+                  {compactValue(p.value)}
+                </text>
               </>
             )}
             {/* 마우스오버 영역은 점보다 넓게 */}

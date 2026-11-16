@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Board, BoardPopulation, BoardStores, DistributionPoint, RecommendationItem, StoreCategory } from '../lib/types'
-import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, STORE_CATEGORY_LABEL, formatValue, timeLabel } from '../lib/constants'
-import { Donut, LineChart, type DonutItem } from './Charts'
+import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, STORE_CATEGORY_LABEL, compactValue, formatValue, timeLabel } from '../lib/constants'
+import { ChartUnit, Donut, LineChart, type DonutItem } from './Charts'
 
 interface Props {
   board: Board | null
@@ -67,7 +67,7 @@ function Bars({ items }: { items: { label: string; value: number | null; highlig
   )
 }
 
-/** 세로 막대. 조건에 포함된 항목 중 가장 큰 값만 진하게 표시하고 수치를 붙인다. */
+/** 세로 막대. 모든 막대에 수치를 붙이고, 조건에 포함된 항목 중 가장 큰 막대만 진하게 칠한다. */
 function Columns({ items }: { items: { label: string; short: string; value: number | null; highlight?: boolean }[] }) {
   const max = Math.max(1, ...items.map((i) => i.value ?? 0))
   const peak = Math.max(...items.filter((i) => i.highlight !== false).map((i) => i.value ?? 0))
@@ -77,7 +77,7 @@ function Columns({ items }: { items: { label: string; short: string; value: numb
         const isPeak = i.highlight !== false && (i.value ?? 0) === peak && peak > 0
         return (
           <div key={i.label} className="col" title={`${i.label} ${formatValue(i.value)}`}>
-            <span className="col-value">{isPeak ? formatValue(i.value) : ''}</span>
+            <span className={`col-value${i.highlight === false ? ' dim' : ''}`}>{compactValue(i.value)}</span>
             <span className="col-track">
               <span className={`col-bar${isPeak ? ' peak' : ''}${i.highlight === false ? ' dim' : ''}`} style={{ height: `${((i.value ?? 0) / max) * 100}%` }} />
             </span>
@@ -134,6 +134,7 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
     <>
       <p className="store-meta">3×3 Cell · {month}총 {stores.totalCount.toLocaleString('ko-KR')}곳</p>
       <Donut items={donut} centerLabel="상가" />
+      <ChartUnit>곳 · 3×3 Cell 안 상가 수</ChartUnit>
       <h3>업종별</h3>
       <ul className="store-list">
         {stores.categories.map((c) => (
@@ -149,6 +150,7 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
           </li>
         ))}
       </ul>
+      <ChartUnit>곳 · 업종별 상가 수</ChartUnit>
       <p className="notice">업종을 누르면 지도의 '주변 업종' 레이어에서 그 업종만 강조합니다. 소상공인시장진흥공단 상가(상권)정보 기준입니다.</p>
     </>
   )
@@ -168,6 +170,8 @@ function BoardDetail({
   board, population, loading, error, stores, storesError, highlightCategory, onSelectCategory, recommendation, hidden, onCollapse,
 }: Props) {
   const [tab, setTab] = useState<Tab>('time')
+  // 인구값 단위. 서버가 주는 값(현재 '명/일' = 선택 기간 하루 평균)을 그대로 쓴다.
+  const unit = population?.population.totalFlow.unitLabel ?? '명/일'
 
   if (!board) {
     return (
@@ -219,7 +223,8 @@ function BoardDetail({
               <span>3×3 영향권 · 전체(체류+보행+주행)</span>
               <span className="pill">{population.matchedCellCount}/{population.expectedCellCount} Cell</span>
             </div>
-            <b>{formatValue(population.population.totalFlow.value)}</b>
+            <b>{formatValue(population.population.totalFlow.value)}<small className="hero-unit">{unit}</small></b>
+            <p className="hero-caption">선택 기간·시간대의 하루 평균 (기간 합계 ÷ 해당 일수)</p>
           </div>
 
           <h3>유동 유형</h3>
@@ -228,6 +233,7 @@ function BoardDetail({
             { label: '보행', value: population.population.walk.value, tone: 2 },
             { label: '주행', value: population.population.drive.value, tone: 3 },
           ]} />
+          <ChartUnit>{`${unit} · 선택 기간 하루 평균`}</ChartUnit>
         </>
       )}
 
@@ -247,24 +253,29 @@ function BoardDetail({
               <LineChart points={population.hourly.map((h) => ({
                 label: timeLabel(h.timeBand), short: h.timeBand.slice(0, 2), value: h.value.value, selected: h.selected,
               }))} />
+              <ChartUnit>{`${unit} · 시간대(2시간)별 하루 평균`}</ChartUnit>
               <h3>월별</h3>
               <Columns items={population.monthly.map((m) => ({
                 label: `${m.month}월`, short: String(m.month), value: m.value.value, highlight: m.selected,
               }))} />
+              <ChartUnit>{`${unit} · 각 달의 하루 평균 (월 합계 ÷ 그 달 일수)`}</ChartUnit>
             </>
           )}
           {tab === 'people' && (
             <>
               <h3>성별</h3>
               <Donut items={donutItems(population.genderDistribution, GENDER_LABEL, GENDER_COLOR)} centerLabel="합계" />
+              <ChartUnit>{`${unit} · 선택 기간 하루 평균`}</ChartUnit>
               <h3>연령대</h3>
               <Bars items={dist(population.ageDistribution, AGE_LABEL)} />
+              <ChartUnit>{`${unit} · 선택 기간 하루 평균`}</ChartUnit>
             </>
           )}
           {tab === 'service' && (
             <>
               <h3>서비스 인구</h3>
               <Donut items={donutItems(population.servicePopulation, SERVICE_LABEL, SERVICE_COLOR)} centerLabel="합계" />
+              <ChartUnit>{`${unit} · 선택 기간 하루 평균`}</ChartUnit>
             </>
           )}
           <p className="notice">{population.dataNotice}</p>
