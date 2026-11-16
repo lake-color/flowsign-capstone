@@ -3,7 +3,7 @@ import { formatValue } from '../lib/constants'
 import type { MapProps } from '../lib/types'
 import {
   ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, STORE_COLOR, cellBounds, cellColor, gridLines,
-  groupStoresBySpot, storeHighlightColor, storeSpotLines, storeSpotRadius,
+  groupStoresBySpot, spotHasCategory, storeHighlightColor, storeSpotLines, storeSpotRadius,
 } from './common'
 
 /**
@@ -197,7 +197,7 @@ function NaverMap({
     clear('stores')
     const accent = storeHighlightColor()
     for (const spot of groupStoresBySpot(stores ?? [])) {
-      const on = highlightCategory !== null && spot.stores.some((s) => s.category === highlightCategory)
+      const on = spotHasCategory(spot, highlightCategory)
       const size = Math.round(storeSpotRadius(spot.stores.length, on) * 2)
       const opacity = highlightCategory !== null && !on ? 0.25 : 0.85
       overlays.current.stores.push(new naver.maps.Marker({

@@ -36,21 +36,27 @@ function CollapseButton({ onClick }: { onClick: () => void }) {
 const GENDER_LABEL: Record<string, string> = { MALE: '남성', FEMALE: '여성', UNKNOWN: '미상' }
 const SERVICE_LABEL: Record<string, string> = { RESIDENCE: '거주', WORK: '근무', VISIT: '방문' }
 
-// 도넛 색은 순위가 아니라 항목에 고정한다. 미상은 범주색이 아닌 회색.
+// 원형 색은 순위가 아니라 항목에 고정한다. 미상은 범주색이 아닌 회색.
 const GENDER_COLOR: Record<string, string> = { MALE: 'var(--series-1)', FEMALE: 'var(--series-2)', UNKNOWN: 'var(--series-other)' }
 const SERVICE_COLOR: Record<string, string> = { RESIDENCE: 'var(--series-1)', WORK: 'var(--series-2)', VISIT: 'var(--series-3)' }
 
 /**
- * 주변 업종 도넛에 색을 주는 업종 (고정 6개, 이 순서로 그림). 15개를 모두 색으로 나누면 구분이 안 되므로
- * 나머지는 '기타' 회색 한 조각으로 묶고, 전체 업종은 도넛 아래 막대 목록에서 본다.
+ * 주변 업종 원형에 색을 주는 업종 (고정 6개, 이 순서로 그림). 15개를 모두 색으로 나누면 구분이 안 되므로
+ * 나머지는 '기타' 회색 한 조각으로 묶고, 전체 업종은 원형 아래 막대 목록에서 본다.
  */
-const DONUT_CATEGORIES: StoreCategory[] = ['RESTAURANT', 'CAFE', 'EDUCATION', 'RETAIL', 'MEDICAL', 'LIVING_SERVICE']
+const PIE_CATEGORIES: StoreCategory[] = ['RESTAURANT', 'CAFE', 'EDUCATION', 'RETAIL', 'MEDICAL', 'LIVING_SERVICE']
+
+/** 업종 색. 원형 조각과 막대 목록의 견본이 같은 색을 쓴다. */
+function categoryColor(category: StoreCategory): string {
+  const i = PIE_CATEGORIES.indexOf(category)
+  return i >= 0 ? `var(--series-${i + 1})` : 'var(--series-other)'
+}
 
 const TABS = [['time', '시간대'], ['people', '성별·연령'], ['service', '서비스'], ['stores', '주변 업종']] as const
 type Tab = (typeof TABS)[number][0]
 
 /** 가로 막대 (연령대 등). 차트 라이브러리는 미정이므로 CSS로 그린다. */
-function Bars({ items }: { items: { label: string; value: number | null; highlight?: boolean }[] }) {
+function Bars({ items }: { items: { label: string; value: number | null }[] }) {
   const max = Math.max(1, ...items.map((i) => i.value ?? 0))
   return (
     <div className="bars">
@@ -58,7 +64,7 @@ function Bars({ items }: { items: { label: string; value: number | null; highlig
         <div key={i.label} className="bar-row">
           <span className="bar-label">{i.label}</span>
           <span className="bar-track">
-            <span className={`bar-fill${i.highlight === false ? ' dim' : ''}`} style={{ width: `${((i.value ?? 0) / max) * 100}%` }} />
+            <span className="bar-fill" style={{ width: `${((i.value ?? 0) / max) * 100}%` }} />
           </span>
           <span className="bar-value">{formatValue(i.value)}</span>
         </div>
@@ -98,18 +104,14 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
   if (stores.totalCount === 0) return <p className="placeholder">3×3 Cell 안에 상가가 없습니다.</p>
   const max = Math.max(1, ...stores.categories.map((c) => c.count))
   const countOf = (category: StoreCategory) => stores.categories.find((c) => c.category === category)?.count ?? 0
-  const colored = DONUT_CATEGORIES.reduce((sum, c) => sum + countOf(c), 0)
-  const donut: PieItem[] = [
-    ...DONUT_CATEGORIES.map((c, i) => ({ key: c, label: STORE_CATEGORY_LABEL[c], value: countOf(c), color: `var(--series-${i + 1})` })),
+  const colored = PIE_CATEGORIES.reduce((sum, c) => sum + countOf(c), 0)
+  const pie: PieItem[] = [
+    ...PIE_CATEGORIES.map((c) => ({ key: c, label: STORE_CATEGORY_LABEL[c], value: countOf(c), color: categoryColor(c) })),
     { key: 'OTHER', label: '기타', value: stores.totalCount - colored, color: 'var(--series-other)' },
   ]
-  const swatch = (category: StoreCategory) => {
-    const i = DONUT_CATEGORIES.indexOf(category)
-    return i >= 0 ? `var(--series-${i + 1})` : 'var(--series-other)'
-  }
   return (
     <>
-      <PieChart items={donut} label="주변 업종" />
+      <PieChart items={pie} label="주변 업종" />
       <ChartUnit>곳 · 3×3 Cell 안 상가 수</ChartUnit>
       <h3>업종별</h3>
       <ul className="store-list">
@@ -117,11 +119,11 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
           <li key={c.category}>
             <button type="button" className={`bar-row${highlight === c.category ? ' active' : ''}`}
               aria-pressed={highlight === c.category} onClick={() => onSelect(c.category)}>
-              <span className="bar-label"><i className="swatch" style={{ background: swatch(c.category) }} />{STORE_CATEGORY_LABEL[c.category] ?? c.category}</span>
+              <span className="bar-label"><i className="swatch" style={{ background: categoryColor(c.category) }} />{STORE_CATEGORY_LABEL[c.category] ?? c.category}</span>
               <span className="bar-track">
                 <span className={`bar-fill${highlight && highlight !== c.category ? ' dim' : ''}`} style={{ width: `${(c.count / max) * 100}%` }} />
               </span>
-              <span className="bar-value">{c.count.toLocaleString('ko-KR')}</span>
+              <span className="bar-value">{formatValue(c.count)}</span>
             </button>
           </li>
         ))}
@@ -135,7 +137,7 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
 const dist = (points: DistributionPoint[], labels: Record<string, string>) =>
   points.map((p) => ({ label: labels[p.key] ?? p.key, value: p.population.value }))
 
-const donutItems = (points: DistributionPoint[], labels: Record<string, string>, colors: Record<string, string>): PieItem[] =>
+const pieItems = (points: DistributionPoint[], labels: Record<string, string>, colors: Record<string, string>): PieItem[] =>
   points.map((p) => ({ key: p.key, label: labels[p.key] ?? p.key, value: p.population.value, color: colors[p.key] ?? 'var(--series-other)' }))
 
 /**
@@ -148,6 +150,7 @@ function BoardDetail({
   const [tab, setTab] = useState<Tab>('time')
   // 인구값 단위. 서버가 주는 값(현재 '명/일' = 선택 기간 하루 평균)을 그대로 쓴다.
   const unit = population?.population.totalFlow.unitLabel ?? '명/일'
+  const dailyAverage = `${unit} · 선택 기간 하루 평균`
 
   if (!board) {
     return (
@@ -209,7 +212,7 @@ function BoardDetail({
             { label: '보행', value: population.population.walk.value, tone: 2 },
             { label: '주행', value: population.population.drive.value, tone: 3 },
           ]} />
-          <ChartUnit>{`${unit} · 선택 기간 하루 평균`}</ChartUnit>
+          <ChartUnit>{dailyAverage}</ChartUnit>
         </>
       )}
 
@@ -240,18 +243,18 @@ function BoardDetail({
           {tab === 'people' && (
             <>
               <h3>성별</h3>
-              <PieChart items={donutItems(population.genderDistribution, GENDER_LABEL, GENDER_COLOR)} label="성별" />
-              <ChartUnit>{`${unit} · 선택 기간 하루 평균`}</ChartUnit>
+              <PieChart items={pieItems(population.genderDistribution, GENDER_LABEL, GENDER_COLOR)} label="성별" />
+              <ChartUnit>{dailyAverage}</ChartUnit>
               <h3>연령대</h3>
               <Bars items={dist(population.ageDistribution, AGE_LABEL)} />
-              <ChartUnit>{`${unit} · 선택 기간 하루 평균`}</ChartUnit>
+              <ChartUnit>{dailyAverage}</ChartUnit>
             </>
           )}
           {tab === 'service' && (
             <>
               <h3>서비스 인구</h3>
-              <PieChart items={donutItems(population.servicePopulation, SERVICE_LABEL, SERVICE_COLOR)} label="서비스 인구" className="pie-service" />
-              <ChartUnit>{`${unit} · 선택 기간 하루 평균`}</ChartUnit>
+              <PieChart items={pieItems(population.servicePopulation, SERVICE_LABEL, SERVICE_COLOR)} label="서비스 인구" className="pie-service" />
+              <ChartUnit>{dailyAverage}</ChartUnit>
             </>
           )}
           <p className="notice">{population.dataNotice}</p>

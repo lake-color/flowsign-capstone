@@ -4,7 +4,7 @@ import { compactValue, formatValue } from '../lib/constants'
 /**
  * 상세 패널용 SVG 차트 (차트 라이브러리는 미정이라 의존성 없이 그린다).
  * 색은 index.css의 --series-* 변수(라이트·다크 각각 검증한 범주 팔레트)와 --accent를 쓴다.
- * 마우스오버는 SVG <title>로 값을 보여준다.
+ * 마우스오버 값은 원형은 커서 옆 툴팁, 꺾은선·막대는 SVG <title>로 보여준다(월별은 막대 위 수치도 함께).
  */
 
 export interface PieItem {

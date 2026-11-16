@@ -5,7 +5,7 @@ import { formatValue } from '../lib/constants'
 import type { MapProps } from '../lib/types'
 import {
   ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, STORE_COLOR, cellBounds, cellColor, escapeHtml,
-  gridLines, groupStoresBySpot, storeHighlightColor, storeSpotLines, storeSpotRadius,
+  gridLines, groupStoresBySpot, spotHasCategory, storeHighlightColor, storeSpotLines, storeSpotRadius,
 } from './common'
 
 /**
@@ -157,12 +157,11 @@ function LeafletMap({
     if (!layer) return
     layer.stores.clearLayers()
     const accent = storeHighlightColor()
-    const isOn = (spot: { stores: { category: string }[] }) =>
-      highlightCategory !== null && spot.stores.some((s) => s.category === highlightCategory)
     // 고른 업종이 든 점을 나중에 그려 다른 점 위에 오게 한다.
-    const ordered = groupStoresBySpot(stores ?? []).sort((a, b) => Number(isOn(a)) - Number(isOn(b)))
-    for (const spot of ordered) {
-      const on = isOn(spot)
+    const ordered = groupStoresBySpot(stores ?? [])
+      .map((spot) => ({ spot, on: spotHasCategory(spot, highlightCategory) }))
+      .sort((a, b) => Number(a.on) - Number(b.on))
+    for (const { spot, on } of ordered) {
       L.circleMarker([spot.latitude, spot.longitude], {
         renderer: layer.storeCanvas, pane: 'stores', radius: storeSpotRadius(spot.stores.length, on),
         color: '#ffffff', weight: on ? 1 : 0.5,

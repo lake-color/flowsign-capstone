@@ -82,6 +82,11 @@ export function groupStoresBySpot(stores: NearbyStore[]): StoreSpot[] {
   return [...spots.values()]
 }
 
+/** 강조할 업종이 이 점(같은 위치 상가 묶음)에 하나라도 있는지 */
+export function spotHasCategory(spot: StoreSpot, category: string | null): boolean {
+  return category !== null && spot.stores.some((s) => s.category === category)
+}
+
 /** 점 반지름(px). 같은 위치의 상가가 많을수록 조금씩 커진다(최대 +6px). */
 export function storeSpotRadius(count: number, highlighted: boolean): number {
   return (highlighted ? 5 : 3) + Math.min(6, (Math.sqrt(count) - 1) * 1.8)
