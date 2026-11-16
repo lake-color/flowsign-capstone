@@ -266,8 +266,8 @@
   visibility: visible;
 }
 
-.col:hover .col-bar {
-  filter: brightness(0.92);
+.col:hover .col-bar:not(.peak) {
+  background: color-mix(in srgb, var(--accent) 70%, var(--panel));
 }
 
 .col-track {
@@ -275,12 +275,14 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* 막대는 칸 폭과 관계없이 가늘게(최대 14px) 가운데에 둔다. 패널이 넓어져도 막대가 두꺼워지지 않는다. */
 .col-bar {
   position: absolute;
-  right: 0;
   bottom: 0;
-  left: 0;
-  border-radius: 6px 6px 2px 2px;
+  left: 50%;
+  width: min(14px, 70%);
+  transform: translateX(-50%);
+  border-radius: 4px 4px 0 0;
   background: color-mix(in srgb, var(--accent) 40%, var(--panel));
 }
 

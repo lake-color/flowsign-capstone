@@ -94,8 +94,10 @@ export function LineChart({ points }: { points: LinePoint[] }) {
   const pad = { top: 24, right: 14, bottom: 24, left: 36 }
   const ticks = niceTicks(Math.max(0, ...points.map((p) => p.value ?? 0)))
   const max = ticks[ticks.length - 1]
-  const step = (width - pad.left - pad.right) / Math.max(1, points.length - 1)
-  const x = (i: number) => pad.left + i * step
+  // 첫 점·끝 점이 눈금 글자나 오른쪽 끝에 붙지 않도록 그래프 안쪽 여백을 둔다.
+  const inset = 14
+  const step = (width - pad.left - pad.right - inset * 2) / Math.max(1, points.length - 1)
+  const x = (i: number) => pad.left + inset + i * step
   const y = (v: number) => pad.top + (1 - v / max) * (height - pad.top - pad.bottom)
 
   // null에서 끊긴 구간별 경로

@@ -60,9 +60,47 @@ export function storeHighlightColor(): string {
   return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e5564a'
 }
 
-/** 상가 점 마우스오버 문구: 상호명 · 소분류 */
-export function storeLabel(s: NearbyStore): string {
-  return `${s.name ?? '상호명 없음'} · ${s.subCategoryName}`
+/** 같은 좌표(대개 같은 건물)에 있는 상가 묶음. 지도에는 묶음마다 점 하나를 그린다. */
+export interface StoreSpot {
+  latitude: number
+  longitude: number
+  stores: NearbyStore[]
+}
+
+/**
+ * 상가를 좌표별로 묶는다. 원본은 건물 단위 좌표라 한 건물의 상가들이 같은 점에 겹치므로,
+ * 그대로 그리면 패널의 상가 수보다 점이 훨씬 적어 보인다.
+ */
+export function groupStoresBySpot(stores: NearbyStore[]): StoreSpot[] {
+  const spots = new Map<string, StoreSpot>()
+  for (const s of stores) {
+    const key = `${s.latitude},${s.longitude}`
+    const spot = spots.get(key) ?? { latitude: s.latitude, longitude: s.longitude, stores: [] }
+    spot.stores.push(s)
+    spots.set(key, spot)
+  }
+  return [...spots.values()]
+}
+
+/** 점 반지름(px). 같은 위치의 상가가 많을수록 조금씩 커진다(최대 +6px). */
+export function storeSpotRadius(count: number, highlighted: boolean): number {
+  return (highlighted ? 5 : 3) + Math.min(6, (Math.sqrt(count) - 1) * 1.8)
+}
+
+/** 점 마우스오버 문구 (줄 목록). 같은 위치 상가가 여럿이면 개수와 앞의 8곳을 보여준다. */
+export function storeSpotLines(spot: StoreSpot, highlight: string | null): string[] {
+  const line = (s: NearbyStore) => `${s.name ?? '상호명 없음'} · ${s.subCategoryName}`
+  if (spot.stores.length === 1) return [line(spot.stores[0])]
+  // 강조한 업종이 있으면 그 업종을 앞에 둔다.
+  const sorted = [...spot.stores].sort((a, b) => Number(b.category === highlight) - Number(a.category === highlight))
+  const lines = [`같은 위치 상가 ${spot.stores.length}곳`, ...sorted.slice(0, 8).map(line)]
+  if (spot.stores.length > 8) lines.push(`… 외 ${spot.stores.length - 8}곳`)
+  return lines
+}
+
+/** 툴팁 HTML에 넣을 글자 이스케이프 (상호명은 외부 데이터이므로 HTML로 해석되면 안 된다) */
+export function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c)
 }
 
 /** 3×3 Cell 색. 팔레트마다 포인트 색과 겹치지 않도록 CSS 변수 --cell(index.css)에서 읽는다. */
