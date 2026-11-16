@@ -144,17 +144,18 @@ uv sync
 
 #### 2.1. 가짜 데이터
 
-게시대 원본만 있으면 됩니다.
+게시대 원본과 상가 원본만 있으면 됩니다. 둘 다 공공데이터입니다.
 
 1. 공공데이터포털 「전국현수막게시대표준데이터」 CSV를 내려받습니다.
 2. `data/raw/board_raw.csv`로 저장합니다. 인코딩은 CP949 그대로 둡니다.
-3. 아래 명령을 실행합니다.
+3. 공공데이터포털 「소상공인시장진흥공단_상가(상권)정보」에서 **경기** CSV를 내려받아 `data/raw/store_raw_<기준월 YYYYMM>.csv`로 저장합니다(예: `store_raw_202609.csv`). 파일은 하나만 둡니다.
+4. 아래 명령을 실행합니다.
 
    ```cmd
    uv run data-processing build fake --load
    ```
 
-- 실제 게시대 445개와 그 주변 가짜 Cell·인구를 만들어 `data/generated_fake/`에 저장하고 DB에 적재합니다.
+- 실제 게시대 445개와 그 주변 가짜 Cell·인구, 게시대 3×3 Cell 안의 실제 상가를 `data/generated_fake/`에 저장하고 DB에 적재합니다.
 - 1~2분 걸립니다.
 
 #### 2.2. 실제 데이터
@@ -164,6 +165,7 @@ uv sync
 | 파일 | 위치·이름 |
 | ---- | --------- |
 | 게시대 원본 | `data/raw/board_raw.csv` (2.1과 같음) |
+| 상가 원본 | `data/raw/store_raw_<YYYYMM>.csv` (2.1과 같음) |
 | 통신사 유동인구 원본 | `data/raw/population_raw_1.csv`, `population_raw_2.csv` … |
 | 원본 매핑 파일 | `python/raw_mapping.json` |
 
@@ -222,15 +224,17 @@ http://localhost:5173 을 엽니다.
 | `250m 격자선` 체크 | 격자선 표시 |
 | `통신사 Cell` 체크 | 화면 범위의 데이터 Cell을 사각형으로 표시 (인구값 없음) |
 | `3×3 Cell 보기` 체크 | 선택한 게시대의 3×3 Cell 표시 |
+| `주변 업종` 체크 | 선택한 게시대 3×3 Cell 안의 상가를 점으로 표시 |
+| 상세의 `주변 업종`에서 업종 클릭 | 지도에서 그 업종만 강조 (레이어가 꺼져 있으면 켬). 다시 누르면 해제 |
 | 왼쪽 조건 변경 후 `조건 적용` | 상세 인구 다시 조회 |
 
 **데모 링크**
 
 ```text
-http://localhost:5173/?board=3&grid=1&cells=1&allcells=1
+http://localhost:5173/?board=3&grid=1&cells=1&allcells=1&stores=1
 ```
 
-- 게시대 선택·격자선·3×3·통신사 Cell을 켠 상태로 시작합니다.
+- 게시대 선택·격자선·3×3·통신사 Cell·주변 업종을 켠 상태로 시작합니다.
 - `&map=naver`를 붙이면 Naver 지도로 시작합니다.
 
 ---
@@ -327,7 +331,7 @@ flowsign/
 │       │   ├── health/             # GET /health
 │       │   ├── common/             # 공통 응답 {data, meta}·오류 {error}, 코드값
 │       │   ├── meta/               # GET /meta
-│       │   ├── board/              # GET /boards, /boards/{id}, /boards/{id}/population, /boards/{id}/cells
+│       │   ├── board/              # GET /boards, /boards/{id}, /boards/{id}/population, /boards/{id}/cells, /boards/{id}/stores
 │       │   ├── cell/               # GET /cells (지도 통신사 Cell 레이어)
 │       │   ├── recommendation/     # /recommendations/search (자리만 있음)
 │       │   └── inquiry/            # /inquiries (자리만 있음)
@@ -341,9 +345,10 @@ flowsign/
 │       ├── __init__.py             # CLI: build fake|real, load fake|real
 │       ├── pipeline.py             # 전체 흐름(원본 확인 → 생성 → 검증 → 교체 → 적재). 맨 위에 부품 지도
 │       ├── board.py                #   1단계: 게시대 원본(공공데이터포털) → board.csv
-│       ├── fake_data.py            #   2단계(fake만): 가짜 통신사 원본 population_fake.csv
-│       ├── preprocess.py           #   3단계: 통신사 원본 → cell, population_fact, 리포트
-│       ├── mapping.py              #   4단계: 게시대 ↔ 3×3 Cell → board_cell, board_population, grid_spec
+│       ├── store.py                #   2단계: 상가(상권)정보 원본 → store_source.csv (업종 묶음)
+│       ├── fake_data.py            #   3단계(fake만): 가짜 통신사 원본 population_fake.csv
+│       ├── preprocess.py           #   4단계: 통신사 원본 → cell, population_fact, 리포트
+│       ├── mapping.py              #   5단계: 게시대 ↔ 3×3 Cell → board_cell, board_population, grid_spec, store
 │       └── load.py                 #   적재: 세트 → PostgreSQL (트랜잭션 하나로 교체)
 │
 ├── database/
@@ -366,15 +371,18 @@ flowsign/
 data/
 ├── raw/
 │   ├── board_raw.csv
+│   ├── store_raw_202609.csv
 │   ├── population_raw_1.csv
 │   └── population_raw_2.csv
 ├── generated_real/
 │   ├── board.csv, cell.csv, population_fact.csv
 │   ├── board_cell.csv, board_population.csv, grid_spec.csv
+│   ├── store_source.csv(대상 3개 시 상가 전체), store.csv
 │   └── preprocess_report.json
 └── generated_fake/
     ├── board.csv, population_fake.csv(가짜 통신사 원본), cell.csv, population_fact.csv
     ├── board_cell.csv(실제 게시대 × 가짜 Cell), board_population.csv, grid_spec.csv
+    ├── store_source.csv, store.csv(실제 상가 × 가짜 Cell)
     └── preprocess_report.json
 ```
 
@@ -390,17 +398,19 @@ data/
 | ---- | ------- |
 | 0. 원본 확인 | 모드에 필요한 원본이 모두 있는지 확인. 없으면 빠진 파일을 모두 출력하고 **아무것도 만들지 않고** 중단 |
 | 1. 게시대 변환 | `board_raw.csv`에서 안양·군포·시흥 게시대만 골라 표준 `board.csv`로 변환 |
-| 2. 통신사 데이터 | fake: 게시대 3×3 주변에 가짜 통신사 원본 생성 / real: `population_raw_*.csv`를 번호순으로 사용 |
-| 3. 전처리 | 통신사 원본 정제 → `population_fact.csv`, `cell.csv`, `preprocess_report.json` |
-| 4. 매핑 | 게시대 ↔ 3×3 Cell 매핑, 게시대별 인구 합계, 격자선 기준값 |
-| 5. 세트 검증 | 파일이 모두 있는지, 출처가 모드와 맞는지, 세트 안 ID가 서로 맞는지 확인 |
-| 6. 교체 | 검증까지 통과해야 기존 `generated_<모드>/`와 바꿈 |
+| 2. 상가 변환 | `store_raw_<YYYYMM>.csv`에서 안양·군포·시흥 상가만 골라 업종 묶음(명세 4.8)을 붙여 `store_source.csv`로 변환 |
+| 3. 통신사 데이터 | fake: 게시대 3×3 주변에 가짜 통신사 원본 생성 / real: `population_raw_*.csv`를 번호순으로 사용 |
+| 4. 전처리 | 통신사 원본 정제 → `population_fact.csv`, `cell.csv`, `preprocess_report.json` |
+| 5. 매핑 | 게시대 ↔ 3×3 Cell 매핑, 게시대별 인구 합계, 격자선 기준값, 상가 소속 Cell(사각형 ±125m 안만) → 게시대 3×3 안 상가 `store.csv` |
+| 6. 세트 검증 | 파일이 모두 있는지, 출처가 모드와 맞는지, 세트 안 ID가 서로 맞는지 확인 |
+| 7. 교체 | 검증까지 통과해야 기존 `generated_<모드>/`와 바꿈 |
 
 **혼합 방지 장치**
 
 - 결과 폴더는 모드로 정해지며 경로를 입력하지 않습니다.
 - 실제 모드는 통신사 원본이나 매핑 파일이 없으면 중단합니다. 가짜 데이터나 예시 매핑으로 대신하지 않습니다.
 - 가짜 모드도 게시대 원본이 없으면 중단합니다. 임의 게시대를 만들지 않습니다.
+- 두 모드 모두 상가 원본이 없거나 여러 개면 중단합니다. 상가는 공공데이터라 가짜를 만들지 않고 두 세트 모두 실제 값을 씁니다.
 - 생성은 임시 폴더(`generated_<모드>.building`)에서 하고, 실패하면 임시 폴더만 지웁니다. 기존 세트는 그대로입니다.
 - `load`는 검증을 통과한 세트만 적재합니다. 적재는 트랜잭션 하나로 실행되어, 중간에 실패하면 기존 DB 데이터가 그대로 남습니다.
 
@@ -424,9 +434,9 @@ DB 접속 옵션 `--container`(기본 `telecom-postgres`), `--db`(기본 `teleco
 
 | 명령 | 하는 일 |
 | ---- | ------- |
-| `build fake` | `data/raw/board_raw.csv`로 `data/generated_fake/` 생성 (가짜 통신사 데이터 포함) |
-| `build real` | `data/raw/`의 게시대·통신사 원본과 `python/raw_mapping.json`으로 `data/generated_real/` 생성 |
-| `load fake` / `load real` | 해당 세트를 검증한 뒤 6개 테이블을 트랜잭션 하나로 교체 |
+| `build fake` | `data/raw/`의 게시대·상가 원본으로 `data/generated_fake/` 생성 (가짜 통신사 데이터 포함) |
+| `build real` | `data/raw/`의 게시대·상가·통신사 원본과 `python/raw_mapping.json`으로 `data/generated_real/` 생성 |
+| `load fake` / `load real` | 해당 세트를 검증한 뒤 7개 테이블을 트랜잭션 하나로 교체 |
 
 - 단계별 처리는 `pipeline.py`가 순서대로 부릅니다. 단계별 명령은 경로 실수로 세트가 섞일 수 있어 두지 않습니다.
 
@@ -470,6 +480,7 @@ gradlew.bat test
 | GET | `/api/v1/boards/{id}` | 게시대 상세 |
 | GET | `/api/v1/boards/{id}/population` | 3×3 합계, 시간대·월별, 성별·연령·유동·서비스 분포 |
 | GET | `/api/v1/boards/{id}/cells` | 3×3 Cell 중심·사각형(GeoJSON)·Cell별 인구 |
+| GET | `/api/v1/boards/{id}/stores` | 3×3 Cell 안 상가 목록과 업종별 개수 (명세 4.8) |
 | GET | `/api/v1/cells` | 화면 범위(`west`, `south`, `east`, `north`) 안 통신사 Cell 중심 (인구값 없음, 최대 3000개) |
 
 `population`·`cells`가 받는 조건 쿼리: `gender`, `ageGroups`, `flowType`, `timeBands`, `periodKind`(+`season`/`month`), `dayType`
