@@ -1,8 +1,6 @@
 package com.capstone.backend.meta;
 
 import static org.hamcrest.Matchers.contains;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -20,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.capstone.backend.common.DatasetInfo;
 import com.capstone.backend.common.DatasetInfoReader;
+import com.capstone.backend.common.DayTypeReader;
 
 /**
  * GET /api/v1/meta (명세 4.1)의 고정 필드와 주중/주말 판정을 DB 없이 검증한다.
@@ -35,6 +34,9 @@ class MetaControllerTest {
     JdbcTemplate jdbc;
 
     @MockitoBean
+    DayTypeReader dayTypes;
+
+    @MockitoBean
     DatasetInfoReader dataset;
 
     @BeforeEach
@@ -44,7 +46,7 @@ class MetaControllerTest {
 
     @Test
     void returnsSpecFields() throws Exception {
-        when(jdbc.queryForList(anyString(), eq(String.class))).thenReturn(List.of());
+        when(dayTypes.available()).thenReturn(List.of("ALL"));
 
         mockMvc.perform(get("/api/v1/meta"))
                 .andExpect(status().isOk())
@@ -66,7 +68,7 @@ class MetaControllerTest {
 
     @Test
     void dayTypesFromDataAreVerified() throws Exception {
-        when(jdbc.queryForList(anyString(), eq(String.class))).thenReturn(List.of("WEEKDAY", "WEEKEND"));
+        when(dayTypes.available()).thenReturn(List.of("ALL", "WEEKDAY", "WEEKEND"));
 
         mockMvc.perform(get("/api/v1/meta"))
                 .andExpect(status().isOk())
@@ -76,7 +78,7 @@ class MetaControllerTest {
 
     @Test
     void noDayTypesInDataIsUnconfirmed() throws Exception {
-        when(jdbc.queryForList(anyString(), eq(String.class))).thenReturn(List.of());
+        when(dayTypes.available()).thenReturn(List.of("ALL"));
 
         mockMvc.perform(get("/api/v1/meta"))
                 .andExpect(status().isOk())

@@ -4,6 +4,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -47,6 +49,14 @@ public class BoardRepository {
 
     public List<Board> findAll(List<String> cities, List<String> purposes,
                                Double west, Double south, Double east, Double north) {
+        // 화면 범위는 넷 다 주거나 다 생략한다. 검사 방식은 /cells와 같다 (명세 4.2, PR #5 리뷰 합의).
+        long bboxGiven = Stream.of(west, south, east, north).filter(Objects::nonNull).count();
+        if (bboxGiven > 0 && bboxGiven < 4) {
+            throw ApiException.badRequest("west, south, east, north는 모두 전달하거나 모두 생략해야 합니다.");
+        }
+        if (bboxGiven == 4 && (west >= east || south >= north)) {
+            throw ApiException.badRequest("화면 범위가 올바르지 않습니다 (west < east, south < north).");
+        }
         List<String> where = new ArrayList<>();
         MapSqlParameterSource params = new MapSqlParameterSource();
         if (!cities.isEmpty()) {

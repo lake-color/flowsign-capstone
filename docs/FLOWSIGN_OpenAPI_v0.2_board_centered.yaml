@@ -100,6 +100,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/BoardPopulationResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Unprocessable'}
         '503': {$ref: '#/components/responses/Unavailable'}
@@ -125,6 +126,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/BoardCellsResponse'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Unprocessable'}
         '503': {$ref: '#/components/responses/Unavailable'}

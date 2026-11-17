@@ -123,6 +123,15 @@ class BoardControllerTest {
                 .andExpect(jsonPath("$.error.requestId").value(startsWith("req-")));
     }
 
+    @Test
+    void unknownUrlIsApiNotFound() throws Exception {
+        // 없는 URL은 500이 아니라 404 API_NOT_FOUND (BOARD_NOT_FOUND와 구분)
+        mockMvc.perform(get("/api/v1/unknown"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("API_NOT_FOUND"))
+                .andExpect(jsonPath("$.error.requestId").value(startsWith("req-")));
+    }
+
     // ---- GET /boards/{boardId} (4.3)
 
     @Test

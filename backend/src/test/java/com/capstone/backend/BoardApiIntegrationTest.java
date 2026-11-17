@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.List;
 import java.util.Map;
 
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -306,6 +307,57 @@ class BoardApiIntegrationTest {
         assertThat(list(data, "categories")).isEmpty();
         assertThatThrownBy(() -> boardController.stores("999"))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("BOARD_NOT_FOUND"));
+    }
+
+    // ---- 오류 기준 (명세 5장, PR #5 리뷰 합의)
+
+    @Test
+    void boardWithoutMappingIsDataNotReady() {
+        // 게시대 2는 3×3 매핑(board_cell)이 없다
+        assertDataNotReady(() -> boardController.population("2", JANUARY));
+        assertDataNotReady(() -> boardController.cells("2", JANUARY));
+    }
+
+    @Test
+    void emptyAggregateIsDataNotReady() {
+        jdbc.execute("TRUNCATE board_population");
+        assertDataNotReady(() -> boardController.population("1", JANUARY));
+    }
+
+    @Test
+    void emptyCellPopulationIsDataNotReady() {
+        jdbc.execute("TRUNCATE population_fact");
+        assertDataNotReady(() -> boardController.cells("1", JANUARY));
+    }
+
+    @Test
+    void dayTypeMissingFromDataIsUnsupportedFilter() {
+        // 준비 데이터에는 주중(WEEKDAY)만 있다 → /meta availableDayTypes = [ALL, WEEKDAY]
+        Map<String, String> weekend = with(JANUARY, "dayType", "WEEKEND");
+        assertThatThrownBy(() -> boardController.population("1", weekend))
+                .isInstanceOfSatisfying(ApiException.class, e -> {
+                    assertThat(e.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(e.code()).isEqualTo("UNSUPPORTED_FILTER");
+                });
+        assertThatThrownBy(() -> boardController.cells("1", weekend))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("UNSUPPORTED_FILTER"));
+    }
+
+    @Test
+    void readyButNoMatchingValueIsMissingNotError() {
+        // 데이터는 준비됐지만 3월 값이 없다 → 오류가 아니라 200 + MISSING (정상 조회 0건)
+        Map<String, String> march = Map.of("periodKind", "MONTH", "month", "3");
+        assertThat(pv(population(march), "population", "totalFlow").status()).isEqualTo("MISSING");
+
+        List<Map<String, Object>> cells = list(boardController.cells("1", march).data(), "cells");
+        assertThat(cells).extracting(c -> ((PopulationValue) c.get("population")).status()).containsOnly("MISSING");
+    }
+
+    private static void assertDataNotReady(ThrowingCallable call) {
+        assertThatThrownBy(call).isInstanceOfSatisfying(ApiException.class, e -> {
+            assertThat(e.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            assertThat(e.code()).isEqualTo("DATA_NOT_READY");
+        });
     }
 
     // ---- /meta (4.1)
