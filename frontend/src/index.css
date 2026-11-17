@@ -22,6 +22,16 @@
   --notice-bg: #fff4e5;
   --notice-border: #ffd9a8;
 
+  /* 차트 범주색 (원형). 이 순서로 인접 쌍 색각이상 구분을 검증했다(라이트: 패널 #fff 기준).
+     일부 색은 패널 대비 3:1 미만이라 원형 옆 범례에 이름·값을 항상 함께 쓴다. 팔레트와 무관하게 같다. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-other: #a29a92; /* 기타·미상 */
+
   --shadow: 0 4px 18px rgba(42, 33, 28, 0.13);
   --shadow-sm: 0 2px 6px rgba(42, 33, 28, 0.18);
 
@@ -57,6 +67,15 @@
   --notice: #ffcf99;
   --notice-bg: #3a2a16;
   --notice-border: #5c4224;
+
+  /* 같은 색상을 다크 패널(#211d1a)에 맞춰 단계만 바꾼 값 (검증 통과) */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #0ca30c;
+  --series-other: #6f6862;
 
   --shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.5);

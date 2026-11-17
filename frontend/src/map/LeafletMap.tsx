@@ -4,8 +4,8 @@ import { useEffect, useRef } from 'react'
 import { formatValue } from '../lib/constants'
 import type { MapProps } from '../lib/types'
 import {
-  ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, STORE_COLOR, cellBounds, cellColor, gridLines,
-  storeHighlightColor, storeLabel,
+  ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, STORE_COLOR, cellBounds, cellColor, escapeHtml,
+  gridLines, groupStoresBySpot, spotHasCategory, storeHighlightColor, storeSpotLines, storeSpotRadius,
 } from './common'
 
 /**
@@ -150,21 +150,23 @@ function LeafletMap({
     }
   }, [cells, palette])
 
-  // 선택 게시대 3×3 Cell 안의 상가. 고른 업종은 포인트 색으로 크게, 나머지는 흐리게 그린다.
+  // 선택 게시대 3×3 Cell 안의 상가. 같은 좌표의 상가는 점 하나로 묶고, 많을수록 점을 키운다.
+  // 고른 업종이 들어 있는 점은 포인트 색으로 크게, 나머지는 흐리게 그린다.
   useEffect(() => {
     const layer = layers.current
     if (!layer) return
     layer.stores.clearLayers()
     const accent = storeHighlightColor()
-    const isOn = (category: string) => highlightCategory !== null && category === highlightCategory
-    // 고른 업종을 나중에 그려 다른 점 위에 오게 한다.
-    const ordered = [...(stores ?? [])].sort((a, b) => Number(isOn(a.category)) - Number(isOn(b.category)))
-    for (const s of ordered) {
-      const on = isOn(s.category)
-      L.circleMarker([s.latitude, s.longitude], {
-        renderer: layer.storeCanvas, pane: 'stores', radius: on ? 5 : 3, color: '#ffffff', weight: on ? 1 : 0.5,
+    // 고른 업종이 든 점을 나중에 그려 다른 점 위에 오게 한다.
+    const ordered = groupStoresBySpot(stores ?? [])
+      .map((spot) => ({ spot, on: spotHasCategory(spot, highlightCategory) }))
+      .sort((a, b) => Number(a.on) - Number(b.on))
+    for (const { spot, on } of ordered) {
+      L.circleMarker([spot.latitude, spot.longitude], {
+        renderer: layer.storeCanvas, pane: 'stores', radius: storeSpotRadius(spot.stores.length, on),
+        color: '#ffffff', weight: on ? 1 : 0.5,
         fillColor: on ? accent : STORE_COLOR, fillOpacity: highlightCategory !== null && !on ? 0.25 : 0.85,
-      }).bindTooltip(storeLabel(s)).addTo(layer.stores)
+      }).bindTooltip(storeSpotLines(spot, highlightCategory).map(escapeHtml).join('<br>')).addTo(layer.stores)
     }
   }, [stores, highlightCategory, palette])
 

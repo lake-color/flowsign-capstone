@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Board, BoardPopulation, BoardStores, DistributionPoint, RecommendationItem, StoreCategory } from '../lib/types'
 import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, STORE_CATEGORY_LABEL, formatValue, timeLabel } from '../lib/constants'
+import { ChartUnit, ColumnChart, LineChart, PieChart, type PieItem } from './Charts'
 
 interface Props {
   board: Board | null
@@ -35,11 +36,27 @@ function CollapseButton({ onClick }: { onClick: () => void }) {
 const GENDER_LABEL: Record<string, string> = { MALE: '남성', FEMALE: '여성', UNKNOWN: '미상' }
 const SERVICE_LABEL: Record<string, string> = { RESIDENCE: '거주', WORK: '근무', VISIT: '방문' }
 
-const TABS = [['time', '시간대'], ['people', '성별·연령'], ['service', '서비스']] as const
+// 원형 색은 순위가 아니라 항목에 고정한다. 미상은 범주색이 아닌 회색.
+const GENDER_COLOR: Record<string, string> = { MALE: 'var(--series-1)', FEMALE: 'var(--series-2)', UNKNOWN: 'var(--series-other)' }
+const SERVICE_COLOR: Record<string, string> = { RESIDENCE: 'var(--series-1)', WORK: 'var(--series-2)', VISIT: 'var(--series-3)' }
+
+/**
+ * 주변 업종 원형에 색을 주는 업종 (고정 6개, 이 순서로 그림). 15개를 모두 색으로 나누면 구분이 안 되므로
+ * 나머지는 '기타' 회색 한 조각으로 묶고, 전체 업종은 원형 아래 막대 목록에서 본다.
+ */
+const PIE_CATEGORIES: StoreCategory[] = ['RESTAURANT', 'CAFE', 'EDUCATION', 'RETAIL', 'MEDICAL', 'LIVING_SERVICE']
+
+/** 업종 색. 원형 조각과 막대 목록의 견본이 같은 색을 쓴다. */
+function categoryColor(category: StoreCategory): string {
+  const i = PIE_CATEGORIES.indexOf(category)
+  return i >= 0 ? `var(--series-${i + 1})` : 'var(--series-other)'
+}
+
+const TABS = [['time', '시간대'], ['people', '성별·연령'], ['service', '서비스'], ['stores', '주변 업종']] as const
 type Tab = (typeof TABS)[number][0]
 
-/** 차트 라이브러리는 미정이므로 데모에서는 CSS 막대로 표시한다. */
-function Bars({ items }: { items: { label: string; value: number | null; highlight?: boolean }[] }) {
+/** 가로 막대 (연령대 등). 차트 라이브러리는 미정이므로 CSS로 그린다. */
+function Bars({ items }: { items: { label: string; value: number | null }[] }) {
   const max = Math.max(1, ...items.map((i) => i.value ?? 0))
   return (
     <div className="bars">
@@ -47,33 +64,11 @@ function Bars({ items }: { items: { label: string; value: number | null; highlig
         <div key={i.label} className="bar-row">
           <span className="bar-label">{i.label}</span>
           <span className="bar-track">
-            <span className={`bar-fill${i.highlight === false ? ' dim' : ''}`} style={{ width: `${((i.value ?? 0) / max) * 100}%` }} />
+            <span className="bar-fill" style={{ width: `${((i.value ?? 0) / max) * 100}%` }} />
           </span>
           <span className="bar-value">{formatValue(i.value)}</span>
         </div>
       ))}
-    </div>
-  )
-}
-
-/** 세로 막대. 조건에 포함된 항목 중 가장 큰 값만 진하게 표시하고 수치를 붙인다. */
-function Columns({ items }: { items: { label: string; short: string; value: number | null; highlight?: boolean }[] }) {
-  const max = Math.max(1, ...items.map((i) => i.value ?? 0))
-  const peak = Math.max(...items.filter((i) => i.highlight !== false).map((i) => i.value ?? 0))
-  return (
-    <div className="cols">
-      {items.map((i) => {
-        const isPeak = i.highlight !== false && (i.value ?? 0) === peak && peak > 0
-        return (
-          <div key={i.label} className="col" title={`${i.label} ${formatValue(i.value)}`}>
-            <span className="col-value">{isPeak ? formatValue(i.value) : ''}</span>
-            <span className="col-track">
-              <span className={`col-bar${isPeak ? ' peak' : ''}${i.highlight === false ? ' dim' : ''}`} style={{ height: `${((i.value ?? 0) / max) * 100}%` }} />
-            </span>
-            <span className="col-label">{i.short}</span>
-          </div>
-        )
-      })}
     </div>
   )
 }
@@ -108,24 +103,32 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
   if (!stores) return <p className="placeholder">주변 업종을 불러오는 중…</p>
   if (stores.totalCount === 0) return <p className="placeholder">3×3 Cell 안에 상가가 없습니다.</p>
   const max = Math.max(1, ...stores.categories.map((c) => c.count))
-  const month = stores.baseMonth ? `${stores.baseMonth.slice(0, 4)}-${stores.baseMonth.slice(4)} 기준 · ` : ''
+  const countOf = (category: StoreCategory) => stores.categories.find((c) => c.category === category)?.count ?? 0
+  const colored = PIE_CATEGORIES.reduce((sum, c) => sum + countOf(c), 0)
+  const pie: PieItem[] = [
+    ...PIE_CATEGORIES.map((c) => ({ key: c, label: STORE_CATEGORY_LABEL[c], value: countOf(c), color: categoryColor(c) })),
+    { key: 'OTHER', label: '기타', value: stores.totalCount - colored, color: 'var(--series-other)' },
+  ]
   return (
     <>
-      <p className="store-meta">3×3 Cell · {month}총 {stores.totalCount.toLocaleString('ko-KR')}곳</p>
+      <PieChart items={pie} label="주변 업종" />
+      <ChartUnit>곳 · 3×3 Cell 안 상가 수</ChartUnit>
+      <h3>업종별</h3>
       <ul className="store-list">
         {stores.categories.map((c) => (
           <li key={c.category}>
             <button type="button" className={`bar-row${highlight === c.category ? ' active' : ''}`}
               aria-pressed={highlight === c.category} onClick={() => onSelect(c.category)}>
-              <span className="bar-label">{STORE_CATEGORY_LABEL[c.category] ?? c.category}</span>
+              <span className="bar-label"><i className="swatch" style={{ background: categoryColor(c.category) }} />{STORE_CATEGORY_LABEL[c.category] ?? c.category}</span>
               <span className="bar-track">
                 <span className={`bar-fill${highlight && highlight !== c.category ? ' dim' : ''}`} style={{ width: `${(c.count / max) * 100}%` }} />
               </span>
-              <span className="bar-value">{c.count.toLocaleString('ko-KR')}</span>
+              <span className="bar-value">{formatValue(c.count)}</span>
             </button>
           </li>
         ))}
       </ul>
+      <ChartUnit>곳 · 업종별 상가 수</ChartUnit>
       <p className="notice">업종을 누르면 지도의 '주변 업종' 레이어에서 그 업종만 강조합니다. 소상공인시장진흥공단 상가(상권)정보 기준입니다.</p>
     </>
   )
@@ -133,6 +136,9 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
 
 const dist = (points: DistributionPoint[], labels: Record<string, string>) =>
   points.map((p) => ({ label: labels[p.key] ?? p.key, value: p.population.value }))
+
+const pieItems = (points: DistributionPoint[], labels: Record<string, string>, colors: Record<string, string>): PieItem[] =>
+  points.map((p) => ({ key: p.key, label: labels[p.key] ?? p.key, value: p.population.value, color: colors[p.key] ?? 'var(--series-other)' }))
 
 /**
  * 게시대 상세 영역. 선택 게시대의 정보와 3×3 영향권 인구 집계·차트를 보여준다.
@@ -142,6 +148,9 @@ function BoardDetail({
   board, population, loading, error, stores, storesError, highlightCategory, onSelectCategory, recommendation, hidden, onCollapse,
 }: Props) {
   const [tab, setTab] = useState<Tab>('time')
+  // 인구값 단위. 서버가 주는 값(현재 '명/일' = 선택 기간 하루 평균)을 그대로 쓴다.
+  const unit = population?.population.totalFlow.unitLabel ?? '명/일'
+  const dailyAverage = `${unit} · 선택 기간 하루 평균`
 
   if (!board) {
     return (
@@ -193,7 +202,8 @@ function BoardDetail({
               <span>3×3 영향권 · 전체(체류+보행+주행)</span>
               <span className="pill">{population.matchedCellCount}/{population.expectedCellCount} Cell</span>
             </div>
-            <b>{formatValue(population.population.totalFlow.value)}</b>
+            <b>{formatValue(population.population.totalFlow.value)}<small className="hero-unit">{unit}</small></b>
+            <p className="hero-caption">선택 기간·시간대의 하루 평균 (기간 합계 ÷ 해당 일수)</p>
           </div>
 
           <h3>유동 유형</h3>
@@ -202,43 +212,58 @@ function BoardDetail({
             { label: '보행', value: population.population.walk.value, tone: 2 },
             { label: '주행', value: population.population.drive.value, tone: 3 },
           ]} />
+          <ChartUnit>{dailyAverage}</ChartUnit>
+        </>
+      )}
 
-          <div className="tabs" role="tablist">
-            {TABS.map(([key, label]) => (
-              <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''}
-                onClick={() => setTab(key)}>{label}</button>
-            ))}
-          </div>
+      {/* 주변 업종 탭은 인구와 무관하므로 탭 줄은 인구가 없어도 보인다. */}
+      <div className="tabs" role="tablist">
+        {TABS.map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''}
+            onClick={() => setTab(key)}>{label}</button>
+        ))}
+      </div>
 
+      {population && !loading && tab !== 'stores' && (
+        <>
           {tab === 'time' && (
             <>
-              <Columns items={population.hourly.map((h) => ({
-                label: timeLabel(h.timeBand), short: h.timeBand.slice(0, 2), value: h.value.value, highlight: h.selected,
+              <h3>시간대별</h3>
+              <LineChart points={population.hourly.map((h) => ({
+                label: timeLabel(h.timeBand), short: h.timeBand.slice(0, 2), value: h.value.value, selected: h.selected,
               }))} />
+              <ChartUnit>{`${unit} · 시간대(2시간)별 하루 평균`}</ChartUnit>
               <h3>월별</h3>
-              <Bars items={population.monthly.map((m) => ({ label: `${m.month}월`, value: m.value.value, highlight: m.selected }))} />
+              <ColumnChart items={population.monthly.map((m) => ({
+                label: `${m.month}월`, short: String(m.month), value: m.value.value, selected: m.selected,
+              }))} />
+              <ChartUnit>{`${unit} · 각 달의 하루 평균 (월 합계 ÷ 그 달 일수)`}</ChartUnit>
             </>
           )}
           {tab === 'people' && (
             <>
               <h3>성별</h3>
-              <Bars items={dist(population.genderDistribution, GENDER_LABEL)} />
+              <PieChart items={pieItems(population.genderDistribution, GENDER_LABEL, GENDER_COLOR)} label="성별" />
+              <ChartUnit>{dailyAverage}</ChartUnit>
               <h3>연령대</h3>
               <Bars items={dist(population.ageDistribution, AGE_LABEL)} />
+              <ChartUnit>{dailyAverage}</ChartUnit>
             </>
           )}
           {tab === 'service' && (
             <>
               <h3>서비스 인구</h3>
-              <Bars items={dist(population.servicePopulation, SERVICE_LABEL)} />
+              <PieChart items={pieItems(population.servicePopulation, SERVICE_LABEL, SERVICE_COLOR)} label="서비스 인구" className="pie-service" />
+              <ChartUnit>{dailyAverage}</ChartUnit>
             </>
           )}
           <p className="notice">{population.dataNotice}</p>
         </>
       )}
 
-      <h3>주변 업종</h3>
-      <NearbyStores stores={stores} error={storesError} highlight={highlightCategory} onSelect={onSelectCategory} />
+      {tab === 'stores' && (
+        <NearbyStores stores={stores} error={storesError} highlight={highlightCategory} onSelect={onSelectCategory} />
+      )}
     </section>
   )
 }

@@ -3,7 +3,7 @@ import { formatValue } from '../lib/constants'
 import type { MapProps } from '../lib/types'
 import {
   ALL_CELL_COLOR, CENTER_CELL_COLOR, GRID_MIN_PIXELS, PURPOSE_COLOR, STORE_COLOR, cellBounds, cellColor, gridLines,
-  storeHighlightColor, storeLabel,
+  groupStoresBySpot, spotHasCategory, storeHighlightColor, storeSpotLines, storeSpotRadius,
 } from './common'
 
 /**
@@ -189,20 +189,21 @@ function NaverMap({
     }
   }, [naver, cells, palette])
 
-  // 선택 게시대 3×3 Cell 안의 상가. 고른 업종은 포인트 색으로 크게, 나머지는 흐리게 그린다.
+  // 선택 게시대 3×3 Cell 안의 상가. 같은 좌표의 상가는 점 하나로 묶고, 많을수록 점을 키운다.
+  // 고른 업종이 들어 있는 점은 포인트 색으로 크게, 나머지는 흐리게 그린다.
   useEffect(() => {
     const map = mapRef.current
     if (!naver || !map) return
     clear('stores')
     const accent = storeHighlightColor()
-    for (const s of stores ?? []) {
-      const on = highlightCategory !== null && s.category === highlightCategory
-      const size = on ? 10 : 6
+    for (const spot of groupStoresBySpot(stores ?? [])) {
+      const on = spotHasCategory(spot, highlightCategory)
+      const size = Math.round(storeSpotRadius(spot.stores.length, on) * 2)
       const opacity = highlightCategory !== null && !on ? 0.25 : 0.85
       overlays.current.stores.push(new naver.maps.Marker({
         map,
-        position: new naver.maps.LatLng(s.latitude, s.longitude),
-        title: storeLabel(s),
+        position: new naver.maps.LatLng(spot.latitude, spot.longitude),
+        title: storeSpotLines(spot, highlightCategory).join('\n'), // title은 글자로만 쓰이므로 이스케이프 불필요
         zIndex: on ? 2 : 1,
         icon: {
           content: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${on ? accent : STORE_COLOR};opacity:${opacity};border:1px solid #fff"></div>`,
