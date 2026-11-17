@@ -4,6 +4,18 @@ import type { Board, BoardPopulation, BoardStores, Bounds, CellItem, MapCell, Me
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 const TIMEOUT_MS = 10_000
 
+/** 서버 오류 응답. code는 명세 5장의 오류 코드(DATA_NOT_READY 등)이고, 응답 본문이 없으면 null이다. */
+export class ApiError extends Error {
+  readonly status: number
+  readonly code: string | null
+
+  constructor(message: string, status: number, code: string | null) {
+    super(message)
+    this.status = status
+    this.code = code
+  }
+}
+
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const timeout = AbortSignal.timeout(TIMEOUT_MS)
   const response = await fetch(`${BASE}${path}`, {
@@ -11,7 +23,7 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   })
   const body = await response.json().catch(() => null)
   if (!response.ok) {
-    throw new Error(body?.error?.message ?? `요청 실패 (${response.status})`)
+    throw new ApiError(body?.error?.message ?? `요청 실패 (${response.status})`, response.status, body?.error?.code ?? null)
   }
   return body.data as T
 }

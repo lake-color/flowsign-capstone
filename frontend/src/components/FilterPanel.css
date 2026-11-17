@@ -92,6 +92,15 @@
   text-align: center;
 }
 
+/* 데이터에 없는 선택지 (예: 요일 구분) */
+.seg input:disabled {
+  cursor: not-allowed;
+}
+
+.seg input:disabled + span {
+  opacity: 0.4;
+}
+
 .seg input:checked + span {
   background: var(--panel);
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);

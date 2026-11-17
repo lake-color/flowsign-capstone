@@ -58,6 +58,12 @@ export interface BoardPopulation {
   dataNotice: string
 }
 
+/** 인구 조회 실패. code는 명세 5장 오류 코드(DATA_NOT_READY·UNSUPPORTED_FILTER 등), 네트워크 오류 등이면 null */
+export interface PopulationError {
+  code: string | null
+  message: string
+}
+
 export interface CellItem {
   cellId: string
   isCenter: boolean
