@@ -81,9 +81,22 @@ class BoardRepositoryTest {
     }
 
     @Test
-    void partialBboxIsIgnored() {
-        repository.findAll(List.of(), List.of(), 126.9, null, null, null);
-        assertThat(capturedSql()).doesNotContain("b.longitude");
+    void partialBboxIsValidationError() {
+        // 넷 다 주거나 다 생략 (/cells와 같은 검사)
+        assertThatThrownBy(() -> repository.findAll(List.of(), List.of(), 126.9, null, null, null))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("VALIDATION_ERROR"));
+        assertThatThrownBy(() -> repository.findAll(List.of(), List.of(), 126.9, 37.3, 127.0, null))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("VALIDATION_ERROR"));
+        verifyNoInteractions(jdbc);
+    }
+
+    @Test
+    void reversedOrZeroWidthBboxIsValidationError() {
+        assertThatThrownBy(() -> repository.findAll(List.of(), List.of(), 127.0, 37.3, 126.9, 37.5))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("VALIDATION_ERROR"));
+        assertThatThrownBy(() -> repository.findAll(List.of(), List.of(), 126.9, 37.5, 127.0, 37.5))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("VALIDATION_ERROR"));
+        verifyNoInteractions(jdbc);
     }
 
     private String capturedSql() {

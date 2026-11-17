@@ -6,13 +6,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import com.capstone.backend.board.PopulationFilter.Axis;
+import com.capstone.backend.common.ApiException;
 import com.capstone.backend.common.Codes;
 import com.capstone.backend.common.DatasetInfoReader;
+import com.capstone.backend.common.DayTypeReader;
 import com.capstone.backend.common.PopulationValue;
 
 /**
@@ -21,6 +24,11 @@ import com.capstone.backend.common.PopulationValue;
  * 인구값은 선택 기간·요일 구분의 일평균(명/일)이다 (팀 결정 2026-11-16, {@link DayCount}).
  * 원본 월 값이 합계이므로(명세 9장 L3) 합계를 구한 뒤 해당 일수로 나눈다. 월별 차트는 그 달의 일수로 나눈다.
  * 마스킹·공개 가능 여부(L5)가 확인되지 않아 status는 UNVERIFIED로 둔다.
+ *
+ * 오류 기준 (명세 5장, PR #5 리뷰 합의):
+ * - 집계가 통째로 비어 있거나 이 게시대의 3×3 매핑이 없으면 503 DATA_NOT_READY
+ * - 데이터에 없는 요일 구분(/meta availableDayTypes 밖)을 고르면 400 UNSUPPORTED_FILTER
+ * - 데이터는 준비됐지만 조건에 맞는 값이 없으면 200 + MISSING (정상 조회 0건)
  */
 @Service
 public class BoardPopulationService {
@@ -28,13 +36,17 @@ public class BoardPopulationService {
     private final NamedParameterJdbcTemplate jdbc;
     /** 응답 안내 문구가 DB에 적재된 세트 종류(실제/가짜)를 따르도록 요청마다 읽는다. */
     private final DatasetInfoReader dataset;
+    private final DayTypeReader dayTypes;
 
-    public BoardPopulationService(NamedParameterJdbcTemplate jdbc, DatasetInfoReader dataset) {
+    public BoardPopulationService(NamedParameterJdbcTemplate jdbc, DatasetInfoReader dataset, DayTypeReader dayTypes) {
         this.jdbc = jdbc;
         this.dataset = dataset;
+        this.dayTypes = dayTypes;
     }
 
     public Map<String, Object> population(long boardId, PopulationFilter f) {
+        ensureReady(boardId, "board_population");
+        ensureDayTypeSupported(f);
         int days = f.days();
         Map<String, Object> totals = totals(boardId, f);
         Double stay = DayCount.perDay((Double) totals.get("stay"), days);
@@ -89,6 +101,8 @@ public class BoardPopulationService {
 
     public Map<String, Object> cells(BoardRepository.Board board, PopulationFilter f) {
         long boardId = Long.parseLong(board.boardId());
+        ensureReady(boardId, "population_fact");
+        ensureDayTypeSupported(f);
         int days = f.days();
         MapSqlParameterSource p = new MapSqlParameterSource("id", boardId);
         String sql = """
@@ -165,6 +179,28 @@ public class BoardPopulationService {
             result.put(rs.getString("k"), rs.getObject("v", Double.class));
         });
         return result;
+    }
+
+    /** table: 이 조회가 읽는 인구 테이블(코드 안의 고정값만 넘긴다). */
+    private void ensureReady(long boardId, String table) {
+        Boolean loaded = jdbc.getJdbcTemplate().queryForObject("SELECT EXISTS (SELECT 1 FROM " + table + ")", Boolean.class);
+        if (!Boolean.TRUE.equals(loaded)) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "DATA_NOT_READY", "인구 집계 데이터가 아직 적재되지 않았습니다.");
+        }
+        if (count("SELECT COUNT(*) FROM board_cell WHERE board_id = :id", boardId) == 0) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "DATA_NOT_READY", "이 게시대의 3×3 영향권 매핑이 아직 산출되지 않았습니다.");
+        }
+    }
+
+    private void ensureDayTypeSupported(PopulationFilter f) {
+        // ALL은 /meta availableDayTypes에 항상 들어 있으므로 기본 조회에서는 DB를 읽지 않는다.
+        if (f.dayType().equals("ALL")) {
+            return;
+        }
+        if (!dayTypes.available().contains(f.dayType())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "UNSUPPORTED_FILTER",
+                    "데이터에 없는 요일 구분입니다: " + f.dayType());
+        }
     }
 
     private static Map<String, Double> perDay(Map<String, Double> sums, int days) {

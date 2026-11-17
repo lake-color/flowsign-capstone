@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * 오류 응답 공통 형태 {@code {error: {code, message, requestId}}} (API 명세 2.1, 5장).
@@ -30,6 +32,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorBody> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         return body(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", e.getName() + " 값이 올바르지 않습니다: " + e.getValue());
+    }
+
+    /** 없는 URL. 아래 Exception 처리에 잡혀 500이 되지 않도록 404로 돌려준다 (BOARD_NOT_FOUND와 구분, PR #5 리뷰 합의). */
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ErrorBody> handleNotFound(Exception e) {
+        return body(HttpStatus.NOT_FOUND, "API_NOT_FOUND", "존재하지 않는 API입니다.");
     }
 
     @ExceptionHandler(Exception.class)

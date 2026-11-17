@@ -1,6 +1,5 @@
 package com.capstone.backend.meta;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.capstone.backend.common.ApiResponse;
 import com.capstone.backend.common.Codes;
 import com.capstone.backend.common.DatasetInfoReader;
+import com.capstone.backend.common.DayTypeReader;
 import com.capstone.backend.common.PopulationValue;
 
 /**
@@ -24,10 +24,12 @@ public class MetaController {
 
     private final JdbcTemplate jdbc;
     private final DatasetInfoReader dataset;
+    private final DayTypeReader dayTypeReader;
 
-    public MetaController(JdbcTemplate jdbc, DatasetInfoReader dataset) {
+    public MetaController(JdbcTemplate jdbc, DatasetInfoReader dataset, DayTypeReader dayTypeReader) {
         this.jdbc = jdbc;
         this.dataset = dataset;
+        this.dayTypeReader = dayTypeReader;
     }
 
     public record Grid(int cellSizeMeters, double originLatitude, double originLongitude,
@@ -42,10 +44,7 @@ public class MetaController {
                         rs.getDouble("longitude_step_deg"), rs.getString("status"))
                 : null);
 
-        List<String> dayTypes = new ArrayList<>(List.of("ALL"));
-        dayTypes.addAll(jdbc.queryForList(
-                "SELECT DISTINCT day_type FROM board_population WHERE day_type IN ('WEEKDAY', 'WEEKEND') ORDER BY day_type DESC",
-                String.class));
+        List<String> dayTypes = dayTypeReader.available();
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("serviceName", "FLOWSIGN");

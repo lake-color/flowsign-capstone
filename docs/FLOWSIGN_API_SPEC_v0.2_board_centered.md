@@ -234,7 +234,7 @@ interface Criteria {
 | 이름 | 타입 | 기본값 | 의미 |
 |---|---|---|---|
 | `cities` | CSV enum | 세 도시 전체 | 선택 지역. `cities=ANYANG,GUNPO` |
-| `west,south,east,north` | decimal (동시 전달) | 없음 | 현재 지도 bbox, EPSG:4326 |
+| `west,south,east,north` | decimal (동시 전달) | 없음 | 현재 지도 bbox, EPSG:4326. 넷 다 주거나 다 생략. 일부만 주거나 `west ≥ east`·`south ≥ north`이면 400 `VALIDATION_ERROR` (`/cells`와 같은 검사) |
 | `purpose` | CSV enum (선택) | 전체 | **관리/진단용**; 초기 화면은 행정용도 반드시 포함하도록 미지정 |
 
 **200 응답 예시** (게시대명·좌표는 합성 샘플):
@@ -562,12 +562,19 @@ interface Criteria {
 | 400 | `UNSUPPORTED_FILTER` | 제공하지 않는 dayType·기간 | 지원 옵션 재선택 |
 | 403 | `INQUIRY_NOT_ALLOWED` | 행정용 문의 등 | 문의 불가 배너 |
 | 404 | `BOARD_NOT_FOUND` | 게시대 없음 | 기존 화면 유지, 재선택 유도 |
+| 404 | `API_NOT_FOUND` | 존재하지 않는 API 경로 | 요청 경로 확인 (개발 오류) |
 | 409 | `IDEMPOTENCY_CONFLICT` | 같은 멱등키에 다른 내용 | 재제출 세션 처리 |
 | 422 | `AGGREGATION_METHOD_UNCONFIRMED` | 기간·요일 값의 수치 조합을 확정할 수 없음 | 실수치 대신 안내 |
 | 429 | `TOO_MANY_REQUESTS` | 호출 빈도 초과 | 재시도 간격 적용 |
 | 500 | `INTERNAL_ERROR` | 서버 오류 | 기존 성공 결과 유지 |
 | 503 | `DATA_NOT_READY` | 집계 미적재/3×3 매핑 미산출 | 미준비 화면 |
 | 503 | `ANALYSIS_NOT_READY` | 점수식 미확정/점수 계산 불가 | 결과 임의 생성 금지 |
+
+**인구 조회 오류 기준 (4.4·4.5, 2026-11-17 PR #5 리뷰에서 확정)**
+- 인구 집계가 통째로 비어 있거나 해당 게시대의 3×3 매핑(`board_cell`)이 없으면 503 `DATA_NOT_READY`. 게시대 목록·상세(4.2·4.3)는 그대로 정상 응답.
+- 데이터에 없는 `dayType`(4.1 `availableDayTypes`에 없는 값)은 400 `UNSUPPORTED_FILTER`.
+- 데이터는 준비됐지만 선택한 조건에 맞는 값이 없으면 오류가 아니라 200 + `status=MISSING` (정상 조회 0건).
+- 오류 응답의 `details`는 현재 내려주지 않으며 `message`에 원인을 적는다.
 
 예시:
 
