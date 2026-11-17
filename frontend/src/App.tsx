@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import './App.css'
-import { api } from './lib/api'
+import { api, ApiError } from './lib/api'
 import FilterPanel from './components/FilterPanel'
 import LayerMenu from './components/LayerMenu'
 import RecommendationList from './components/RecommendationList'
@@ -12,8 +12,11 @@ import { DEFAULT_QUERY, PALETTES, type Palette } from './lib/constants'
 import { sampleRecommendations } from './lib/sampleRecommendations'
 import MapView, { type MapProvider } from './map/MapView'
 import type {
-  Board, BoardPopulation, BoardStores, Bounds, CellItem, MapCell, Meta, PopulationQuery, Purpose, RecommendationItem, StoreCategory,
+  Board, BoardPopulation, BoardStores, Bounds, CellItem, MapCell, Meta, PopulationError, PopulationQuery, Purpose, RecommendationItem,
+  StoreCategory,
 } from './lib/types'
+
+const toPopulationError = (e: Error): PopulationError => ({ code: e instanceof ApiError ? e.code : null, message: e.message })
 
 // 라이트/다크: 저장된 선택이 있으면 그것을, 없으면 OS 설정을 따른다.
 const THEME_KEY = 'flowsign-theme'
@@ -97,16 +100,9 @@ function App() {
   }, [])
 
   const [selectedId, setSelectedId] = useState<string | null>(params.get('board'))
-  const [board, setBoard] = useState<Board | null>(null)
-  const [population, setPopulation] = useState<BoardPopulation | null>(null)
   const [cells, setCells] = useState<CellItem[] | null>(null)
-  // 상세 조회 한 번을 나타내는 값. 선택한 게시대나 조건이 바뀌면 새 객체가 된다.
+  // 인구 조회 한 번을 나타내는 값. 선택한 게시대나 조건이 바뀌면 새 객체가 된다.
   const request = useMemo(() => ({ selectedId, query }), [selectedId, query])
-  // 응답(성공·실패)이 끝난 요청. 지금 요청과 다르면 아직 불러오는 중이다.
-  const [settled, setSettled] = useState<object | null>(null)
-  const [failure, setFailure] = useState<{ request: object; message: string } | null>(null)
-  const detailLoading = selectedId !== null && settled !== request
-  const detailError = failure?.request === request ? failure.message : null
 
   // 첫 진입: /meta + /boards (전역 인구 API는 호출하지 않는다)
   useEffect(() => {
@@ -122,24 +118,40 @@ function App() {
     return () => ctrl.abort()
   }, [])
 
-  // 게시대 선택 또는 조건 변경: 상세 + 인구 병렬 조회
+  // 게시대 상세와 인구는 따로 조회한다. 인구가 503 DATA_NOT_READY·400 UNSUPPORTED_FILTER여도
+  // 게시대 기본 정보와 주변 업종은 보여야 하기 때문이다 (명세 5장).
+
+  // 게시대 선택: 상세 조회 (인구 조건과 무관하므로 게시대가 바뀔 때만)
+  const [boardResult, setBoardResult] = useState<{ boardId: string; data: Board | null; error: string | null } | null>(null)
+  useEffect(() => {
+    if (!selectedId) return
+    const ctrl = new AbortController()
+    api.board(selectedId, ctrl.signal)
+      .then((data) => setBoardResult({ boardId: selectedId, data, error: null }))
+      .catch((e: Error) => {
+        if (!ctrl.signal.aborted) setBoardResult({ boardId: selectedId, data: null, error: e.message })
+      })
+    return () => ctrl.abort()
+  }, [selectedId])
+  const currentBoard = boardResult?.boardId === selectedId ? boardResult : null
+  const boardLoading = selectedId !== null && !currentBoard
+
+  // 게시대 선택 또는 조건 변경: 인구 조회. 결과는 그 요청일 때만 쓴다 (실패 시 이전 조건의 값을 남기지 않는다).
+  const [populationResult, setPopulationResult] = useState<
+    { request: object; data: BoardPopulation | null; error: PopulationError | null } | null>(null)
   useEffect(() => {
     const { selectedId, query } = request
     if (!selectedId) return
     const ctrl = new AbortController()
-    Promise.all([api.board(selectedId, ctrl.signal), api.population(selectedId, query, ctrl.signal)])
-      .then(([b, p]) => {
-        setBoard(b)
-        setPopulation(p)
-      })
+    api.population(selectedId, query, ctrl.signal)
+      .then((data) => setPopulationResult({ request, data, error: null }))
       .catch((e: Error) => {
-        if (!ctrl.signal.aborted) setFailure({ request, message: e.message })
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setSettled(request)
+        if (!ctrl.signal.aborted) setPopulationResult({ request, data: null, error: toPopulationError(e) })
       })
     return () => ctrl.abort()
   }, [request])
+  const currentPopulation = populationResult?.request === request ? populationResult : null
+  const populationLoading = selectedId !== null && !currentPopulation
 
   // 게시대 선택: 주변 상가 조회 (인구 조건과 무관하므로 게시대가 바뀔 때만). 패널 개수와 지도 점이 같은 응답을 쓴다.
   const [stores, setStores] = useState<{ boardId: string; data: BoardStores } | null>(null)
@@ -164,6 +176,7 @@ function App() {
   }, [])
 
   // 3×3 Cell 보기를 켰을 때만 /cells 호출
+  const [cellsFailure, setCellsFailure] = useState<{ request: object; message: string } | null>(null)
   useEffect(() => {
     const { selectedId, query } = request
     if (!selectedId || !showCells) return
@@ -171,10 +184,14 @@ function App() {
     api.cells(selectedId, query, ctrl.signal)
       .then(setCells)
       .catch((e: Error) => {
-        if (!ctrl.signal.aborted) setFailure({ request, message: e.message })
+        if (ctrl.signal.aborted) return
+        // 이전 게시대·조건의 Cell이 지도에 남지 않도록 비운다.
+        setCells(null)
+        setCellsFailure({ request, message: e.message })
       })
     return () => ctrl.abort()
   }, [request, showCells])
+  const cellsError = showCells && cellsFailure?.request === request ? cellsFailure.message : null
 
   // 통신사 Cell 레이어: 켜져 있으면 지도 이동이 끝날 때마다 화면 범위의 Cell만 다시 조회
   useEffect(() => {
@@ -275,7 +292,8 @@ function App() {
             onPurposeVisibleChange={changePurposeVisible}
           />
         </SideTabs>
-        <FilterPanel applied={query} onApply={setQuery} onRecommend={recommend} hidden={leftTab !== 'filter'} />
+        <FilterPanel applied={query} onApply={setQuery} onRecommend={recommend} hidden={leftTab !== 'filter'}
+          availableDayTypes={meta?.availableDayTypes ?? null} />
         <RecommendationList items={recommendations} query={query} selectedBoardId={selectedId} onSelect={selectRecommended}
           onEditConditions={() => setLeftTab('filter')} hidden={leftTab !== 'result'} />
         <MapView
@@ -296,17 +314,20 @@ function App() {
           highlightCategory={highlightCategory}
         />
         <RightPanel
-          board={board}
-          population={population}
-          loading={detailLoading}
-          error={detailError}
+          board={currentBoard?.data ?? null}
+          boardLoading={boardLoading}
+          boardError={currentBoard?.error ?? null}
+          population={currentPopulation?.data ?? null}
+          loading={populationLoading}
+          error={currentPopulation?.error ?? null}
+          cellsError={cellsError}
           stores={currentStores}
           storesError={storesError}
           highlightCategory={highlightCategory}
           onSelectCategory={selectCategory}
           open={rightOpen}
           onToggle={() => setRightOpen((open) => !open)}
-          recommendation={recommendations?.find((r) => r.boardId === board?.boardId) ?? null}
+          recommendation={recommendations?.find((r) => r.boardId === selectedId) ?? null}
         />
       </main>
 

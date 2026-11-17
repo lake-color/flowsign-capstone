@@ -10,6 +10,8 @@ interface Props {
   onRecommend: (q: PopulationQuery) => void
   /** 왼쪽 탭에서 다른 패널을 골랐을 때 true. 입력 중인 조건은 그대로 둔다. */
   hidden: boolean
+  /** /meta의 availableDayTypes. 여기 없는 요일은 서버가 400 UNSUPPORTED_FILTER로 거절하므로 고를 수 없게 한다. 아직 모르면 null */
+  availableDayTypes: string[] | null
 }
 
 const GENDER_OPTIONS = [['ALL', '전체'], ['MALE', '남성'], ['FEMALE', '여성']] as const
@@ -26,7 +28,7 @@ const shortTime = (t: string) => `${t.slice(0, 2)}~${t.slice(3)}`
  * 조건 입력 영역. 입력 중인 조건(draft)은 '조건 적용'을 눌렀을 때만 반영한다.
  * '추천 분석하기'도 같은 조건을 쓴다. 추천 API는 아직 없어 시안용 예시 결과를 보여준다.
  */
-function FilterPanel({ applied, onApply, onRecommend, hidden }: Props) {
+function FilterPanel({ applied, onApply, onRecommend, hidden, availableDayTypes }: Props) {
   const [draft, setDraft] = useState<PopulationQuery>(applied)
   const set = <K extends keyof PopulationQuery>(key: K, value: PopulationQuery[K]) => setDraft({ ...draft, [key]: value })
   const toggle = (key: 'ageGroups' | 'timeBands', item: string, order: string[]) => {
@@ -113,10 +115,15 @@ function FilterPanel({ applied, onApply, onRecommend, hidden }: Props) {
         <fieldset>
           <legend>요일</legend>
           <div className="seg">
-            {DAY_OPTIONS.map(([value, label]) => (
-              <label key={value}><input type="radio" name="dayType" checked={draft.dayType === value} onChange={() => set('dayType', value)} />
-                <span>{label}</span></label>
-            ))}
+            {DAY_OPTIONS.map(([value, label]) => {
+              const unavailable = availableDayTypes !== null && !availableDayTypes.includes(value)
+              return (
+                <label key={value} title={unavailable ? '데이터에 없는 요일 구분입니다.' : undefined}>
+                  <input type="radio" name="dayType" checked={draft.dayType === value} disabled={unavailable}
+                    onChange={() => set('dayType', value)} />
+                  <span>{label}</span></label>
+              )
+            })}
           </div>
         </fieldset>
       </div>

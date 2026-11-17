@@ -1,13 +1,21 @@
 import { useState } from 'react'
-import type { Board, BoardPopulation, BoardStores, DistributionPoint, RecommendationItem, StoreCategory } from '../lib/types'
+import type {
+  Board, BoardPopulation, BoardStores, DistributionPoint, PopulationError, RecommendationItem, StoreCategory,
+} from '../lib/types'
 import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, STORE_CATEGORY_LABEL, formatValue, timeLabel } from '../lib/constants'
 import { ChartUnit, ColumnChart, LineChart, PieChart, type PieItem } from './Charts'
 
 interface Props {
+  /** 선택한 게시대의 상세. 아직 불러오는 중이거나 실패했으면 null */
   board: Board | null
+  boardLoading: boolean
+  boardError: string | null
+  /** 지금 조건의 인구. 불러오는 중이거나 실패했으면 null */
   population: BoardPopulation | null
   loading: boolean
-  error: string | null
+  error: PopulationError | null
+  /** 3×3 Cell 레이어(/cells) 조회 실패 */
+  cellsError: string | null
   /** 3×3 Cell 안의 상가. 불러오는 중이거나 실패했으면 null */
   stores: BoardStores | null
   storesError: string | null
@@ -134,6 +142,20 @@ function NearbyStores({ stores, error, highlight, onSelect }: {
   )
 }
 
+/**
+ * 인구 조회 실패 안내 (명세 5장). 미준비(503)는 오류가 아니라 안내로, 지원하지 않는 조건(400)은 재선택을 권한다.
+ * 게시대 자체에 인구 데이터가 없다고 이미 표시했으면 미준비 안내는 겹치므로 생략한다.
+ */
+function PopulationErrorNotice({ error, hasPopulationData }: { error: PopulationError; hasPopulationData: boolean }) {
+  if (error.code === 'DATA_NOT_READY') {
+    return hasPopulationData ? <p className="placeholder">인구 데이터가 아직 준비되지 않았습니다. {error.message}</p> : null
+  }
+  if (error.code === 'UNSUPPORTED_FILTER') {
+    return <p className="error">{error.message} 조건 설정에서 다른 조건을 선택하세요.</p>
+  }
+  return <p className="error">인구 정보를 불러오지 못했습니다: {error.message}</p>
+}
+
 const dist = (points: DistributionPoint[], labels: Record<string, string>) =>
   points.map((p) => ({ label: labels[p.key] ?? p.key, value: p.population.value }))
 
@@ -145,7 +167,8 @@ const pieItems = (points: DistributionPoint[], labels: Record<string, string>, c
  * 추천 점수는 추천 결과에 들어 있는 게시대에만 표시한다(지금은 시안용 예시 값).
  */
 function BoardDetail({
-  board, population, loading, error, stores, storesError, highlightCategory, onSelectCategory, recommendation, hidden, onCollapse,
+  board, boardLoading, boardError, population, loading, error, cellsError, stores, storesError, highlightCategory, onSelectCategory,
+  recommendation, hidden, onCollapse,
 }: Props) {
   const [tab, setTab] = useState<Tab>('time')
   // 인구값 단위. 서버가 주는 값(현재 '명/일' = 선택 기간 하루 평균)을 그대로 쓴다.
@@ -157,7 +180,9 @@ function BoardDetail({
       <section className="panel board-detail" hidden={hidden}>
         <CollapseButton onClick={onCollapse} />
         <h2>게시대 상세</h2>
-        <p className="placeholder">지도에서 게시대를 선택하세요.</p>
+        {boardError ? <p className="error">게시대 정보를 불러오지 못했습니다: {boardError}</p>
+          : boardLoading ? <p className="placeholder">게시대 정보를 불러오는 중…</p>
+            : <p className="placeholder">지도에서 게시대를 선택하세요.</p>}
       </section>
     )
   }
@@ -192,8 +217,10 @@ function BoardDetail({
       )}
 
       {loading && <p className="placeholder">인구 정보를 불러오는 중…</p>}
-      {error && <p className="error">{error}</p>}
       {!board.hasPopulationData && <p className="placeholder">이 게시대는 인구 데이터가 없습니다.</p>}
+      {error && <PopulationErrorNotice error={error} hasPopulationData={board.hasPopulationData} />}
+      {/* 인구와 같은 원인(미준비 등)이면 인구 쪽 안내로 충분하다. */}
+      {cellsError && !error && <p className="error">3×3 Cell을 불러오지 못했습니다: {cellsError}</p>}
 
       {population && !loading && (
         <>
