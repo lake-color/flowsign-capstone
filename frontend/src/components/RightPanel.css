@@ -323,6 +323,50 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ───────── 주변 업종 (막대 한 줄이 버튼, 누르면 지도에서 강조) */
+.store-meta {
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+
+.store-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.store-list .bar-row {
+  grid-template-columns: 112px 1fr 44px;
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.store-list .bar-row:hover {
+  background: var(--card);
+}
+
+.store-list .bar-row.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+.store-list .bar-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* ───────── 추천 결과에 들어 있는 게시대의 추천 점수 */
 .score-box {
   margin-top: 12px;

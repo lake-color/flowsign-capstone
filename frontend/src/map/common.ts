@@ -1,4 +1,4 @@
-import type { Bounds, GridSpec, MapCell, Purpose } from '../lib/types'
+import type { Bounds, GridSpec, MapCell, NearbyStore, Purpose } from '../lib/types'
 
 /** 격자 한 칸이 화면에서 이 픽셀보다 작으면 격자선을 그리지 않는다. 임시값(명세 9장 미정). */
 export const GRID_MIN_PIXELS = 12
@@ -51,6 +51,19 @@ export const ALL_CELL_COLOR = '#0ea5e9'
 
 /** 선택 게시대 3×3 Cell의 소속 Cell 강조 색 */
 export const CENTER_CELL_COLOR = '#f59e0b'
+
+/** 주변 상가 점 색 (강조하지 않은 업종) */
+export const STORE_COLOR = '#475569'
+
+/** 상세 패널에서 고른 업종의 상가 점 색. 팔레트 포인트 색(--accent)을 따른다. */
+export function storeHighlightColor(): string {
+  return getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e5564a'
+}
+
+/** 상가 점 마우스오버 문구: 상호명 · 소분류 */
+export function storeLabel(s: NearbyStore): string {
+  return `${s.name ?? '상호명 없음'} · ${s.subCategoryName}`
+}
 
 /** 3×3 Cell 색. 팔레트마다 포인트 색과 겹치지 않도록 CSS 변수 --cell(index.css)에서 읽는다. */
 export function cellColor(): string {

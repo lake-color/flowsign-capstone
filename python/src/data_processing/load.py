@@ -13,7 +13,7 @@ import uuid
 from pathlib import Path
 
 # FK 순서대로 적재한다. 파일명 = 테이블명.csv
-LOAD_TABLES = ["cell", "board", "population_fact", "board_cell", "board_population", "grid_spec"]
+LOAD_TABLES = ["cell", "board", "population_fact", "board_cell", "board_population", "grid_spec", "store"]
 
 
 def _run(cmd: list[str], what: str) -> str:
@@ -26,7 +26,7 @@ def _run(cmd: list[str], what: str) -> str:
 
 def load_set(set_dir: Path, dataset: str, container: str = "telecom-postgres",
              db: str = "telecom", user: str = "telecom") -> dict[str, int]:
-    """set_dir의 CSV 6개로 테이블 6개를 한 트랜잭션 안에서 교체하고 세트 종류(dataset)를 기록한다.
+    """set_dir의 CSV 7개로 테이블 7개를 한 트랜잭션 안에서 교체하고 세트 종류(dataset)를 기록한다.
 
     테이블별 적재 행 수를 반환한다.
     """

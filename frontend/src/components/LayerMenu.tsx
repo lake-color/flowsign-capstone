@@ -16,6 +16,9 @@ interface Props {
   showCells: boolean
   onShowCellsChange: (v: boolean) => void
   hasSelectedBoard: boolean
+  /** 선택 게시대 3×3 Cell 안의 상가 점. 게시대를 고르지 않았으면 켤 수 없다. */
+  showStores: boolean
+  onShowStoresChange: (v: boolean) => void
   /** 용도별 게시대 마커 표시 여부 */
   purposeVisible: Record<Purpose, boolean>
   onPurposeVisibleChange: (purpose: Purpose, visible: boolean) => void
@@ -49,12 +52,12 @@ function SwitchRow(props: {
 }
 
 /**
- * 왼쪽 탭 아래의 '가시성' 버튼과 팝오버. 지도에 겹쳐 그리는 레이어(격자선·통신사 Cell·3×3 Cell)와
+ * 왼쪽 탭 아래의 '가시성' 버튼과 팝오버. 지도에 겹쳐 그리는 레이어(격자선·통신사 Cell·3×3 Cell·주변 업종)와
  * 상업용·겸용·행정용 게시대 마커 표시를 켜고 끈다. 바깥을 누르거나 Esc를 누르면 닫힌다.
  */
 function LayerMenu({
   showGrid, onShowGridChange, gridReady, showAllCells, onShowAllCellsChange,
-  showCells, onShowCellsChange, hasSelectedBoard, purposeVisible, onPurposeVisibleChange,
+  showCells, onShowCellsChange, hasSelectedBoard, showStores, onShowStoresChange, purposeVisible, onPurposeVisibleChange,
 }: Props) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -100,6 +103,8 @@ function LayerMenu({
             checked={showAllCells} onChange={onShowAllCellsChange} />
           <SwitchRow label="3×3 Cell" hint={hasSelectedBoard ? '선택한 게시대의 영향권' : '게시대를 먼저 선택하세요.'}
             checked={showCells} disabled={!hasSelectedBoard} onChange={onShowCellsChange} />
+          <SwitchRow label="주변 업종" hint={hasSelectedBoard ? '선택한 게시대 3×3 Cell 안의 상가' : '게시대를 먼저 선택하세요.'}
+            checked={showStores} disabled={!hasSelectedBoard} onChange={onShowStoresChange} />
 
           <p className="layer-title">게시대 용도</p>
           {PURPOSES.map((p) => (

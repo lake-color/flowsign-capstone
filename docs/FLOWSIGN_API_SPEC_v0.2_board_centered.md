@@ -18,6 +18,7 @@
 | 게시대 마커 위치 | Cell 중심이 아닌 **게시대 자체 위경도** | 확정 |
 | 250m 격자선 | 지도 전체에 격자선 표시, 체크박스로 켜고 끔. 인구값 없음 | 확정 |
 | 통신사 Cell 레이어 | 데이터에 있는 Cell을 지도 전체에 사각형으로 표시(화면 범위만 조회), 체크박스로 켜고 끔. **인구값 없음**. 인구는 선택 게시대와 그 3×3칸에만 표시 | 확정 (2026-11-10) |
+| 주변 업종 | 소상공인시장진흥공단 상가(상권)정보(공공데이터)로 선택 게시대 3×3 Cell 안 상가를 업종 묶음 15개로 세어 상세에 표시, 지도 '주변 업종' 레이어로 점 표시. 추천 점수에는 반영하지 않음 | 확정 (2026-11-17), 4.8 |
 | E 분석 테이블 | `board_population`: 게시대별 3×3 Cell 집계 | 설계 완료, 적재 전 검증 필요 |
 | F 전역 분포 | `grid250_population` 관련 화면/서비스 API | **MVP 제외**; DB 잔존 시 즉시 삭제 필요 없음 |
 | 전체 격자 인구 | 모든 250m Cell의 인구 정보 제공 | **확장 기능**, MVP에서 구현하지 않음 |
@@ -46,6 +47,7 @@
      D board_cell        = 게시대 ↔ 소속 Cell + 주변 8칸 (최대 9행/게시대)
      E board_population  = 게시대 3×3 Cell 합계 × 월 × day_type × 성별 × 연령 × 시간대별 인구
      grid_spec           = 지도 격자선용 기준값 1행 (원점·위경도 간격·검증 상태)
+     store               = 게시대 3×3 Cell 안의 상가 + 업종 묶음 + 소속 cell_id (상가(상권)정보 원본에서, 4.8)
   ↓ psql \copy 로 PostgreSQL 적재 (테이블은 Flyway migration이 생성)
   ↓ Spring Boot REST API (추천 점수는 여기서 요청 시 계산)
   ↓ React + Naver Maps
@@ -174,6 +176,7 @@ interface Criteria {
 | P0 | `GET` | `/api/v1/boards/{boardId}` | 게시대 선택 | C `board` |
 | P0 | `GET` | `/api/v1/boards/{boardId}/population` | 상세 통계 열기 | E `board_population` |
 | P1 | `GET` | `/api/v1/boards/{boardId}/cells` | 3×3 Cell 보기 활성화 | D+A+B `board_cell`,`cell`,`population_fact` |
+| P1 | `GET` | `/api/v1/boards/{boardId}/stores` | 게시대 선택 | D `board_cell` + `store` |
 | P0 | `POST` | `/api/v1/recommendations/search` | **추천 분석하기** 클릭 | E `board_population` (+ C `board`) |
 | P0 | `POST` | `/api/v1/inquiries` | **광고 신청 문의** 전송 | `inquiry` |
 
@@ -495,7 +498,59 @@ interface Criteria {
 
 **같은 키·동일 요청 본문을 재전송하면** 기존 문의를 돌려주되 추가 INSERT 없이 `200 OK` 반환. **같은 키·다른 요청**은 `409 IDEMPOTENCY_CONFLICT`.
 
-**권장 DB 구현:** `inquiry(id, board_id, posting_year, posting_month, posting_half, industry, business_name, contact, production_assistance_required, message, consent_version, consent_at, idempotency_key UNIQUE, payload_hash, created_at)`; `@Transactional`로 중복 검사 + INSERT(경쟁 상황은 UNIQUE 제약으로 해결); 문의 연락처 응답/로깅/분석 도구 저장 금지; 개인정보 저장 시 접속통제·삭제 정책 적용. 동의 없이는 데이터 저장 불가.
+**권장 DB 구현(4.7):** `inquiry(id, board_id, posting_year, posting_month, posting_half, industry, business_name, contact, production_assistance_required, message, consent_version, consent_at, idempotency_key UNIQUE, payload_hash, created_at)`; `@Transactional`로 중복 검사 + INSERT(경쟁 상황은 UNIQUE 제약으로 해결); 문의 연락처 응답/로깅/분석 도구 저장 금지; 개인정보 저장 시 접속통제·삭제 정책 적용. 동의 없이는 데이터 저장 불가.
+
+### 4.8 `GET /api/v1/boards/{boardId}/stores`
+
+**목적:** 선택 게시대의 **3×3 Cell 안 상가 목록과 업종별 개수**. 상세 패널의 '주변 업종'과 지도 '주변 업종' 레이어가 같은 응답을 쓴다. 인구 조건과 무관하므로 쿼리가 없고, 게시대를 선택할 때 호출한다.
+
+**200 응답 예시:** (상호명은 예시)
+
+```json
+{
+  "data": {
+    "baseMonth": "202609",
+    "totalCount": 2,
+    "categories": [{"category": "CAFE", "count": 1}, {"category": "PHARMACY", "count": 1}],
+    "stores": [
+      {"storeId": "example-store-1", "name": "예시 카페", "category": "CAFE", "subCategoryName": "카페",
+       "latitude": 37.3901, "longitude": 126.9602},
+      {"storeId": "example-store-2", "name": null, "category": "PHARMACY", "subCategoryName": "약국",
+       "latitude": 37.3899, "longitude": 126.9598}
+    ]
+  },
+  "meta": {"requestId":"req-example","datasetVersion":"sample","syntheticData":true}
+}
+```
+
+- `categories`는 `stores`에서 센 값이다. 많은 순, 같으면 코드 순이며 0건인 업종은 넣지 않는다. 그래서 패널 개수와 지도 점 개수가 항상 같다.
+- `baseMonth`는 상가 원본 기준월(YYYYMM). 상가가 없으면 `totalCount=0`, `categories=[]`, `stores=[]`, `baseMonth=null`.
+- `name`은 원본에 상호명이 없으면 `null`. 상가 데이터는 공공데이터이므로 `syntheticData`(유동인구 세트 종류)와 관계없이 실제 값이다.
+- 없는 게시대는 404 `BOARD_NOT_FOUND`.
+
+**포함 규칙:** 상가 소속 Cell = 상가 위경도에서 가장 가까운 Cell 중심이되, 그 Cell 사각형(중심 ±125m) 밖이면 제외한다. 게시대 3×3(`board_cell`)에 든 Cell의 상가만 센다. 원본에 없는 칸(통신사 데이터가 없는 Cell)의 상가는 세지 않는다.
+
+**업종 묶음(`category`, 원본 분류 코드 기준):**
+
+| 코드 | 이름 | 원본 분류 |
+|---|---|---|
+| `RESTAURANT` | 음식점 | 대분류 음식(I2) 중 카페·주점 제외 |
+| `CAFE` | 카페 | 중분류 비알코올(I212) |
+| `BAR` | 주점 | 중분류 주점(I211) |
+| `RETAIL` | 소매 | 대분류 소매(G2) 중 약국 제외 |
+| `PHARMACY` | 약국 | 소분류 약국(G21501) |
+| `LIVING_SERVICE` | 생활서비스 | 대분류 수리·개인(S2) |
+| `EDUCATION` | 학원·교육 | 대분류 교육(P1) |
+| `MEDICAL` | 병원·의원 | 대분류 보건의료(Q1) |
+| `VETERINARY` | 동물병원 | 중분류 수의(M111) |
+| `STUDY_ROOM` | 독서실·스터디카페 | 소분류 독서실/스터디 카페(R10202) |
+| `SCIENCE_TECH` | 과학·기술 | 대분류 과학·기술(M1) 중 수의 제외 |
+| `ARTS_SPORTS` | 예술·스포츠 | 대분류 예술·스포츠(R1) 중 독서실 제외 |
+| `REAL_ESTATE` | 부동산 | 대분류 부동산(L1) |
+| `FACILITY_RENTAL` | 시설관리·임대 | 대분류 시설관리·임대(N1) |
+| `LODGING` | 숙박 | 대분류 숙박(I1) |
+
+학교·아파트·오피스 같은 시설과 도로·보행환경(횡단보도 등)은 이 데이터에 없어 포함하지 않는다.
 
 ## 5. HTTP 오류 규약
 
@@ -577,6 +632,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 | `/meta` | `grid_spec` 외 설정 | 격자 기준값 1행 SELECT |
 | `/boards/{id}/population` | `board_population` | `board_id,base_month,day_type,gender,age_group,time_slot` 필터 및 시리즈 집계 |
 | `/boards/{id}/cells` | `board_cell` + `cell` + `population_fact` | 해당 게시대 3×3 Cell ID(최대 9개) 한정 조인 |
+| `/boards/{id}/stores` | `board_cell` + `store` | 해당 게시대 3×3 Cell ID 한정 조인(`store.cell_id` 인덱스), 업종별 개수는 같은 목록에서 계산 |
 | `/recommendations/search` | `board_population` + `board` | 조건별 집계 → T/N/Tf → Spring에서 점수 계산 → 정렬 |
 | `/inquiries` | `board` + `inquiry` | `purpose` 검증 후 트랜잭션 INSERT |
 
@@ -636,7 +692,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 
 가짜 데이터로 동작하는 데모 초안 기준이다. 실행 방법은 README의 "빠른 시작 (데모)"를 참고한다.
 
-**구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`, `GET /cells`(통신사 Cell 레이어, 아래 참고).
+**구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`, `GET /boards/{boardId}/stores`(4.8), `GET /cells`(통신사 Cell 레이어, 아래 참고).
 **미구현:** `POST /recommendations/search`, `POST /inquiries`(및 `inquiry` 테이블).
 
 **데모에서 임시로 정한 규칙** (팀 확정 전, 바뀔 수 있음):

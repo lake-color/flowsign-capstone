@@ -74,6 +74,29 @@ export interface MapCell {
   longitude: number
 }
 
+/** 상가 업종 묶음 (API 명세 4.8) */
+export type StoreCategory =
+  | 'RESTAURANT' | 'CAFE' | 'BAR' | 'RETAIL' | 'PHARMACY' | 'LIVING_SERVICE' | 'EDUCATION' | 'MEDICAL'
+  | 'VETERINARY' | 'STUDY_ROOM' | 'SCIENCE_TECH' | 'ARTS_SPORTS' | 'REAL_ESTATE' | 'FACILITY_RENTAL' | 'LODGING'
+
+/** 게시대 3×3 Cell 안의 상가 한 곳 */
+export interface NearbyStore {
+  storeId: string
+  name: string | null
+  category: StoreCategory
+  subCategoryName: string
+  latitude: number
+  longitude: number
+}
+
+/** GET /boards/{id}/stores. categories는 많은 순이고 0건 업종은 없다. */
+export interface BoardStores {
+  baseMonth: string | null
+  totalCount: number
+  categories: { category: StoreCategory; count: number }[]
+  stores: NearbyStore[]
+}
+
 /** 지도 화면 범위 (위경도) */
 export interface Bounds {
   south: number
@@ -110,6 +133,10 @@ export interface MapProps {
   focus: { latitude: number; longitude: number } | null
   /** 색상 팔레트 이름. 바뀌면 지도가 색을 다시 읽어 3×3 Cell을 다시 그린다. */
   palette: string
+  /** 선택 게시대 3×3 Cell 안의 상가 (레이어를 껐으면 null) */
+  stores: NearbyStore[] | null
+  /** 상세 패널에서 고른 업종. 이 업종의 상가만 진하게 그린다. */
+  highlightCategory: StoreCategory | null
 }
 
 /** 추천 결과 한 건 (API 명세 4.6 items 중 화면에 쓰는 필드만) */

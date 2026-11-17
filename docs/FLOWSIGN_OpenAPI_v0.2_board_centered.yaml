@@ -128,6 +128,21 @@ paths:
         '404': {$ref: '#/components/responses/NotFound'}
         '422': {$ref: '#/components/responses/Unprocessable'}
         '503': {$ref: '#/components/responses/Unavailable'}
+  /boards/{boardId}/stores:
+    get:
+      tags: [Boards]
+      operationId: getBoardStores
+      summary: 게시대 3×3 Cell 안 상가와 업종별 개수
+      description: 상세 패널 '주변 업종'과 지도 '주변 업종' 레이어가 같은 응답을 쓴다. 업종별 개수는 stores에서 센 값(명세 4.8).
+      parameters:
+        - $ref: '#/components/parameters/BoardId'
+      responses:
+        '200':
+          description: 3×3 Cell 안 상가 목록과 업종별 개수. 상가가 없으면 빈 목록.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BoardStoresResponse'}
+        '404': {$ref: '#/components/responses/NotFound'}
   /recommendations/search:
     post:
       tags: [Recommendations]
@@ -538,6 +553,45 @@ components:
       required: [data, meta]
       properties:
         data: {$ref: '#/components/schemas/BoardCells'}
+        meta: {$ref: '#/components/schemas/Meta'}
+    StoreCategory:
+      type: string
+      description: 업종 묶음 (원본 분류 코드 기준, 명세 4.8 표)
+      enum: [RESTAURANT, CAFE, BAR, RETAIL, PHARMACY, LIVING_SERVICE, EDUCATION, MEDICAL, VETERINARY,
+             STUDY_ROOM, SCIENCE_TECH, ARTS_SPORTS, REAL_ESTATE, FACILITY_RENTAL, LODGING]
+    NearbyStore:
+      type: object
+      required: [storeId, name, category, subCategoryName, latitude, longitude]
+      properties:
+        storeId: {type: string, description: 원본 상가업소번호}
+        name: {type: string, nullable: true, description: 상호명. 원본에 없으면 null}
+        category: {$ref: '#/components/schemas/StoreCategory'}
+        subCategoryName: {type: string, description: 원본 업종 소분류명}
+        latitude: {type: number, format: double}
+        longitude: {type: number, format: double}
+    BoardStores:
+      type: object
+      required: [baseMonth, totalCount, categories, stores]
+      properties:
+        baseMonth: {type: string, nullable: true, pattern: '^\d{6}$', description: 상가 원본 기준월. 상가가 없으면 null}
+        totalCount: {type: integer, minimum: 0}
+        categories:
+          type: array
+          description: 많은 순, 같으면 코드 순. 0건 업종은 없음
+          items:
+            type: object
+            required: [category, count]
+            properties:
+              category: {$ref: '#/components/schemas/StoreCategory'}
+              count: {type: integer, minimum: 1}
+        stores:
+          type: array
+          items: {$ref: '#/components/schemas/NearbyStore'}
+    BoardStoresResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data: {$ref: '#/components/schemas/BoardStores'}
         meta: {$ref: '#/components/schemas/Meta'}
     RecommendationRequest:
       type: object

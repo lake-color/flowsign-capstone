@@ -1,4 +1,4 @@
-import type { Board, BoardPopulation, Bounds, CellItem, MapCell, Meta, PopulationQuery } from './types'
+import type { Board, BoardPopulation, BoardStores, Bounds, CellItem, MapCell, Meta, PopulationQuery } from './types'
 
 // 로컬 개발은 Vite 프록시(/api → localhost:8080)를 거친다.
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
@@ -38,6 +38,8 @@ export const api = {
     get<BoardPopulation>(`/boards/${id}/population?${toQuery(q)}`, signal),
   cells: (id: string, q: PopulationQuery, signal?: AbortSignal) =>
     get<{ cells: CellItem[] }>(`/boards/${id}/cells?${toQuery(q)}`, signal).then((d) => d.cells),
+  /** 3×3 Cell 안의 상가와 업종별 개수 (인구 조건과 무관) */
+  stores: (id: string, signal?: AbortSignal) => get<BoardStores>(`/boards/${id}/stores`, signal),
   /** 화면 범위 안의 통신사 Cell. 너무 많으면 truncated=true, cells=[] */
   cellsInView: (b: Bounds, signal?: AbortSignal) =>
     get<{ cells: MapCell[]; truncated: boolean; limit: number }>(

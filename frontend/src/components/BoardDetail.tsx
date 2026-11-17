@@ -1,12 +1,18 @@
 import { useState } from 'react'
-import type { Board, BoardPopulation, DistributionPoint, RecommendationItem } from '../lib/types'
-import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, formatValue, timeLabel } from '../lib/constants'
+import type { Board, BoardPopulation, BoardStores, DistributionPoint, RecommendationItem, StoreCategory } from '../lib/types'
+import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, STORE_CATEGORY_LABEL, formatValue, timeLabel } from '../lib/constants'
 
 interface Props {
   board: Board | null
   population: BoardPopulation | null
   loading: boolean
   error: string | null
+  /** 3×3 Cell 안의 상가. 불러오는 중이거나 실패했으면 null */
+  stores: BoardStores | null
+  storesError: string | null
+  /** 지도에서 강조할 업종. 같은 업종을 다시 누르면 해제된다. */
+  highlightCategory: StoreCategory | null
+  onSelectCategory: (category: StoreCategory) => void
   /** 이 게시대가 추천 결과에 들어 있을 때의 추천 정보. 없으면 점수를 표시하지 않는다. */
   recommendation: RecommendationItem | null
   /** 접혀 있으면 true (오른쪽 '상세' 탭만 보인다) */
@@ -91,6 +97,40 @@ function FlowStack({ items }: { items: { label: string; value: number | null; to
   )
 }
 
+/** 3×3 Cell 안 상가의 업종별 개수. 항목을 누르면 지도에서 그 업종을 강조한다. */
+function NearbyStores({ stores, error, highlight, onSelect }: {
+  stores: BoardStores | null
+  error: string | null
+  highlight: StoreCategory | null
+  onSelect: (category: StoreCategory) => void
+}) {
+  if (error) return <p className="error">주변 업종을 불러오지 못했습니다: {error}</p>
+  if (!stores) return <p className="placeholder">주변 업종을 불러오는 중…</p>
+  if (stores.totalCount === 0) return <p className="placeholder">3×3 Cell 안에 상가가 없습니다.</p>
+  const max = Math.max(1, ...stores.categories.map((c) => c.count))
+  const month = stores.baseMonth ? `${stores.baseMonth.slice(0, 4)}-${stores.baseMonth.slice(4)} 기준 · ` : ''
+  return (
+    <>
+      <p className="store-meta">3×3 Cell · {month}총 {stores.totalCount.toLocaleString('ko-KR')}곳</p>
+      <ul className="store-list">
+        {stores.categories.map((c) => (
+          <li key={c.category}>
+            <button type="button" className={`bar-row${highlight === c.category ? ' active' : ''}`}
+              aria-pressed={highlight === c.category} onClick={() => onSelect(c.category)}>
+              <span className="bar-label">{STORE_CATEGORY_LABEL[c.category] ?? c.category}</span>
+              <span className="bar-track">
+                <span className={`bar-fill${highlight && highlight !== c.category ? ' dim' : ''}`} style={{ width: `${(c.count / max) * 100}%` }} />
+              </span>
+              <span className="bar-value">{c.count.toLocaleString('ko-KR')}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="notice">업종을 누르면 지도의 '주변 업종' 레이어에서 그 업종만 강조합니다. 소상공인시장진흥공단 상가(상권)정보 기준입니다.</p>
+    </>
+  )
+}
+
 const dist = (points: DistributionPoint[], labels: Record<string, string>) =>
   points.map((p) => ({ label: labels[p.key] ?? p.key, value: p.population.value }))
 
@@ -98,7 +138,9 @@ const dist = (points: DistributionPoint[], labels: Record<string, string>) =>
  * 게시대 상세 영역. 선택 게시대의 정보와 3×3 영향권 인구 집계·차트를 보여준다.
  * 추천 점수는 추천 결과에 들어 있는 게시대에만 표시한다(지금은 시안용 예시 값).
  */
-function BoardDetail({ board, population, loading, error, recommendation, hidden, onCollapse }: Props) {
+function BoardDetail({
+  board, population, loading, error, stores, storesError, highlightCategory, onSelectCategory, recommendation, hidden, onCollapse,
+}: Props) {
   const [tab, setTab] = useState<Tab>('time')
 
   if (!board) {
@@ -194,6 +236,9 @@ function BoardDetail({ board, population, loading, error, recommendation, hidden
           <p className="notice">{population.dataNotice}</p>
         </>
       )}
+
+      <h3>주변 업종</h3>
+      <NearbyStores stores={stores} error={storesError} highlight={highlightCategory} onSelect={onSelectCategory} />
     </section>
   )
 }

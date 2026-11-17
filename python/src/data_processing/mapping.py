@@ -7,6 +7,7 @@ API 명세 1장·1.2 기준. 입력은 전처리기가 만든 표준 CSV(cell, p
   board_cell.csv       = 게시대별 소속 Cell + 주변 8칸 중 데이터에 있는 Cell (최대 9행)
   board_population.csv = 게시대 3×3 Cell 합계 × 월 × day_type × 성별 × 연령 × 시간대
   grid_spec.csv        = 지도 격자선 기준값 1행 (원점·위경도 간격·검증 상태)
+  store.csv            = 게시대 3×3 Cell 안의 상가 + 소속 cell_id (store_source.csv에서)
 
 규칙:
   - Cell은 250m, 중심 ±125m 정사각형. 좌표는 WGS84 위경도 그대로(pyproj·PostGIS 미사용),
@@ -15,6 +16,7 @@ API 명세 1장·1.2 기준. 입력은 전처리기가 만든 표준 CSV(cell, p
   - 3×3 = 소속 Cell 중심에서 상하좌우(250m)·대각선(약 354m) 이웃. 다음 바깥 칸은 500m부터이므로
     그 사이 값(NEIGHBOR_MAX_METERS)으로 자른다.
   - 원본에 없는 칸은 board_cell에 넣지 않는다(집계에서 빠짐). 9칸 모두 없을 수는 없다(소속 Cell은 항상 있음).
+  - 상가 소속 Cell = 가장 가까운 Cell 중심이되 그 사각형(±125m) 안일 때만. 게시대 3×3 Cell에 든 상가만 남긴다.
 """
 
 from pathlib import Path
@@ -118,13 +120,56 @@ def compute_grid_spec(cells: pd.DataFrame) -> dict:
     }
 
 
+def map_stores_to_cells(stores: pd.DataFrame, cells: pd.DataFrame, board_cell: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
+    """상가마다 소속 Cell을 정하고, 어느 게시대든 그 3×3 Cell에 든 상가만 남긴다.
+
+    소속 Cell = 상가 위경도에서 가장 가까운 Cell 중심. 단 그 Cell의 사각형(중심 ±125m) 밖이면 버린다.
+    게시대와 달리 거리 제한을 두는 이유: 상가는 Cell이 없는 곳에도 있으므로, 제한이 없으면
+    멀리 있는 상가가 가장자리 Cell로 끌려와 개수가 부풀려진다.
+    """
+    cells = cells.dropna(subset=["latitude", "longitude"]).reset_index(drop=True)
+    c_lat = cells["latitude"].to_numpy()
+    c_lng = cells["longitude"].to_numpy()
+    s_lat = stores["latitude"].to_numpy()
+    s_lng = stores["longitude"].to_numpy()
+
+    half = CELL_SIZE_METERS / 2
+    nearest = np.empty(len(stores), dtype=np.int64)
+    inside = np.empty(len(stores), dtype=bool)
+    # 상가 × Cell 거리 행렬이 메모리를 넘지 않도록 상가를 나눠 계산한다.
+    chunk = max(1, 2_000_000 // max(1, len(cells)))
+    for start in range(0, len(stores), chunk):
+        lat = s_lat[start:start + chunk, None]
+        dy = (lat - c_lat[None, :]) * METERS_PER_DEG_LAT
+        dx = (s_lng[start:start + chunk, None] - c_lng[None, :]) * METERS_PER_DEG_LAT * np.cos(np.radians(lat))
+        idx = np.argmin(dx * dx + dy * dy, axis=1)
+        rows = np.arange(len(idx))
+        nearest[start:start + chunk] = idx
+        inside[start:start + chunk] = (np.abs(dy[rows, idx]) <= half) & (np.abs(dx[rows, idx]) <= half)
+
+    mapped = stores.assign(cell_id=cells["cell_id"].to_numpy()[nearest])
+    in_area = mapped["cell_id"].isin(set(board_cell["cell_id"]))
+    kept = mapped[inside & in_area].reset_index(drop=True)
+    stats = {
+        "stores_in_cities": len(stores),
+        "outside_cells": int((~inside).sum()),
+        "outside_board_area": int((inside & ~in_area).sum()),
+        "stores_kept": len(kept),
+    }
+    return kept, stats
+
+
 def run_mapping(set_dir: Path) -> dict:
-    """세트 폴더의 board.csv, cell.csv, population_fact.csv로 매핑 결과 CSV 3개를 같은 폴더에 만든다."""
+    """세트 폴더의 board.csv, cell.csv, population_fact.csv, store_source.csv로 매핑 결과 CSV 4개를 같은 폴더에 만든다."""
     cells = pd.read_csv(set_dir / "cell.csv", dtype={"cell_id": str})
     boards = pd.read_csv(set_dir / "board.csv")
 
     board_cell = map_boards_to_cells(boards, cells)
     board_cell.to_csv(set_dir / "board_cell.csv", index=False)
+
+    stores = pd.read_csv(set_dir / "store_source.csv", dtype={"store_id": str, "base_month": str})
+    store, store_stats = map_stores_to_cells(stores, cells, board_cell)
+    store.to_csv(set_dir / "store.csv", index=False)
 
     board_population = aggregate_board_population(set_dir / "population_fact.csv", board_cell)
     board_population.to_csv(set_dir / "board_population.csv", index=False)
@@ -138,4 +183,5 @@ def run_mapping(set_dir: Path) -> dict:
         "boards_with_9_cells": int((board_cell.groupby("board_id").size() == 9).sum()),
         "board_population_rows": len(board_population),
         "grid_status": grid["status"],
+        **store_stats,
     }
