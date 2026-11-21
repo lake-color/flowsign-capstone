@@ -51,10 +51,11 @@ public class RecommendationScorer {
                                 @Value("${flowsign.recommendation.lift-span:2.0}") double liftSpan,
                                 @Value("${flowsign.recommendation.min-target-per-day:0}") double minTargetPerDay,
                                 @Value("${flowsign.recommendation.ratio-shrink:0.5}") double ratioShrink,
+                                @Value("${flowsign.recommendation.size-min-span:10}") double sizeMinSpan,
                                 @Value("${flowsign.recommendation.center-weight:0.8}") double centerWeight,
                                 @Value("${flowsign.recommendation.neighbor-sigma-meters:250}") double neighborSigmaMeters) {
         this(jdbc, new ScoreFormula.Params(sizePoints, sharePoints, flowPoints, liftSpan, minTargetPerDay,
-                        ratioShrink),
+                        ratioShrink, sizeMinSpan),
                 centerWeight, neighborSigmaMeters);
     }
 

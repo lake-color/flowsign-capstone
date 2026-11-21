@@ -14,7 +14,7 @@ backend/.../recommendation/ 의 Java 구현과 같은 규칙을 따르며, simul
 3) 게시대 → 점수 (100점)
    A 유동 규모 40 (N), B 타깃 비율 40 (T/N), C 유형 비중 20 (Tf/T). 유동 유형 ALL이면 C를 빼고 50/50.
    지표 → 0~1 (시뮬레이션으로 정함, simulate.py):
-     A: log(N)을 후보 안 최소~최대로 0~1
+     A: log(N)을 후보 안 최소~최대로 0~1 (최대 = 1, 범위는 최소 10배)
      B·C: 후보 전체 비율(ΣT/ΣN, ΣTf/ΣT) 대비 배수(리프트)를 log 척도로. 평균 = 0.5, 2배 이상 = 1, 절반 이하 = 0
    log로 더하므로 A+B는 대략 log(타깃 규모 T)를 보는 것과 같다 (T = N × T/N).
 """
@@ -38,6 +38,8 @@ POINTS = {"A": 40.0, "B": 40.0, "C": 20.0}
 LIFT_SPAN = 2.0
 # 비율 지표를 후보 평균 쪽으로 당기는 세기 (0이면 끔). 시뮬레이션 E8
 SHRINK = 0.5
+# 규모 지표 log 척도의 최소 범위(배)
+SIZE_MIN_SPAN = 10.0
 
 
 @dataclass
@@ -132,9 +134,14 @@ def minmax(x: pd.Series) -> pd.Series:
     return pd.Series(1.0, index=x.index) if span == 0 else (x - x.min()) / span
 
 
-def log_minmax(x: pd.Series) -> pd.Series:
-    """규모 지표용: log 척도에서 후보 최소~최대를 0~1로. 큰 쪽 꼬리의 차이가 백분위보다 덜 뭉개진다."""
-    return minmax(np.log(x.clip(lower=1e-9)))
+def log_minmax(x: pd.Series, min_span: float = SIZE_MIN_SPAN) -> pd.Series:
+    """규모 지표용: log 척도에서 후보 최소~최대를 0~1로(최대 = 1). 큰 쪽 꼬리의 차이가 백분위보다 덜 뭉개진다.
+
+    범위는 최소 min_span배로 잡아, 후보끼리 비슷할 때(20 vs 18.8) 작은 차이를 0~1로 벌리지 않는다.
+    """
+    lx = np.log(x.clip(lower=1e-9))
+    span = max(lx.max() - lx.min(), np.log(min_span))
+    return 1 - (lx.max() - lx) / span
 
 
 def lift_score(ratio: pd.Series, pooled: float, span: float = LIFT_SPAN) -> pd.Series:

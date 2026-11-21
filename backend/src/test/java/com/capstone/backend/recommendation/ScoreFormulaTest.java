@@ -51,7 +51,19 @@ class ScoreFormulaTest {
         assertThat(r.get(0).score()).isCloseTo(40 + 20 + 10, within(EPS));
     }
 
-    private static final ScoreFormula.Params NO_SHRINK = new ScoreFormula.Params(40, 40, 20, 2.0, 0, 0);
+    private static final ScoreFormula.Params NO_SHRINK = new ScoreFormula.Params(40, 40, 20, 2.0, 0, 0, 10);
+
+    @Test
+    void nearlyEqualSizesAreNotStretchedToFullRange() {
+        // 20 vs 18.8: 최소 10배 범위로 잡으므로 작은 쪽도 거의 만점 (최소~최대만 쓰면 0점이 된다)
+        List<Result> r = ScoreFormula.scoreAndRank(List.of(input(1, 18.8, 8.4, 8.4), input(2, 20, 2, 1)), "WALK");
+
+        Result smaller = r.stream().filter(x -> x.input().boardId() == 1L).findFirst().orElseThrow();
+        assertThat(smaller.components().getFirst().normalized())
+                .isCloseTo(1 - Math.log(20 / 18.8) / Math.log(10), within(EPS));
+        // 타깃이 4배 많은 1번이 1위
+        assertThat(ids(r)).containsExactly(1L, 2L);
+    }
 
     @Test
     void higherTargetShareWinsWhenSizeIsEqual() {
@@ -96,7 +108,7 @@ class ScoreFormulaTest {
 
     @Test
     void minimumTargetExcludesSmallBoardsBeforeComparing() {
-        ScoreFormula.Params params = new ScoreFormula.Params(40, 40, 20, 2.0, 50, 0.5);
+        ScoreFormula.Params params = new ScoreFormula.Params(40, 40, 20, 2.0, 50, 0.5, 10);
         List<Result> r = ScoreFormula.scoreAndRank(List.of(
                 input(1, 100, 20, 5), input(2, 1000, 200, 50), input(3, 10000, 2000, 500)), "WALK", params);
 
@@ -107,7 +119,7 @@ class ScoreFormulaTest {
 
     @Test
     void configuredPointsAreUsed() {
-        ScoreFormula.Params params = new ScoreFormula.Params(60, 30, 10, 2.0, 0, 0.5);
+        ScoreFormula.Params params = new ScoreFormula.Params(60, 30, 10, 2.0, 0, 0.5, 10);
         Result r = ScoreFormula.scoreAndRank(List.of(input(1, 1000, 200, 50)), "WALK", params).getFirst();
 
         assertThat(r.score()).isCloseTo(60 + 15 + 5, within(EPS));
@@ -115,11 +127,13 @@ class ScoreFormulaTest {
 
     @Test
     void invalidParamsAreRejected() {
-        assertThatThrownBy(() -> new ScoreFormula.Params(40, 40, 20, 1.0, 0, 0.5))
+        assertThatThrownBy(() -> new ScoreFormula.Params(40, 40, 20, 1.0, 0, 0.5, 10))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new ScoreFormula.Params(0, 0, 20, 2.0, 0, 0.5))
+        assertThatThrownBy(() -> new ScoreFormula.Params(0, 0, 20, 2.0, 0, 0.5, 10))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new ScoreFormula.Params(40, 40, 20, 2.0, 0, -1))
+        assertThatThrownBy(() -> new ScoreFormula.Params(40, 40, 20, 2.0, 0, -1, 10))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ScoreFormula.Params(40, 40, 20, 2.0, 0, 0.5, 1))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -137,7 +151,7 @@ class ScoreFormulaTest {
         assertThat(small.components().get(1).lift()).isLessThan(big.components().get(1).lift());
 
         // 보정을 끄면 작은 게시대 비율이 더 높게 평가된다
-        ScoreFormula.Params off = new ScoreFormula.Params(40, 40, 20, 2.0, 0, 0);
+        ScoreFormula.Params off = new ScoreFormula.Params(40, 40, 20, 2.0, 0, 0, 10);
         List<Result> raw = ScoreFormula.scoreAndRank(inputs, "WALK", off);
         Result smallRaw = raw.stream().filter(x -> x.input().boardId() == 1L).findFirst().orElseThrow();
         Result bigRaw = raw.stream().filter(x -> x.input().boardId() == 2L).findFirst().orElseThrow();
