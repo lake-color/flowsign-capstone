@@ -51,9 +51,14 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 ## 4. 추천 점수 계산 로직 구현
 
 - [ ] 점수 산식 확정 (인구 규모, 타겟 적합도, 예산 중 가중치를 어떻게 줄지)
+  - [x] 임시안 v2: 유동 규모 40 / 타깃 비율 40 / 유형 비중 20, A는 log 척도·B·C는 후보 평균 대비 배수 (시뮬레이션으로 결정, [RECOMMENDATION_SCORE.md](RECOMMENDATION_SCORE.md))
+  - [x] 인접 8셀 가중치 차등: 중심 0.8 + 주변 0.2를 게시대→Cell 거리 가우스(σ=250m)로 나눔
+  - [x] 배점·리프트 범위·최소 타깃 인구·Cell 가중치를 설정으로 분리 (`flowsign.recommendation.*`, PRD N15·B4)
+  - [ ] 중심 0.8 가중과 PRD N16(3×3 균등 합 기준선) 정의 충돌 결정
+  - [ ] 실제 데이터로 시뮬레이션 재실행 후 확정 (`python -m data_processing.simulate real`)
 - [x] 점수 저장 방식 결정 → Spring에서 요청 시 계산
-- [ ] Spring에 점수 계산 구현
-- [ ] 입력 조건을 바꿔가며 상위 추천 결과가 납득 가능한지 검증
+- [x] Spring에 점수 계산 구현 (`recommendation/RecommendationScorer`·`ScoreFormula`·`CellWeights`, 추천 API는 미구현)
+- [ ] 입력 조건을 바꿔가며 상위 추천 결과가 납득 가능한지 검증 (가짜 데이터 시나리오 2개 완료, 실제 데이터 남음)
 
 ---
 
