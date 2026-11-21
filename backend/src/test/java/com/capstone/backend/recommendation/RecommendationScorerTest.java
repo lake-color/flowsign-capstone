@@ -15,6 +15,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import com.capstone.backend.board.PopulationFilter;
 import com.capstone.backend.common.ApiException;
+import com.capstone.backend.common.Codes;
 import com.capstone.backend.recommendation.RecommendationScorer.CellRow;
 
 /**
@@ -102,10 +103,8 @@ class RecommendationScorerTest {
         verifyNoInteractions(jdbc);
     }
 
-    private static final List<String> ALL_AGES = List.of("UNDER_20", "AGE_20S", "AGE_30S", "AGE_40S", "AGE_50S",
-            "AGE_60_PLUS");
-    private static final List<String> ALL_TIMES = List.of("06_08", "08_10", "10_12", "12_14", "14_16", "16_18",
-            "18_20");
+    private static final List<String> ALL_AGES = Codes.AGE_GROUPS;
+    private static final List<String> ALL_TIMES = Codes.TIME_BANDS;
 
     private static void assertValidationError(PopulationFilter f) {
         assertThatThrownBy(() -> RecommendationScorer.validated(f))
