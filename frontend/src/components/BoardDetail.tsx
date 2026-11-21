@@ -164,7 +164,7 @@ const pieItems = (points: DistributionPoint[], labels: Record<string, string>, c
 
 /**
  * 게시대 상세 영역. 선택 게시대의 정보와 3×3 영향권 인구 집계·차트를 보여준다.
- * 추천 점수는 추천 결과에 들어 있는 게시대에만 표시한다(지금은 시안용 예시 값).
+ * 추천 점수는 추천 결과에 들어 있는 게시대에만 표시한다.
  */
 function BoardDetail({
   board, boardLoading, boardError, population, loading, error, cellsError, stores, storesError, highlightCategory, onSelectCategory,
@@ -205,7 +205,6 @@ function BoardDetail({
         <div className="score-box">
           <div className="hero-top">
             <span>추천 점수 · {recommendation.rank}위</span>
-            <span className="pill">시안 예시 값</span>
           </div>
           <b>{recommendation.displayScore}<small>점</small></b>
           <p>{recommendation.reason}</p>
