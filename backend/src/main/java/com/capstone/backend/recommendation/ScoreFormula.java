@@ -15,6 +15,8 @@ import java.util.List;
  *   A 유동 규모  N      40점   log(N)을 후보 안 최소~최대로 0~1
  *   B 타깃 비율  T/N    40점   후보 전체 비율(ΣT/ΣN) 대비 배수를 log 척도로: 같으면 0.5, 2배 이상 1, 절반 이하 0
  *   C 유형 비중  Tf/T   20점   B와 같은 방식 (기준 ΣTf/ΣT)
+ *   B·C 비율은 표본이 작을수록 후보 평균 쪽으로 당긴다: (T + k·p₀) / (N + k), k = shrink × 후보 N 중앙값
+ *   (C는 T 중앙값). 좁은 조건(한 달·한 시간대)에서 인구가 적은 게시대의 우연히 높은 비율이 1위가 되는 것을 막는다.
  *   유동 유형 ALL이면 C가 모두 1이라 의미가 없으므로 빼고 A·B를 50·50으로 키운다.
  * </pre>
  *
@@ -41,12 +43,13 @@ public final class ScoreFormula {
      * @param flowPoints      C 유형 비중 배점 (유형 ALL이면 빼고 A·B를 같은 비율로 키운다)
      * @param liftSpan        비율 지표가 후보 평균의 몇 배일 때 만점인지 (1/liftSpan배면 0점). 시뮬레이션 E5
      * @param minTargetPerDay 최소 타깃 인구(가중 T, 명/일). 이보다 적으면 추천에서 뺀다 (PRD B4). 0이면 끔
+     * @param ratioShrink     비율 보정 세기. 0이면 끔, 0.5면 중앙값 규모 게시대의 비율 차이를 2/3만 반영. 시뮬레이션 E8
      */
     public record Params(double sizePoints, double sharePoints, double flowPoints, double liftSpan,
-                         double minTargetPerDay) {
+                         double minTargetPerDay, double ratioShrink) {
 
-        /** 팀 초안 배점 40/40/20, 리프트 2배 만점, 최소 인구 기준 없음(EDA 후 결정) */
-        public static final Params DEFAULT = new Params(40, 40, 20, 2.0, 0);
+        /** 팀 초안 배점 40/40/20, 리프트 2배 만점, 최소 인구 기준 없음(EDA 후 결정), 비율 보정 0.5 */
+        public static final Params DEFAULT = new Params(40, 40, 20, 2.0, 0, 0.5);
 
         public Params {
             if (sizePoints < 0 || sharePoints < 0 || flowPoints < 0 || sizePoints + sharePoints <= 0) {
@@ -54,6 +57,9 @@ public final class ScoreFormula {
             }
             if (liftSpan <= 1) {
                 throw new IllegalArgumentException("liftSpan은 1보다 커야 합니다: " + liftSpan);
+            }
+            if (ratioShrink < 0) {
+                throw new IllegalArgumentException("ratioShrink는 0 이상이어야 합니다: " + ratioShrink);
             }
         }
     }
@@ -71,9 +77,9 @@ public final class ScoreFormula {
     /**
      * 점수 구성 한 줄 (명세 4.6 scoreBreakdown).
      *
-     * @param rawValue   A는 가중 유동(명/일), B·C는 비율(0~1)
+     * @param rawValue   A는 가중 유동(명/일), B·C는 보정 전 실제 비율(0~1). 화면에 보여줄 값
      * @param baseline   B·C의 비교 기준(후보 전체 비율). A는 null
-     * @param lift       rawValue / baseline. 추천 이유 문구용("평균의 1.3배"). A는 null
+     * @param lift       보정한 비율 / baseline. 점수에 쓴 배수이며 추천 이유 문구용("평균의 1.3배"). A는 null
      * @param normalized 0~1
      * @param weight     이 지표의 최대 배점
      * @param points     normalized × weight
@@ -120,6 +126,8 @@ public final class ScoreFormula {
         }
         double baseShare = sumT / sumN;
         double baseFlow = sumT > 0 ? sumTf / sumT : 0;
+        double kN = params.ratioShrink() * median(valid.stream().mapToDouble(Input::n).toArray());
+        double kT = params.ratioShrink() * median(valid.stream().mapToDouble(Input::t).toArray());
 
         List<Result> results = new ArrayList<>();
         for (Input in : valid) {
@@ -128,12 +136,15 @@ public final class ScoreFormula {
             parts.add(component("A", "유동 규모", in.n(), null, null, sizeNorm, params.sizePoints() * scale));
 
             double share = in.t() / in.n();
-            parts.add(ratioComponent("B", "타깃 비율", share, baseShare, params.sharePoints() * scale,
+            double shareAdj = (in.t() + kN * baseShare) / (in.n() + kN);
+            parts.add(ratioComponent("B", "타깃 비율", share, shareAdj, baseShare, params.sharePoints() * scale,
                     params.liftSpan()));
 
             if (useFlow) {
                 double flow = in.t() > 0 ? in.tf() / in.t() : 0;
-                parts.add(ratioComponent("C", "유형 비중", flow, baseFlow, params.flowPoints(), params.liftSpan()));
+                double flowAdj = in.t() + kT > 0 ? (in.tf() + kT * baseFlow) / (in.t() + kT) : 0;
+                parts.add(ratioComponent("C", "유형 비중", flow, flowAdj, baseFlow, params.flowPoints(),
+                        params.liftSpan()));
             }
             double score = parts.stream().mapToDouble(Component::points).sum();
             results.add(new Result(in, score, List.copyOf(parts)));
@@ -161,10 +172,18 @@ public final class ScoreFormula {
         return Math.max(0, Math.min(1, value));
     }
 
-    private static Component ratioComponent(String key, String label, double ratio, double baseline, double weight,
-                                            double span) {
-        Double lift = baseline > 0 ? ratio / baseline : null;
-        return component(key, label, ratio, baseline, lift, liftScore(ratio, baseline, span), weight);
+    /** raw: 화면용 실제 비율, adjusted: 평균 쪽으로 보정해 점수에 쓰는 비율 */
+    private static Component ratioComponent(String key, String label, double raw, double adjusted, double baseline,
+                                            double weight, double span) {
+        Double lift = baseline > 0 ? adjusted / baseline : null;
+        return component(key, label, raw, baseline, lift, liftScore(adjusted, baseline, span), weight);
+    }
+
+    static double median(double[] values) {
+        double[] sorted = values.clone();
+        java.util.Arrays.sort(sorted);
+        int mid = sorted.length / 2;
+        return sorted.length % 2 == 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
     }
 
     private static Component component(String key, String label, double raw, Double baseline, Double lift,

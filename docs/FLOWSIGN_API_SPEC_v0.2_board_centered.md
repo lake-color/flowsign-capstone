@@ -443,7 +443,7 @@ interface Criteria {
 }
 ```
 
-**계산안 v2 (`provisional-v2`, 2026-11-21, 아래 v1 대체):** 팀 초안 배점 A 유동 규모 `N` 40 / B 타깃 비율 `T/N` 40 / C 유형 비중 `Tf/T` 20 (유형 `ALL`이면 C 제외, 50/50). T/N/Tf는 3×3 Cell의 **가중 합**(중심 0.8 + 주변 0.2를 게시대→Cell 거리 가우스 σ=250m로 차등, 없는 칸 제외 후 합 1). A는 log(N)을 후보 안 최소~최대로, B·C는 후보 전체 비율 대비 배수를 log 척도(같으면 0.5, 2배 이상 1, 절반 이하 0)로 0~1. 칸별 가중을 위해 `board_population` 대신 후보 게시대 Cell의 `population_fact`를 읽는다. 근거·시뮬레이션: `docs/RECOMMENDATION_SCORE.md`. `scoreBreakdown`의 B·C에는 비교 기준(`baseline`)과 배수(`lift`)를 함께 둘 수 있다.
+**계산안 v2 (`provisional-v2`, 2026-11-21, 아래 v1 대체):** 팀 초안 배점 A 유동 규모 `N` 40 / B 타깃 비율 `T/N` 40 / C 유형 비중 `Tf/T` 20 (유형 `ALL`이면 C 제외, 50/50). T/N/Tf는 3×3 Cell의 **가중 합**(중심 0.8 + 주변 0.2를 게시대→Cell 거리 가우스 σ=250m로 차등, 없는 칸 제외 후 합 1). A는 log(N)을 후보 안 최소~최대로, B·C는 후보 전체 비율 대비 배수를 log 척도(같으면 0.5, 2배 이상 1, 절반 이하 0)로 0~1. 인구가 적은 게시대의 B·C 비율은 후보 평균 쪽으로 보정한다. 파라미터는 `application.yml`의 `flowsign.recommendation.*`. 칸별 가중을 위해 `board_population` 대신 후보 게시대 Cell의 `population_fact`를 읽는다. 근거·시뮬레이션: `docs/RECOMMENDATION_SCORE.md`. `scoreBreakdown`의 B·C에는 비교 기준(`baseline`)과 배수(`lift`)를 함께 둘 수 있다.
 
 **계산안 v1(중간보고서, 대체됨):** T/N/Tf는 게시대 3×3 Cell 합계 기준. `A=T`, `B=T/N`, `C=Tf/T`, `D=N` 각각 추천 대상 내 백분위로 변환하고 가중합(기본 가정 0.4/0.3/0.2/0.1). 유형 `ALL`이면 C 제외하고 가중치 재정규화(0.5/0.375/0.125). 최소 타깃 인구 기준·가중치·전체 규모 D 유지 여부는 실제 EDA 후 확정. **가중치와 백분위 계산을 React에서 구현하지 않는다.** 데이터 단위/조합이 검증되지 않으면 503 `ANALYSIS_NOT_READY`로 명시하고 미확정 수치를 실서비스로 반환하지 않음.
 

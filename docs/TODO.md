@@ -54,7 +54,8 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
   - [x] 임시안 v2: 유동 규모 40 / 타깃 비율 40 / 유형 비중 20, A는 log 척도·B·C는 후보 평균 대비 배수 (시뮬레이션으로 결정, [RECOMMENDATION_SCORE.md](RECOMMENDATION_SCORE.md))
   - [x] 인접 8셀 가중치 차등: 중심 0.8 + 주변 0.2를 게시대→Cell 거리 가우스(σ=250m)로 나눔
   - [x] 배점·리프트 범위·최소 타깃 인구·Cell 가중치를 설정으로 분리 (`flowsign.recommendation.*`, PRD N15·B4)
-  - [ ] 중심 0.8 가중과 PRD N16(3×3 균등 합 기준선) 정의 충돌 결정
+  - [x] 중심 0.8 가중 유지, PRD N16은 같은 가중 합으로 점검 (2026-11-21)
+  - [x] 인구가 적은 게시대의 비율을 평균 쪽으로 보정 (`ratio-shrink` 0.5)
   - [ ] 실제 데이터로 시뮬레이션 재실행 후 확정 (`python -m data_processing.simulate real`)
 - [x] 점수 저장 방식 결정 → Spring에서 요청 시 계산
 - [x] Spring에 점수 계산 구현 (`recommendation/RecommendationScorer`·`ScoreFormula`·`CellWeights`, 추천 API는 미구현)

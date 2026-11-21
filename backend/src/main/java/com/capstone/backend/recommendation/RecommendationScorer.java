@@ -31,7 +31,7 @@ import com.capstone.backend.common.Codes;
  *  - N(전체 유동)은 성별·연령을 걸지 않는다. T·Tf는 N과 같은 행에서 성별·연령을 건다.
  * 요일 구분 지원 여부(UNSUPPORTED_FILTER)와 데이터 미적재(DATA_NOT_READY) 검사는 추천 API가 먼저 한다.
  *
- * 배점·리프트 범위·최소 타깃 인구·Cell 가중치는 application.yml의 flowsign.recommendation.*로 바꾼다 (PRD N15).
+ * 배점·리프트 범위·최소 타깃 인구·비율 보정·Cell 가중치는 application.yml의 flowsign.recommendation.*로 바꾼다 (PRD N15).
  */
 @Service
 public class RecommendationScorer {
@@ -50,9 +50,11 @@ public class RecommendationScorer {
                                 @Value("${flowsign.recommendation.flow-points:20}") double flowPoints,
                                 @Value("${flowsign.recommendation.lift-span:2.0}") double liftSpan,
                                 @Value("${flowsign.recommendation.min-target-per-day:0}") double minTargetPerDay,
+                                @Value("${flowsign.recommendation.ratio-shrink:0.5}") double ratioShrink,
                                 @Value("${flowsign.recommendation.center-weight:0.8}") double centerWeight,
                                 @Value("${flowsign.recommendation.neighbor-sigma-meters:250}") double neighborSigmaMeters) {
-        this(jdbc, new ScoreFormula.Params(sizePoints, sharePoints, flowPoints, liftSpan, minTargetPerDay),
+        this(jdbc, new ScoreFormula.Params(sizePoints, sharePoints, flowPoints, liftSpan, minTargetPerDay,
+                        ratioShrink),
                 centerWeight, neighborSigmaMeters);
     }
 

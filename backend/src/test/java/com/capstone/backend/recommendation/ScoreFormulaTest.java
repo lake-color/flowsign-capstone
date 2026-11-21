@@ -51,10 +51,12 @@ class ScoreFormulaTest {
         assertThat(r.get(0).score()).isCloseTo(40 + 20 + 10, within(EPS));
     }
 
+    private static final ScoreFormula.Params NO_SHRINK = new ScoreFormula.Params(40, 40, 20, 2.0, 0, 0);
+
     @Test
     void higherTargetShareWinsWhenSizeIsEqual() {
         List<Result> r = ScoreFormula.scoreAndRank(List.of(
-                input(1, 1000, 100, 30), input(2, 1000, 300, 90)), "WALK");
+                input(1, 1000, 100, 30), input(2, 1000, 300, 90)), "WALK", NO_SHRINK);
 
         assertThat(ids(r)).containsExactly(2L, 1L);
         ScoreFormula.Component share = r.getFirst().components().get(1);
@@ -83,8 +85,9 @@ class ScoreFormulaTest {
     }
 
     @Test
-    void zeroTargetGivesZeroFlowPoints() {
-        List<Result> r = ScoreFormula.scoreAndRank(List.of(input(1, 1000, 0, 0), input(2, 1000, 100, 50)), "WALK");
+    void zeroTargetGivesZeroFlowPointsWithoutShrink() {
+        List<Result> r = ScoreFormula.scoreAndRank(List.of(input(1, 1000, 0, 0), input(2, 1000, 100, 50)), "WALK",
+                NO_SHRINK);
 
         Result noTarget = r.get(1);
         assertThat(noTarget.input().boardId()).isEqualTo(1L);
@@ -93,7 +96,7 @@ class ScoreFormulaTest {
 
     @Test
     void minimumTargetExcludesSmallBoardsBeforeComparing() {
-        ScoreFormula.Params params = new ScoreFormula.Params(40, 40, 20, 2.0, 50);
+        ScoreFormula.Params params = new ScoreFormula.Params(40, 40, 20, 2.0, 50, 0.5);
         List<Result> r = ScoreFormula.scoreAndRank(List.of(
                 input(1, 100, 20, 5), input(2, 1000, 200, 50), input(3, 10000, 2000, 500)), "WALK", params);
 
@@ -104,7 +107,7 @@ class ScoreFormulaTest {
 
     @Test
     void configuredPointsAreUsed() {
-        ScoreFormula.Params params = new ScoreFormula.Params(60, 30, 10, 2.0, 0);
+        ScoreFormula.Params params = new ScoreFormula.Params(60, 30, 10, 2.0, 0, 0.5);
         Result r = ScoreFormula.scoreAndRank(List.of(input(1, 1000, 200, 50)), "WALK", params).getFirst();
 
         assertThat(r.score()).isCloseTo(60 + 15 + 5, within(EPS));
@@ -112,10 +115,39 @@ class ScoreFormulaTest {
 
     @Test
     void invalidParamsAreRejected() {
-        assertThatThrownBy(() -> new ScoreFormula.Params(40, 40, 20, 1.0, 0))
+        assertThatThrownBy(() -> new ScoreFormula.Params(40, 40, 20, 1.0, 0, 0.5))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new ScoreFormula.Params(0, 0, 20, 2.0, 0))
+        assertThatThrownBy(() -> new ScoreFormula.Params(0, 0, 20, 2.0, 0, 0.5))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ScoreFormula.Params(40, 40, 20, 2.0, 0, -1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void smallBoardRatioIsPulledTowardAverage() {
+        // 작은 게시대(N 60)의 비율 0.5가 큰 게시대(N 2000)의 0.35보다 높지만, 보정하면 큰 쪽이 더 높게 평가된다
+        List<Input> inputs = List.of(input(1, 60, 30, 10), input(2, 2000, 700, 200),
+                input(3, 1000, 100, 30), input(4, 1000, 100, 30), input(5, 1000, 100, 30));
+        List<Result> r = ScoreFormula.scoreAndRank(inputs, "WALK");
+        Result small = r.stream().filter(x -> x.input().boardId() == 1L).findFirst().orElseThrow();
+        Result big = r.stream().filter(x -> x.input().boardId() == 2L).findFirst().orElseThrow();
+
+        // 화면용 원값은 보정 전 그대로
+        assertThat(small.components().get(1).rawValue()).isCloseTo(0.5, within(EPS));
+        assertThat(small.components().get(1).lift()).isLessThan(big.components().get(1).lift());
+
+        // 보정을 끄면 작은 게시대 비율이 더 높게 평가된다
+        ScoreFormula.Params off = new ScoreFormula.Params(40, 40, 20, 2.0, 0, 0);
+        List<Result> raw = ScoreFormula.scoreAndRank(inputs, "WALK", off);
+        Result smallRaw = raw.stream().filter(x -> x.input().boardId() == 1L).findFirst().orElseThrow();
+        Result bigRaw = raw.stream().filter(x -> x.input().boardId() == 2L).findFirst().orElseThrow();
+        assertThat(smallRaw.components().get(1).lift()).isGreaterThan(bigRaw.components().get(1).lift());
+    }
+
+    @Test
+    void medianOfEvenAndOddCounts() {
+        assertThat(ScoreFormula.median(new double[] {3, 1, 2})).isCloseTo(2, within(EPS));
+        assertThat(ScoreFormula.median(new double[] {4, 1, 2, 3})).isCloseTo(2.5, within(EPS));
     }
 
     @Test

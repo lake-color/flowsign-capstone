@@ -14,8 +14,9 @@
   E3 시기 안정성   : 같은 타깃으로 계절만 바꿨을 때 TOP 5가 얼마나 유지되는지 (시기에 따라 값이 튀는지)
   E4 인접 가중치   : 3×3 단순 합 / 주변 균등 / 거리 반비례 / 거리 가우스 비교
   E5 리프트 범위   : 비율 지표 만점 배수(span)별 노이즈·신호 반응·안정성
-  E6 PRD N16       : 대표 조건 10개에서 추천 TOP 10의 타깃 인구(3×3 합) 합이 '전체 유동 많은 순 10개'보다 큰지
+  E6 PRD N16       : 대표 조건 10개에서 추천 TOP 10의 타깃 인구(점수와 같은 가중 합) 합이 '전체 유동 많은 순 10개'보다 큰지
   E7 PRD N17       : 대표 조건 5개에서 배점을 ±10점 바꿔도 TOP 10이 평균 7개 이상 유지되는지
+  E8 비율 보정     : 인구가 적은 게시대의 비율을 평균 쪽으로 당기는 세기(shrink)별 N16 최저치·신호 반응·안정성
 """
 
 import sys
@@ -229,18 +230,25 @@ def e4_kernels(fact, board_cell, boards, c) -> tuple[list[dict], str]:
 
 
 def e6_baseline(fact, board_cell, boards) -> list[dict]:
-    """PRD N16: 추천 TOP 10의 T 합 vs 같은 후보에서 전체 유동(3×3 합 N)이 많은 순 10개의 T 합."""
+    """PRD N16: 추천 TOP 10의 타깃 인구 합 vs 같은 후보에서 전체 유동이 많은 순 10개의 타깃 인구 합.
+
+    팀 결정(2026-11-21): 중심 0.8 가중을 유지하므로 T·N은 점수와 같은 3×3 가중 합으로 잰다.
+    참고로 상세 화면과 같은 3×3 균등 합으로 잰 비율도 함께 적는다.
+    """
     rows = []
     for i, c in enumerate(REPRESENTATIVE, 1):
         cells = cell_values(fact, c)
         bc = board_cell[board_cell["board_id"].isin(candidates(boards, c))]
-        plain = board_inputs(bc, cells, "sum")          # 상세 화면과 같은 3×3 합계
-        ours = top(rank(score(board_inputs(bc, cells), c.flow_type), boards), 10)
-        base = list(plain.sort_values(["N"], ascending=False).index[:10])
-        t_ours, t_base = plain.loc[ours, "T"].sum(), plain.loc[base, "T"].sum()
-        rows.append({"조건": i, "후보": len(plain), "추천 TOP10 T합": f"{t_ours:,.0f}",
-                     "유동순 10개 T합": f"{t_base:,.0f}", "비율": f"{t_ours / t_base:.2f}",
-                     "통과(>)": "O" if t_ours > t_base else "X"})
+        weighted = board_inputs(bc, cells)
+        plain = board_inputs(bc, cells, "sum")
+        ours = top(rank(score(weighted, c.flow_type), boards), 10)
+        base = list(weighted.sort_values(["N"], ascending=False).index[:10])
+        base_plain = list(plain.sort_values(["N"], ascending=False).index[:10])
+        ratio = weighted.loc[ours, "T"].sum() / weighted.loc[base, "T"].sum()
+        ratio_plain = plain.loc[ours, "T"].sum() / plain.loc[base_plain, "T"].sum()
+        rows.append({"조건": i, "후보": len(weighted), "추천 TOP10 / 유동순 10개 (가중 T)": f"{ratio:.3f}",
+                     "통과(>1)": "O" if ratio > 1 else "X",
+                     "참고: 3×3 균등 합 기준": f"{ratio_plain:.3f}"})
     return rows
 
 
@@ -261,6 +269,30 @@ def e7_sensitivity(fact, board_cell, boards) -> list[dict]:
             row[name] = kept[-1]
         row["평균 유지"] = f"{np.mean(kept):.1f}"
         rows.append(row)
+    return rows
+
+
+def e8_shrink(fact, board_cell, boards) -> list[dict]:
+    pre = []
+    for c in REPRESENTATIVE:
+        cells = cell_values(fact, c)
+        bc = board_cell[board_cell["board_id"].isin(candidates(boards, c))]
+        pre.append((c, cells, bc, board_inputs(bc, cells)))
+    planted_sets = [(c, bc, w, *plant(cells, bc)) for c, cells, bc, w in pre[:2]]
+    rows = []
+    for sh in [0.0, 0.25, 0.5, 1.0, 2.0]:
+        ratios = []
+        for c, _, _, w in pre:
+            ours = top(rank(score(w, c.flow_type, shrink=sh), boards), 10)
+            base = list(w.sort_values("N", ascending=False).index[:10])
+            ratios.append(w.loc[ours, "T"].sum() / w.loc[base, "T"].sum())
+        gains = []
+        for c, bc, w, planted, boosted in planted_sets:
+            before = position(rank(score(w, c.flow_type, shrink=sh), boards), planted)
+            after = position(rank(score(board_inputs(bc, boosted), c.flow_type, shrink=sh), boards), planted)
+            gains.append(f"{(before - after).mean():.0f}")
+        rows.append({"shrink": sh, "N16 최저 비율": f"{min(ratios):.3f}", "N16 평균 비율": f"{np.mean(ratios):.3f}",
+                     "신호 심은 곳 상승 칸 S1 / S2": " / ".join(gains)})
     return rows
 
 
@@ -299,7 +331,8 @@ def main() -> None:
             "대표 조건: " + " / ".join(f"{i}) `{c}`" for i, c in enumerate(REPRESENTATIVE, 1)), "",
             "### E6 N16 기준선 대비 (통과 기준: 10개 중 8개 이상)", "", md_table(e6_baseline(fact, board_cell, boards)), "",
             "### E7 N17 배점 민감도 (통과 기준: TOP 10 중 평균 7개 이상 유지)", "",
-            md_table(e7_sensitivity(fact, board_cell, boards)), ""]
+            md_table(e7_sensitivity(fact, board_cell, boards)), "",
+            "### E8 비율 보정 세기 (채택 0.5)", "", md_table(e8_shrink(fact, board_cell, boards)), ""]
     target = d / "simulation"
     target.mkdir(exist_ok=True)
     (target / "report.md").write_text("\n".join(out), encoding="utf-8")

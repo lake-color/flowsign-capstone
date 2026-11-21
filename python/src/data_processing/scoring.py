@@ -36,6 +36,8 @@ NEIGHBOR_SIGMA_METERS = 250.0
 POINTS = {"A": 40.0, "B": 40.0, "C": 20.0}
 # 비율 지표(B·C)의 리프트 → 0~1: 후보 평균과 같으면 0.5, 2배 이상이면 1, 절반 이하면 0
 LIFT_SPAN = 2.0
+# 비율 지표를 후보 평균 쪽으로 당기는 세기 (0이면 끔). 시뮬레이션 E8
+SHRINK = 0.5
 
 
 @dataclass
@@ -142,7 +144,8 @@ def lift_score(ratio: pd.Series, pooled: float, span: float = LIFT_SPAN) -> pd.S
 
 
 def score(inputs: pd.DataFrame, flow_type: str, method: str = "hybrid", size_measure: str = "N",
-          points: dict[str, float] | None = None, lift_span: float = LIFT_SPAN) -> pd.DataFrame:
+          points: dict[str, float] | None = None, lift_span: float = LIFT_SPAN,
+          shrink: float = SHRINK) -> pd.DataFrame:
     """inputs(N, T, Tf) → A·B·C 지표, 0~1 정규화 값, 배점, 총점.
 
     method: 'percentile' (모든 지표 백분위, 중간보고서 계획안) / 'minmax' / 'hybrid'(채택: A log 최소·최대 + B·C 리프트)
@@ -151,8 +154,13 @@ def score(inputs: pd.DataFrame, flow_type: str, method: str = "hybrid", size_mea
     pts = dict(points or POINTS)
     df = inputs[inputs["N"] > 0].copy()
     df["A"] = df[size_measure]
-    df["B"] = df["T"] / df["N"]
-    df["C"] = np.where(df["T"] > 0, df["Tf"] / df["T"].where(df["T"] > 0), 0.0)
+    # 인구가 적은 게시대의 비율은 표본이 작아 튀므로 후보 전체 비율 쪽으로 당긴다 (경험적 베이즈).
+    # k = shrink × 후보 중앙값: 중앙값 규모의 게시대는 비율 차이의 1/(1+shrink)만 반영된다.
+    p_share = df["T"].sum() / df["N"].sum()
+    p_flow = df["Tf"].sum() / df["T"].sum() if df["T"].sum() > 0 else 0.0
+    k_n, k_t = shrink * df["N"].median(), shrink * df["T"].median()
+    df["B"] = (df["T"] + k_n * p_share) / (df["N"] + k_n)
+    df["C"] = np.where(df["T"] + k_t > 0, (df["Tf"] + k_t * p_flow) / (df["T"] + k_t).where(df["T"] + k_t > 0), 0.0)
     if flow_type == "ALL":
         scale = (pts["A"] + pts["B"] + pts["C"]) / (pts["A"] + pts["B"])
         pts = {"A": pts["A"] * scale, "B": pts["B"] * scale}
