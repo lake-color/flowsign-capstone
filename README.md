@@ -18,6 +18,7 @@
 
 **문서**
 
+- 추천 점수 산식·시뮬레이션: [docs/RECOMMENDATION_SCORE.md](docs/RECOMMENDATION_SCORE.md)
 - API 명세 v0.2.1: [명세서](docs/FLOWSIGN_API_SPEC_v0.2_board_centered.md) · [OpenAPI](docs/FLOWSIGN_OpenAPI_v0.2_board_centered.yaml)
 - 구현 현황·남은 작업: [docs/TODO.md](docs/TODO.md)
 - 데모에서 임시로 정한 규칙: [명세 11장](docs/FLOWSIGN_API_SPEC_v0.2_board_centered.md#11-데모-구현-현황-2026-11-07)
@@ -333,7 +334,7 @@ flowsign/
 │       │   ├── meta/               # GET /meta
 │       │   ├── board/              # GET /boards, /boards/{id}, /boards/{id}/population, /boards/{id}/cells, /boards/{id}/stores
 │       │   ├── cell/               # GET /cells (지도 통신사 Cell 레이어)
-│       │   ├── recommendation/     # /recommendations/search (자리만 있음)
+│       │   ├── recommendation/     # 추천 점수 계산 (ScoreFormula·CellWeights·RecommendationScorer). /recommendations/search는 아직 없음
 │       │   └── inquiry/            # /inquiries (자리만 있음)
 │       └── resources/
 │           ├── application*.yml
@@ -349,6 +350,7 @@ flowsign/
 │       ├── fake_data.py            #   3단계(fake만): 가짜 통신사 원본 population_fake.csv
 │       ├── preprocess.py           #   4단계: 통신사 원본 → cell, population_fact, 리포트
 │       ├── mapping.py              #   5단계: 게시대 ↔ 3×3 Cell → board_cell, board_population, grid_spec, store
+│       ├── scoring.py / simulate.py #   추천 점수 참고 구현과 시나리오 시뮬레이션 (build와 별개)
 │       └── load.py                 #   적재: 세트 → PostgreSQL (트랜잭션 하나로 교체)
 │
 ├── database/
@@ -454,6 +456,16 @@ DB 접속 옵션 `--container`(기본 `telecom-postgres`), `--db`(기본 `teleco
 | `cell_id`·`base_month` NULL | 행 제외 |
 | 인구값 NULL | 그대로 둠 |
 | 매핑되지 않는 코드, 숫자가 아닌 값 | 오류로 중단 |
+
+**추천 점수 시뮬레이션** (DB 없이 세트 CSV로 실행)
+
+```cmd
+uv run python -m data_processing.simulate fake
+```
+
+- 시나리오 2개로 점수 산식·정규화·인접 Cell 가중치를 비교해 `data/generated_<모드>/simulation/report.md`에 저장합니다.
+- `scoring.py`는 Spring 점수 계산(`backend/.../recommendation/`)과 같은 규칙의 참고 구현입니다. 산식 설명은 [docs/RECOMMENDATION_SCORE.md](docs/RECOMMENDATION_SCORE.md).
+- `real` 결과는 실제 데이터에서 나온 집계이므로 외부에 올리지 않습니다.
 
 </details>
 

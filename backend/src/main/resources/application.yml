@@ -8,3 +8,15 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+# 추천 점수 산식 파라미터 (PRD N15: 코드 수정 없이 변경). 근거와 의미는 docs/RECOMMENDATION_SCORE.md
+flowsign:
+  recommendation:
+    size-points: 40            # A 유동 규모 배점
+    share-points: 40           # B 타깃 비율 배점
+    flow-points: 20            # C 유형 비중 배점 (유동 유형 ALL이면 빼고 A·B를 키움)
+    lift-span: 2.0             # 비율이 후보 평균의 몇 배일 때 만점인지
+    min-target-per-day: 0      # 최소 타깃 인구(가중, 명/일). 0이면 끔 (PRD B4, EDA 후 결정)
+    ratio-shrink: 0.5          # 인구가 적은 게시대의 비율을 후보 평균 쪽으로 당기는 세기. 0이면 끔
+    center-weight: 0.8         # 3×3 중 소속 Cell 가중치 (나머지는 주변 8칸에 거리로 나눔)
+    neighbor-sigma-meters: 250 # 주변 칸 거리 감쇠 σ(m)
