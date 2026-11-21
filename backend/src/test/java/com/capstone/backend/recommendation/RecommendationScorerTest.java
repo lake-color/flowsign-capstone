@@ -101,4 +101,61 @@ class RecommendationScorerTest {
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("VALIDATION_ERROR"));
         verifyNoInteractions(jdbc);
     }
+
+    private static final List<String> ALL_AGES = List.of("UNDER_20", "AGE_20S", "AGE_30S", "AGE_40S", "AGE_50S",
+            "AGE_60_PLUS");
+    private static final List<String> ALL_TIMES = List.of("06_08", "08_10", "10_12", "12_14", "14_16", "16_18",
+            "18_20");
+
+    private static void assertValidationError(PopulationFilter f) {
+        assertThatThrownBy(() -> RecommendationScorer.validated(f))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void directlyBuiltFilterWithBadValuesIsValidationErrorNot500() {
+        // 추천 API가 JSON 본문으로 PopulationFilter를 직접 만들 때 들어올 수 있는 값들
+        assertValidationError(null);
+        assertValidationError(new PopulationFilter("ALL", List.of(), "ALL", ALL_TIMES, "YEAR", null, null, "ALL"));
+        assertValidationError(new PopulationFilter("ALL", null, "ALL", ALL_TIMES, "YEAR", null, null, "ALL"));
+        assertValidationError(new PopulationFilter("ALL", ALL_AGES, "ALL", List.of(), "YEAR", null, null, "ALL"));
+        assertValidationError(new PopulationFilter("ALL", ALL_AGES, "ALL", ALL_TIMES, "SEASON", null, null, "ALL"));
+        assertValidationError(new PopulationFilter("ALL", ALL_AGES, "ALL", ALL_TIMES, "MONTH", null, 13, "ALL"));
+        assertValidationError(new PopulationFilter("female", ALL_AGES, "WALK", ALL_TIMES, "YEAR", null, null, "ALL"));
+        assertValidationError(new PopulationFilter("ALL", List.of("AGE_20S", "TEENS"), "ALL", ALL_TIMES, "YEAR",
+                null, null, "ALL"));
+    }
+
+    @Test
+    void validFilterIsKeptAndNormalized() {
+        PopulationFilter f = RecommendationScorer.validated(new PopulationFilter("FEMALE",
+                List.of("AGE_30S", "AGE_20S"), "WALK", ALL_TIMES, "SEASON", "SUMMER", null, "WEEKEND"));
+
+        assertThat(f.gender()).isEqualTo("FEMALE");
+        assertThat(f.ageGroups()).containsExactly("AGE_20S", "AGE_30S");
+        assertThat(f.season()).isEqualTo("SUMMER");
+        assertThat(f.dayType()).isEqualTo("WEEKEND");
+    }
+
+    @Test
+    void missingOptionalValuesFallBackToQueryDefaults() {
+        // 조회 API(GET)와 같은 기본값: 성별 ALL, 유형 ALL, 연간, 요일 ALL
+        PopulationFilter f = RecommendationScorer.validated(
+                new PopulationFilter(null, ALL_AGES, null, ALL_TIMES, null, null, null, null));
+
+        assertThat(f.gender()).isEqualTo("ALL");
+        assertThat(f.flowType()).isEqualTo("ALL");
+        assertThat(f.periodKind()).isEqualTo("YEAR");
+        assertThat(f.dayType()).isEqualTo("ALL");
+    }
+
+    @Test
+    void scoreRejectsBadFilterBeforeQuerying() {
+        NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
+        PopulationFilter bad = new PopulationFilter("ALL", List.of(), "ALL", ALL_TIMES, "YEAR", null, null, "ALL");
+
+        assertThatThrownBy(() -> new RecommendationScorer(jdbc).score(List.of("ANYANG"), List.of("COMMERCIAL"), bad))
+                .isInstanceOf(ApiException.class);
+        verifyNoInteractions(jdbc);
+    }
 }

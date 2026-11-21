@@ -110,7 +110,9 @@ S2의 247·313·246은 **좌표가 같은 게시대**라 점수가 같고, 명�
 
   보정을 세게 할수록 튀는 결과는 줄지만 진짜 비율 차이에도 둔해진다. 가짜 데이터는 비율 차이가 노이즈뿐이라 보정이 유리하게 나오므로, 실제 데이터에서 다시 고른다(`ratio-shrink` 설정).
 
-전체 표(E1~E8)는 실행하면 `data/generated_<모드>/simulation/report.md`에 생긴다. `data/` 아래라 Git에 올라가지 않으며, real 결과는 외부에 공유하지 않는다.
+E9는 '전체 유동은 있는데 타깃 값이 아예 없어 계산에서 빠지는 칸'을 센다. 명세 1.1대로 NULL을 0으로 채우지 않으므로 이런 칸은 빠지고 남은 칸으로 점수를 낸다. 가짜 데이터는 가장 좁은 조건에서만 3.8%였다. 실제 데이터에서 비율이 높으면(원본에 성별·연령 조합 행이 빠진 경우) 팀과 처리 방식을 다시 정한다.
+
+전체 표(E1~E9)는 실행하면 `data/generated_<모드>/simulation/report.md`에 생긴다. `data/` 아래라 Git에 올라가지 않으며, real 결과는 외부에 공유하지 않는다.
 
 ## 5. 설정 (PRD N15: 코드 수정 없이 변경)
 
@@ -134,7 +136,7 @@ S2의 247·313·246은 **좌표가 같은 게시대**라 점수가 같고, 명�
 List<ScoreFormula.Result> ranked = recommendationScorer.score(cities, purposes, populationFilter);
 ```
 
-- 입력: `criteria.cities`, `criteria.purposes`, 나머지 조건은 기존 `PopulationFilter`(성별·연령·유형·시간대·기간·요일)를 그대로 쓴다. 지역·용도가 비었거나 잘못되면 400 `VALIDATION_ERROR`.
+- 입력: `criteria.cities`, `criteria.purposes`, 나머지 조건은 기존 `PopulationFilter`(성별·연령·유형·시간대·기간·요일)를 그대로 쓴다. POST 본문에서 `new PopulationFilter(...)`로 직접 만들어 넘겨도 된다: `score()`가 조회 API와 같은 규칙(`PopulationFilter.from`)으로 다시 검사하므로, 빈 배열·빠진 값(계절·월)·잘못된 코드는 500이나 빈 결과가 아니라 400 `VALIDATION_ERROR`가 된다. 빠진 성별·유형·기간·요일은 조회 API와 같은 기본값(ALL·연간)을 쓴다. 지역·용도가 비었거나 잘못돼도 400 `VALIDATION_ERROR`.
 - 출력: 명세 4.6 정렬이 끝난 목록. TOP 5/페이지 자르기, `rank`, `displayScore` 반올림은 API에서 한다.
 - `Result.components()` = 명세 `scoreBreakdown` 재료: `key`, `label`, `rawValue`, `normalized`, `weight`(최대 배점), `points`, 그리고 B·C의 `baseline`(후보 평균 비율)·`lift`(배수).
   - 추천 이유 예: "20~30대 여성 비율이 후보 평균의 1.3배(B lift)", "보행 비중이 평균보다 높음(C lift > 1)", "유동 규모가 후보 상위권(A normalized)".
@@ -147,6 +149,6 @@ List<ScoreFormula.Result> ranked = recommendationScorer.score(cities, purposes, 
 
 - [x] 중심 0.8 가중 vs PRD N16(3×3 균등 합) 정의 충돌 → 팀 초안(0.8) 유지, N16은 같은 가중 합으로 잰다 (2026-11-21). Notion PRD N16 문구도 맞춰 고친다.
 - [ ] 최소 타깃 인구(B4) 기준값: 실제 데이터 분포를 보고 `min-target-per-day`에 넣는다.
-- [ ] **실제 데이터로 재실행:** `uv run data-processing build real` 후 `uv run python -m data_processing.simulate real`. 특히 E6(N16 기준선을 넘는지)·E3(계절 안정성)·E5(리프트 범위)·E8(비율 보정)을 보고 확정.
+- [ ] **실제 데이터로 재실행:** `uv run data-processing build real` 후 `uv run python -m data_processing.simulate real`. 특히 E6(N16 기준선을 넘는지)·E3(계절 안정성)·E5(리프트 범위)·E8(비율 보정)·E9(빠지는 칸)를 보고 확정. 시뮬레이션은 필요한 컬럼만 category로 읽어 가짜 데이터 기준 메모리 1.1GB → 90MB.
 - [ ] 기업 컨설팅 의견(보행 환경·주변 상권/업종 적합도): 상가 데이터는 상세에만 쓰고 점수에는 넣지 않기로 되어 있다(명세 0장). 넣는다면 D 지표로 추가할 수 있게 산식을 나눠 두었다 — 팀 결정 필요.
 - 점수는 유동인구 기반 비교 지표이며 실제 광고 노출 인원이 아니다(추천 응답 안내 문구는 A 파트).
