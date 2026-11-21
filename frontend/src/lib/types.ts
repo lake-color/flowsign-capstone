@@ -154,6 +154,19 @@ export interface RecommendationItem {
   dong: string | null
   purpose: Purpose
   displayScore: number
+  /** 상세 화면과 같은 3×3 합계의 일평균 (점수에 쓴 가중 값과 다를 수 있음) */
+  targetPopulation: PopulationValue
   reason: string
   scoreBreakdown: { key: string; label: string; contribution: number }[]
+}
+
+/** POST /recommendations/search 응답 중 화면에서 쓰는 부분 */
+export interface RecommendationResult {
+  items: RecommendationItem[]
+  page: number
+  totalItems: number
+  hasNext: boolean
+  /** "유동인구 기반 비교 지표이며 실제 광고 노출 인원이 아닙니다." */
+  notice: string
+  dataNotice: string
 }

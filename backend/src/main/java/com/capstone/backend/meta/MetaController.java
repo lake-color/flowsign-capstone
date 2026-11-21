@@ -62,8 +62,8 @@ public class MetaController {
         // 주중·주말은 합계를 더한 뒤 해당 일수로 나눈다 (L7)
         data.put("combinationRuleStatus", "CONFIRMED");
         data.put("algorithmStatus", "PROVISIONAL");
-        data.put("algorithmVersion", "provisional-v1");
-        data.put("recommendationAvailable", false);
+        data.put("algorithmVersion", "provisional-v2");
+        data.put("recommendationAvailable", true);
         data.put("maxRecommendationPageSize", 50);
         data.put("mapScope", "BOARD_ONLY");
         data.put("notice", "통신사 유동인구를 활용한 노출 가능성 추정이며 실제 광고 성과를 의미하지 않습니다.");

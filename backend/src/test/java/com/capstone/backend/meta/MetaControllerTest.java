@@ -60,7 +60,8 @@ class MetaControllerTest {
                 .andExpect(jsonPath("$.data.populationUnitLabel").value("명/일"))
                 .andExpect(jsonPath("$.data.populationUnitStatus").value("CONFIRMED"))
                 .andExpect(jsonPath("$.data.combinationRuleStatus").value("CONFIRMED"))
-                .andExpect(jsonPath("$.data.recommendationAvailable").value(false))
+                .andExpect(jsonPath("$.data.recommendationAvailable").value(true))
+                .andExpect(jsonPath("$.data.algorithmVersion").value("provisional-v2"))
                 .andExpect(jsonPath("$.data.mapScope").value("BOARD_ONLY"))
                 .andExpect(jsonPath("$.data.notice").isNotEmpty())
                 .andExpect(jsonPath("$.meta.syntheticData").value(true));

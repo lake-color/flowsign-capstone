@@ -58,7 +58,8 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
   - [x] 인구가 적은 게시대의 비율을 평균 쪽으로 보정 (`ratio-shrink` 0.5)
   - [ ] 실제 데이터로 시뮬레이션 재실행 후 확정 (`python -m data_processing.simulate real`)
 - [x] 점수 저장 방식 결정 → Spring에서 요청 시 계산
-- [x] Spring에 점수 계산 구현 (`recommendation/RecommendationScorer`·`ScoreFormula`·`CellWeights`, 추천 API는 미구현)
+- [x] Spring에 점수 계산 구현 (`recommendation/RecommendationScorer`·`ScoreFormula`·`CellWeights`)
+- [ ] 추천 이유 문구 기준값 확정 (현재 임시: 비율 lift 1.1 이상, 유동 규모 0.7 이상)
 - [ ] 입력 조건을 바꿔가며 상위 추천 결과가 납득 가능한지 검증 (가짜 데이터 시나리오 2개 완료, 실제 데이터 남음)
 
 ---
@@ -73,9 +74,10 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 - [x] 통신사 Cell 전체 레이어 (`GET /cells`, 화면 범위만 조회, 인구값 없음)
 - [x] 실제 원본 Cell로 레이어 표시 확인 (Cell은 중심 ±125m 근사 사각형으로 그림)
 - [x] `FilterPanel.tsx` 조건 입력 폼과 draft/적용 상태 관리 (데모: 상세 인구 조회 조건)
-- [ ] 추천 조건(지역·게시대 용도) 추가와 추천 결과 목록
+- [x] 추천 결과 목록 (추천 API 연결, 10개씩 더 보기)
+- [ ] 추천 조건(지역·게시대 용도) 선택 UI (현재는 기본 조건 3개 시·상업용/겸용으로 요청)
 - [x] `BoardDetail.tsx`에 선택한 게시대 정보와 3×3 인구 표시
-- [ ] 추천 결과에서 선택 시 추천 점수 표시
+- [x] 추천 결과에서 선택 시 추천 점수·이유·항목별 점수 표시
 - [x] 게시대 상세 차트 구성 (시간대 꺾은선, 월별 세로 막대, 성별·서비스·주변 업종 원형, 연령대 가로 막대, 주변 업종 탭)
 - [ ] 차트 라이브러리 결정 (데모는 SVG·CSS로 직접 그림)
 - [ ] 문의 등록 화면 추가
@@ -87,7 +89,8 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 - [ ] 테이블에 대응하는 JPA Entity 작성 여부 결정 (데모는 JdbcTemplate만 사용)
 - [x] 조회 쿼리 작성 (데모: JdbcTemplate, `/meta`·`/boards`·`/population`·`/cells`)
 - [x] 게시대 목록·상세·인구·3×3 Cell API (`/meta`, `/boards` 계열)
-- [ ] 추천 목록 / 문의 등록 API 구현
+- [x] 추천 목록 API 구현 (`POST /recommendations/search`)
+- [ ] 문의 등록 API 구현
 - [ ] 요청 값 검증(`spring-boot-starter-validation`)과 에러 응답 처리
 - [ ] 각 API에 대한 테스트 작성
 
@@ -97,7 +100,7 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 
 - [x] API 호출 모듈과 응답 타입 정의 (`src/lib/api.ts`, `src/lib/types.ts`)
 - [x] 로컬 연동 경로 → Vite dev server 프록시(`/api` → `localhost:8080`) 사용, CORS 미사용
-- [x] 화면의 임시 placeholder를 실제 API 데이터로 교체 (추천·문의 제외)
+- [x] 화면의 임시 placeholder를 실제 API 데이터로 교체 (문의 제외)
 - [x] 로딩 및 에러 상태 처리 (데모 수준: 상세 로딩 문구, 오류 배너)
 
 ---

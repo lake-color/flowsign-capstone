@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { api, ApiError } from './lib/api'
 import FilterPanel from './components/FilterPanel'
@@ -9,11 +9,10 @@ import SideTabs, { type LeftTab } from './components/SideTabs'
 import PaletteSelect from './components/PaletteSelect'
 import ThemeToggle, { type Theme } from './components/ThemeToggle'
 import { DEFAULT_QUERY, PALETTES, type Palette } from './lib/constants'
-import { sampleRecommendations } from './lib/sampleRecommendations'
 import MapView, { type MapProvider } from './map/MapView'
 import type {
-  Board, BoardPopulation, BoardStores, Bounds, CellItem, MapCell, Meta, PopulationError, PopulationQuery, Purpose, RecommendationItem,
-  StoreCategory,
+  Board, BoardPopulation, BoardStores, Bounds, CellItem, MapCell, Meta, PopulationError, PopulationQuery, Purpose,
+  RecommendationResult, StoreCategory,
 } from './lib/types'
 
 const toPopulationError = (e: Error): PopulationError => ({ code: e instanceof ApiError ? e.code : null, message: e.message })
@@ -219,14 +218,51 @@ function App() {
   // 왼쪽 탭에서 고른 패널. 열려 있는 탭을 다시 누르면 null이 되어 패널이 닫힌다.
   const [leftTab, setLeftTab] = useState<LeftTab | null>('filter')
   const toggleLeftTab = useCallback((tab: LeftTab) => setLeftTab((current) => (current === tab ? null : tab)), [])
-  // 추천 결과(시안: 예시 값). 아직 분석하지 않았으면 null
-  const [recommendations, setRecommendations] = useState<RecommendationItem[] | null>(null)
+  // 추천 결과(POST /recommendations/search). 아직 분석하지 않았으면 null. '더 보기'로 받은 페이지는 items에 이어 붙인다.
+  const [recommendation, setRecommendation] = useState<RecommendationResult | null>(null)
+  // 지금 보이는 추천 결과를 만든 조건. '더 보기'도 같은 조건으로 요청한다.
+  const [recommendQuery, setRecommendQuery] = useState<PopulationQuery | null>(null)
+  // 새로 분석 중('analyze')인지, 다음 페이지를 받는 중('more')인지
+  const [recommendLoading, setRecommendLoading] = useState<'analyze' | 'more' | null>(null)
+  const [recommendError, setRecommendError] = useState<string | null>(null)
+  const recommendRequest = useRef<AbortController | null>(null)
   const [focus, setFocus] = useState<{ latitude: number; longitude: number } | null>(null)
+
+  /**
+   * page 0이면 새로 분석하고, 그 뒤 페이지는 기존 결과에 이어 붙인다. 진행 중인 이전 요청은 취소한다.
+   * 조건과 결과는 응답이 성공했을 때만 바꾼다(명세 6장). 실패하면 이전 결과와 조건을 그대로 두고 오류만 보여준다.
+   */
+  const fetchRecommendations = useCallback((q: PopulationQuery, page: number) => {
+    recommendRequest.current?.abort()
+    const ctrl = new AbortController()
+    recommendRequest.current = ctrl
+    setRecommendLoading(page === 0 ? 'analyze' : 'more')
+    setRecommendError(null)
+    api.recommend(q, page, ctrl.signal)
+      .then((r) => {
+        if (page === 0) {
+          setQuery(q)
+          setRecommendQuery(q)
+        }
+        setRecommendation((prev) => (page > 0 && prev ? { ...r, items: [...prev.items, ...r.items] } : r))
+      })
+      .catch((e: Error) => {
+        if (!ctrl.signal.aborted) setRecommendError(e.message)
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setRecommendLoading(null)
+      })
+  }, [])
+
+  // '추천 분석하기' 클릭 때만 호출한다 (명세 4.6: 조건 편집 중 자동 호출 금지)
   const recommend = useCallback((q: PopulationQuery) => {
-    setQuery(q)
-    setRecommendations(sampleRecommendations(boards))
     setLeftTab('result')
-  }, [boards])
+    fetchRecommendations(q, 0)
+  }, [fetchRecommendations])
+
+  const recommendMore = useCallback(() => {
+    if (recommendation && recommendQuery) fetchRecommendations(recommendQuery, recommendation.page + 1)
+  }, [fetchRecommendations, recommendation, recommendQuery])
   // 추천 카드를 고르면 게시대를 선택하고 지도를 그 위치로 옮긴다.
   const selectRecommended = useCallback((id: string) => {
     setSelectedId(id)
@@ -294,7 +330,8 @@ function App() {
         </SideTabs>
         <FilterPanel applied={query} onApply={setQuery} onRecommend={recommend} hidden={leftTab !== 'filter'}
           availableDayTypes={meta?.availableDayTypes ?? null} />
-        <RecommendationList items={recommendations} query={query} selectedBoardId={selectedId} onSelect={selectRecommended}
+        <RecommendationList result={recommendation} query={recommendQuery ?? query} loading={recommendLoading}
+          error={recommendError} onMore={recommendMore} selectedBoardId={selectedId} onSelect={selectRecommended}
           onEditConditions={() => setLeftTab('filter')} hidden={leftTab !== 'result'} />
         <MapView
           provider={provider}
@@ -327,7 +364,7 @@ function App() {
           onSelectCategory={selectCategory}
           open={rightOpen}
           onToggle={() => setRightOpen((open) => !open)}
-          recommendation={recommendations?.find((r) => r.boardId === selectedId) ?? null}
+          recommendation={recommendation?.items.find((r) => r.boardId === selectedId) ?? null}
         />
       </main>
 

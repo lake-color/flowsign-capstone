@@ -26,7 +26,7 @@ const shortTime = (t: string) => `${t.slice(0, 2)}~${t.slice(3)}`
 
 /**
  * 조건 입력 영역. 입력 중인 조건(draft)은 '조건 적용'을 눌렀을 때만 반영한다.
- * '추천 분석하기'도 같은 조건을 쓴다. 추천 API는 아직 없어 시안용 예시 결과를 보여준다.
+ * '추천 분석하기'도 같은 조건으로 추천 API를 호출한다.
  */
 function FilterPanel({ applied, onApply, onRecommend, hidden, availableDayTypes }: Props) {
   const [draft, setDraft] = useState<PopulationQuery>(applied)
@@ -131,8 +131,8 @@ function FilterPanel({ applied, onApply, onRecommend, hidden, availableDayTypes 
       <div className="panel-actions">
         {invalid && <p className="hint">연령대와 시간대를 하나 이상 선택하세요.</p>}
         <button type="button" className="btn primary" disabled={invalid} onClick={() => onApply(draft)}>조건 적용</button>
-        <button type="button" className="btn" disabled={invalid} title="추천 API 연결 전이라 예시 결과를 보여줍니다." onClick={() => onRecommend(draft)}>
-          추천 분석하기 <span className="soon">시안</span>
+        <button type="button" className="btn" disabled={invalid} onClick={() => onRecommend(draft)}>
+          추천 분석하기
         </button>
       </div>
     </section>
