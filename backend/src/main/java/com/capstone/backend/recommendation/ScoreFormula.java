@@ -12,7 +12,7 @@ import java.util.List;
  * 입력(게시대별, 3×3 Cell 가중 합 — {@link CellWeights}). 배점·리프트 범위·최소 인구는 {@link Params}(설정)
  *   N  = 전체 유동(체류+보행+주행), T = 타깃(성별·연령) 유동, Tf = 타깃의 선택 유동 유형 값
  * 지표와 배점
- *   A 유동 규모  N      40점   log(N)을 후보 안 최소~최대로 0~1
+ *   A 유동 규모  N      40점   log(N)을 후보 안 최소~최대로 0~1 (최대 기준, 범위는 최소 sizeMinSpan배)
  *   B 타깃 비율  T/N    40점   후보 전체 비율(ΣT/ΣN) 대비 배수를 log 척도로: 같으면 0.5, 2배 이상 1, 절반 이하 0
  *   C 유형 비중  Tf/T   20점   B와 같은 방식 (기준 ΣTf/ΣT)
  *   B·C 비율은 표본이 작을수록 후보 평균 쪽으로 당긴다: (T + k·p₀) / (N + k), k = shrink × 후보 N 중앙값
@@ -44,12 +44,14 @@ public final class ScoreFormula {
      * @param liftSpan        비율 지표가 후보 평균의 몇 배일 때 만점인지 (1/liftSpan배면 0점). 시뮬레이션 E5
      * @param minTargetPerDay 최소 타깃 인구(가중 T, 명/일). 이보다 적으면 추천에서 뺀다 (PRD B4). 0이면 끔
      * @param ratioShrink     비율 보정 세기. 0이면 끔, 0.5면 중앙값 규모 게시대의 비율 차이를 2/3만 반영. 시뮬레이션 E8
+     * @param sizeMinSpan     A의 log 척도가 덮는 최소 배수. 후보끼리 유동 차이가 이보다 작으면(예: 20 vs 18.8)
+     *                        그 차이를 만점~0점으로 벌리지 않는다. 후보가 적거나 비슷할 때만 영향이 있다
      */
     public record Params(double sizePoints, double sharePoints, double flowPoints, double liftSpan,
-                         double minTargetPerDay, double ratioShrink) {
+                         double minTargetPerDay, double ratioShrink, double sizeMinSpan) {
 
-        /** 팀 초안 배점 40/40/20, 리프트 2배 만점, 최소 인구 기준 없음(EDA 후 결정), 비율 보정 0.5 */
-        public static final Params DEFAULT = new Params(40, 40, 20, 2.0, 0, 0.5);
+        /** 팀 초안 배점 40/40/20, 리프트 2배 만점, 최소 인구 기준 없음(EDA 후 결정), 비율 보정 0.5, 규모 최소 10배 */
+        public static final Params DEFAULT = new Params(40, 40, 20, 2.0, 0, 0.5, 10);
 
         public Params {
             if (sizePoints < 0 || sharePoints < 0 || flowPoints < 0 || sizePoints + sharePoints <= 0) {
@@ -60,6 +62,9 @@ public final class ScoreFormula {
             }
             if (ratioShrink < 0) {
                 throw new IllegalArgumentException("ratioShrink는 0 이상이어야 합니다: " + ratioShrink);
+            }
+            if (sizeMinSpan <= 1) {
+                throw new IllegalArgumentException("sizeMinSpan은 1보다 커야 합니다: " + sizeMinSpan);
             }
         }
     }
@@ -132,7 +137,8 @@ public final class ScoreFormula {
         List<Result> results = new ArrayList<>();
         for (Input in : valid) {
             List<Component> parts = new ArrayList<>();
-            double sizeNorm = maxLog > minLog ? (Math.log(in.n()) - minLog) / (maxLog - minLog) : 1;
+            double logRange = Math.max(maxLog - minLog, Math.log(params.sizeMinSpan()));
+            double sizeNorm = 1 - (maxLog - Math.log(in.n())) / logRange;
             parts.add(component("A", "유동 규모", in.n(), null, null, sizeNorm, params.sizePoints() * scale));
 
             double share = in.t() / in.n();
