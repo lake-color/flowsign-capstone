@@ -89,7 +89,9 @@ def cell_values(fact: pd.DataFrame, c: Criteria) -> pd.DataFrame:
         "T": total.where(target_mask),
         "Tf": (f[tf_col] if tf_col else total).where(target_mask),
     })
-    return tmp.groupby("cell_id").agg(lambda s: s.sum(min_count=1))
+    out = tmp.groupby("cell_id", observed=True).agg(lambda s: s.sum(min_count=1))
+    out.index = out.index.astype(str)  # category로 읽은 경우에도 board_cell(str)과 이어지도록
+    return out
 
 
 def neighbor_kernel(distance: np.ndarray, kernel: str) -> np.ndarray:

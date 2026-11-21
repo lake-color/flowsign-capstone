@@ -1,6 +1,7 @@
 package com.capstone.backend.recommendation;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +84,8 @@ public class RecommendationScorer {
      * @param purposes 게시대 용도 (COMMERCIAL 등), 1개 이상
      * @return 점수 내림차순(명세 4.6 정렬). 조건에 맞는 인구 데이터가 하나도 없는 게시대는 빠진다.
      */
-    public List<ScoreFormula.Result> score(List<String> cities, List<String> purposes, PopulationFilter f) {
+    public List<ScoreFormula.Result> score(List<String> cities, List<String> purposes, PopulationFilter filter) {
+        PopulationFilter f = validated(filter);
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("cities", dbCities(cities))
                 .addValue("purposes", checked(purposes, Codes.PURPOSES, "purposes"));
@@ -94,6 +96,39 @@ public class RecommendationScorer {
                 rs.getObject("t", Double.class), rs.getObject("tf", Double.class)));
         return ScoreFormula.scoreAndRank(inputs(rows, f.days(), centerWeight, neighborSigmaMeters), f.flowType(),
                 params);
+    }
+
+    /**
+     * 추천 API는 POST 본문(JSON)에서 조건을 받으므로 PopulationFilter를 직접 만들 수 있다.
+     * 그 경우에도 조회 API(GET 쿼리)와 같은 검사를 거치도록, 값을 쿼리 형태로 바꿔 {@link PopulationFilter#from}으로
+     * 다시 읽는다. 빈 배열·빠진 값·잘못된 코드는 500이나 빈 결과가 아니라 400 VALIDATION_ERROR가 된다 (명세 5장).
+     */
+    static PopulationFilter validated(PopulationFilter f) {
+        if (f == null) {
+            throw ApiException.badRequest("추천 조건이 없습니다.");
+        }
+        if (f.ageGroups() == null || f.ageGroups().isEmpty()) {
+            throw ApiException.badRequest("ageGroups를 하나 이상 선택해 주세요.");
+        }
+        if (f.timeBands() == null || f.timeBands().isEmpty()) {
+            throw ApiException.badRequest("timeBands를 하나 이상 선택해 주세요.");
+        }
+        Map<String, String> q = new HashMap<>();
+        putIfPresent(q, "gender", f.gender());
+        q.put("ageGroups", String.join(",", f.ageGroups()));
+        putIfPresent(q, "flowType", f.flowType());
+        q.put("timeBands", String.join(",", f.timeBands()));
+        putIfPresent(q, "periodKind", f.periodKind());
+        putIfPresent(q, "season", f.season());
+        putIfPresent(q, "month", f.month() == null ? null : String.valueOf(f.month()));
+        putIfPresent(q, "dayType", f.dayType());
+        return PopulationFilter.from(q);
+    }
+
+    private static void putIfPresent(Map<String, String> q, String key, String value) {
+        if (value != null) {
+            q.put(key, value);
+        }
     }
 
     /** board_cell 한 행 + 그 Cell의 조건별 합계. n·t·tf가 null이면 조건에 맞는 데이터가 없는 칸. */

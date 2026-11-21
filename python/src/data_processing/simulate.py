@@ -17,6 +17,7 @@
   E6 PRD N16       : 대표 조건 10개에서 추천 TOP 10의 타깃 인구(점수와 같은 가중 합) 합이 '전체 유동 많은 순 10개'보다 큰지
   E7 PRD N17       : 대표 조건 5개에서 배점을 ±10점 바꿔도 TOP 10이 평균 7개 이상 유지되는지
   E8 비율 보정     : 인구가 적은 게시대의 비율을 평균 쪽으로 당기는 세기(shrink)별 N16 최저치·신호 반응·안정성
+  E9 빠지는 칸     : 전체 유동은 있는데 타깃 값이 없어 계산에서 빠지는 칸 수 (원본에 조합 행이 빠졌는지 점검)
 """
 
 import sys
@@ -70,7 +71,13 @@ REPRESENTATIVE = [*SCENARIOS.values(),
 
 def load_set(mode: str):
     d = DATA_DIR / {"fake": "generated_fake", "real": "generated_real"}[mode]
-    fact = pd.read_csv(d / "population_fact.csv", dtype={"cell_id": str, "base_month": str})
+    # 실제 데이터는 수백만 행이라 쓰는 컬럼만, 반복되는 코드값은 category로 읽어 메모리를 줄인다
+    fact = pd.read_csv(d / "population_fact.csv",
+                       usecols=["cell_id", "base_month", "day_type", "gender", "age_group", "time_slot",
+                                "stay", "walk", "drive"],
+                       dtype={"cell_id": "category", "base_month": "category", "day_type": "category",
+                              "gender": "category", "age_group": "category", "time_slot": "category",
+                              "stay": "float64", "walk": "float64", "drive": "float64"})
     board_cell = pd.read_csv(d / "board_cell.csv", dtype={"cell_id": str})
     board_cell["is_center"] = board_cell["is_center"].astype(str).str.lower() == "true"
     boards = pd.read_csv(d / "board.csv").set_index("board_id")
@@ -272,6 +279,23 @@ def e7_sensitivity(fact, board_cell, boards) -> list[dict]:
     return rows
 
 
+def e9_sparse(fact, board_cell, boards) -> list[dict]:
+    """칸에 전체 유동(N)은 있는데 타깃(T)이나 유형(Tf) 값이 아예 없는 경우를 센다.
+
+    이런 칸은 '데이터 없는 칸'으로 보고 계산에서 빠지므로(NULL을 0으로 채우지 않음, 명세 1.1),
+    많으면 원본에 성별·연령 조합 행이 빠져 있다는 뜻이고 점수가 남은 칸 위주로 계산된다.
+    """
+    rows = []
+    for i, c in enumerate(REPRESENTATIVE, 1):
+        cells = cell_values(fact, c)
+        used = cells.loc[cells.index.isin(board_cell[board_cell["board_id"].isin(candidates(boards, c))]["cell_id"])]
+        has_n = used["N"].notna()
+        missing = has_n & (used["T"].isna() | used["Tf"].isna())
+        rows.append({"조건": i, "N이 있는 칸": int(has_n.sum()), "그중 T·Tf 없음(빠짐)": int(missing.sum()),
+                     "비율": f"{missing.sum() / max(has_n.sum(), 1):.1%}"})
+    return rows
+
+
 def e8_shrink(fact, board_cell, boards) -> list[dict]:
     pre = []
     for c in REPRESENTATIVE:
@@ -332,7 +356,9 @@ def main() -> None:
             "### E6 N16 기준선 대비 (통과 기준: 10개 중 8개 이상)", "", md_table(e6_baseline(fact, board_cell, boards)), "",
             "### E7 N17 배점 민감도 (통과 기준: TOP 10 중 평균 7개 이상 유지)", "",
             md_table(e7_sensitivity(fact, board_cell, boards)), "",
-            "### E8 비율 보정 세기 (채택 0.5)", "", md_table(e8_shrink(fact, board_cell, boards)), ""]
+            "### E8 비율 보정 세기 (채택 0.5)", "", md_table(e8_shrink(fact, board_cell, boards)), "",
+            "### E9 타깃 값이 없는 칸 (실제 데이터 점검용, 비율이 높으면 공유)", "",
+            md_table(e9_sparse(fact, board_cell, boards)), ""]
     target = d / "simulation"
     target.mkdir(exist_ok=True)
     (target / "report.md").write_text("\n".join(out), encoding="utf-8")
