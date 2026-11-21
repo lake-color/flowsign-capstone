@@ -14,7 +14,7 @@
 ```
 
 > [!NOTE]
-> 현재는 **데모 초안 단계**입니다. 게시대는 실제 공공데이터, 유동인구는 가짜 또는 실제 데이터로 동작하며, 추천 API·문의 API는 아직 없습니다.
+> 현재는 **데모 초안 단계**입니다. 게시대는 실제 공공데이터, 유동인구는 가짜 또는 실제 데이터로 동작하며, 추천 점수 산식은 임시(provisional-v2)이고 문의 API는 아직 없습니다.
 
 **문서**
 
@@ -334,7 +334,7 @@ flowsign/
 │       │   ├── meta/               # GET /meta
 │       │   ├── board/              # GET /boards, /boards/{id}, /boards/{id}/population, /boards/{id}/cells, /boards/{id}/stores
 │       │   ├── cell/               # GET /cells (지도 통신사 Cell 레이어)
-│       │   ├── recommendation/     # 추천 점수 계산 (ScoreFormula·CellWeights·RecommendationScorer). /recommendations/search는 아직 없음
+│       │   ├── recommendation/     # POST /recommendations/search, 추천 점수 계산 (ScoreFormula·CellWeights·RecommendationScorer)
 │       │   └── inquiry/            # /inquiries (자리만 있음)
 │       └── resources/
 │           ├── application*.yml
@@ -494,6 +494,7 @@ gradlew.bat test
 | GET | `/api/v1/boards/{id}/cells` | 3×3 Cell 중심·사각형(GeoJSON)·Cell별 인구 |
 | GET | `/api/v1/boards/{id}/stores` | 3×3 Cell 안 상가 목록과 업종별 개수 (명세 4.8) |
 | GET | `/api/v1/cells` | 화면 범위(`west`, `south`, `east`, `north`) 안 통신사 Cell 중심 (인구값 없음, 최대 3000개) |
+| POST | `/api/v1/recommendations/search` | 조건에 맞는 게시대 추천 순위 (10개씩 `page`), 추천 이유·점수 구성·안내 문구 (명세 4.6) |
 
 `population`·`cells`가 받는 조건 쿼리: `gender`, `ageGroups`, `flowType`, `timeBands`, `periodKind`(+`season`/`month`), `dayType`
 

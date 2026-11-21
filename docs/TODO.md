@@ -58,7 +58,8 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
   - [x] 인구가 적은 게시대의 비율을 평균 쪽으로 보정 (`ratio-shrink` 0.5)
   - [ ] 실제 데이터로 시뮬레이션 재실행 후 확정 (`python -m data_processing.simulate real`)
 - [x] 점수 저장 방식 결정 → Spring에서 요청 시 계산
-- [x] Spring에 점수 계산 구현 (`recommendation/RecommendationScorer`·`ScoreFormula`·`CellWeights`, 추천 API는 미구현)
+- [x] Spring에 점수 계산 구현 (`recommendation/RecommendationScorer`·`ScoreFormula`·`CellWeights`)
+- [ ] 추천 이유 문구 기준값 확정 (현재 임시: 비율 lift 1.1 이상, 유동 규모 0.7 이상)
 - [ ] 입력 조건을 바꿔가며 상위 추천 결과가 납득 가능한지 검증 (가짜 데이터 시나리오 2개 완료, 실제 데이터 남음)
 
 ---
@@ -87,7 +88,8 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 - [ ] 테이블에 대응하는 JPA Entity 작성 여부 결정 (데모는 JdbcTemplate만 사용)
 - [x] 조회 쿼리 작성 (데모: JdbcTemplate, `/meta`·`/boards`·`/population`·`/cells`)
 - [x] 게시대 목록·상세·인구·3×3 Cell API (`/meta`, `/boards` 계열)
-- [ ] 추천 목록 / 문의 등록 API 구현
+- [x] 추천 목록 API 구현 (`POST /recommendations/search`)
+- [ ] 문의 등록 API 구현
 - [ ] 요청 값 검증(`spring-boot-starter-validation`)과 에러 응답 처리
 - [ ] 각 API에 대한 테스트 작성
 

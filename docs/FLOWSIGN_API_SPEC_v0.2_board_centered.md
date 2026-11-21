@@ -422,26 +422,32 @@ interface Criteria {
         "rank":1, "boardId":"1", "name":"가상 게시대 A",
         "city":"ANYANG", "dong":"가상동", "latitude":37.39, "longitude":126.96,
         "purpose":"COMMERCIAL", "canInquire":true,
-        "score": 88.2, "displayScore":88,
-        "targetPopulation":{"value":1500,"status":"AVAILABLE","unitLabel":"가상 수치"},
-        "targetShare":0.31,
-        "reason":"선택한 타깃 규모와 보행 비중이 높은 게시대입니다.",
+        "score": 81.4, "displayScore":81,
+        "targetPopulation":{"value":150.0,"status":"UNVERIFIED","unitLabel":"명/일"},
+        "reason":"20대·30대 여성 비율이 후보 평균의 1.3배입니다. 보행 비중이 후보 평균의 1.2배입니다. 후보 중 유동 규모가 큰 편입니다.",
         "scoreBreakdown":[
-          {"key":"A","label":"타깃 규모","rawValue":1500,"percentile":0.92,"weight":0.4,"contribution":36.8},
-          {"key":"B","label":"타깃 비율","rawValue":0.31,"percentile":0.85,"weight":0.3,"contribution":25.5},
-          {"key":"C","label":"유형 적합도","rawValue":0.60,"percentile":0.80,"weight":0.2,"contribution":16.0},
-          {"key":"D","label":"전체 규모","rawValue":4840,"percentile":0.99,"weight":0.1,"contribution":9.9}
-        ],
-        "sameLocationCount":1
+          {"key":"A","label":"유동 규모","rawValue":480.2,"baseline":null,"lift":null,"normalized":0.92,"weight":40.0,"contribution":36.8},
+          {"key":"B","label":"타깃 비율","rawValue":0.31,"baseline":0.24,"lift":1.27,"normalized":0.67,"weight":40.0,"contribution":26.9},
+          {"key":"C","label":"유형 비중","rawValue":0.6,"baseline":0.5,"lift":1.18,"normalized":0.62,"weight":20.0,"contribution":12.4}
+        ]
       }
     ],
     "page":0,"pageSize":10,"totalItems":1,"hasNext":false,
-    "algorithmVersion":"provisional-v1","algorithmStatus":"PROVISIONAL",
-    "populationAggregationStatus":"VERIFIED"
+    "algorithmVersion":"provisional-v2","algorithmStatus":"PROVISIONAL",
+    "notice":"유동인구 기반 비교 지표이며 실제 광고 노출 인원이 아닙니다.",
+    "dataNotice":"가짜 데이터 기반 데모입니다. 인구값은 선택 기간의 하루 평균(06~20시 집계 유동 규모, 명/일)입니다."
   },
   "meta": {"requestId":"req-example","datasetVersion":"sample","syntheticData":true}
 }
 ```
+
+**응답 필드 (2026-11-21 구현 기준):**
+
+- `targetPopulation`: 상세 화면(4.4)과 같은 3×3 **단순 합계**(`board_population`)의 일평균. 타깃(성별·연령)·시간대·기간·요일·유동 유형 조건을 적용한다. 점수에 쓴 가중 합과 숫자가 다를 수 있다.
+- `scoreBreakdown`: 점수 구성(A·B·C, 유형 `ALL`이면 A·B). `rawValue`(A는 가중 유동 명/일, B·C는 보정 전 비율), `baseline`(B·C 비교 기준 = 후보 전체 비율), `lift`(보정 비율 ÷ baseline), `normalized`(0~1), `weight`(최대 배점), `contribution`(받은 점수).
+- `reason`: `scoreBreakdown`으로 만든 문구. B·C의 `lift`가 1.1 이상이면 "…비율(비중)이 후보 평균의 N배", A의 `normalized`가 0.7 이상이면 "후보 중 유동 규모가 큰 편"을 쓴다. 평균보다 낮은 비율은 쓰지 않으며, 성별·연령이 모두 전체면 B 문구는 쓰지 않는다. 해당 항목이 없으면 "후보 평균과 비슷한 수준" 문구. 기준값 1.1·0.7은 임시값이다.
+- `notice`: 유동인구 기반 비교 지표이며 실제 광고 노출 인원이 아니라는 안내. `dataNotice`: 데이터 종류(가짜/실제)·단위 안내(4.4와 같은 문구).
+- `period.year`가 데이터 연도(2025)가 아니면 400 `UNSUPPORTED_FILTER`. 요청 본문 JSON 형식 오류는 400 `VALIDATION_ERROR`.
 
 **계산안 v2 (`provisional-v2`, 2026-11-21, 아래 v1 대체):** 팀 초안 배점 A 유동 규모 `N` 40 / B 타깃 비율 `T/N` 40 / C 유형 비중 `Tf/T` 20 (유형 `ALL`이면 C 제외, 50/50). T/N/Tf는 3×3 Cell의 **가중 합**(중심 0.8 + 주변 0.2를 게시대→Cell 거리 가우스 σ=250m로 차등, 없는 칸 제외 후 합 1). A는 log(N)을 후보 안 최소~최대로, B·C는 후보 전체 비율 대비 배수를 log 척도(같으면 0.5, 2배 이상 1, 절반 이하 0)로 0~1. 인구가 적은 게시대의 B·C 비율은 후보 평균 쪽으로 보정한다. 파라미터는 `application.yml`의 `flowsign.recommendation.*`. 칸별 가중을 위해 `board_population` 대신 후보 게시대 Cell의 `population_fact`를 읽는다. 근거·시뮬레이션: `docs/RECOMMENDATION_SCORE.md`. `scoreBreakdown`의 B·C에는 비교 기준(`baseline`)과 배수(`lift`)를 함께 둘 수 있다.
 
@@ -702,8 +708,8 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 
 가짜 데이터로 동작하는 데모 초안 기준이다. 실행 방법은 README의 "빠른 시작 (데모)"를 참고한다.
 
-**구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`, `GET /boards/{boardId}/stores`(4.8), `GET /cells`(통신사 Cell 레이어, 아래 참고).
-**미구현:** `POST /recommendations/search`, `POST /inquiries`(및 `inquiry` 테이블).
+**구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`, `GET /boards/{boardId}/stores`(4.8), `GET /cells`(통신사 Cell 레이어, 아래 참고), `POST /recommendations/search`(4.6, 2026-11-21).
+**미구현:** `POST /inquiries`(및 `inquiry` 테이블).
 
 **데모에서 임시로 정한 규칙** (팀 확정 전, 바뀔 수 있음):
 
@@ -718,6 +724,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 | 격자 검증 허용 오차 | 격자 간격의 5% (`mapping.py` `GRID_TOLERANCE`) |
 | 격자선 표시 기준 | 화면에서 한 칸이 12px 이상일 때 (`frontend/src/map/common.ts` `GRID_MIN_PIXELS`) |
 | 3×3 이웃 판정 | 소속 Cell 중심에서 430m 이내 Cell (`mapping.py` `NEIGHBOR_MAX_METERS`) |
+| 추천 이유 기준값 | 비율 `lift` 1.1 이상, 유동 규모 `normalized` 0.7 이상일 때 문구에 넣음 (`backend/.../recommendation/RecommendationService.java`) |
 | 상세 차트 | 차트 라이브러리 미정이라 SVG·CSS로 직접 그림. 주변 업종 원형은 고정 6개 업종(음식점, 카페, 학원·교육, 소매, 병원·의원, 생활서비스)만 색을 주고 나머지는 '기타' |
 
 **명세와 다른 점:**
@@ -726,5 +733,6 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 - **`/boards` 응답:** 마커 목록에도 상세와 같은 필드(주소·게시면·금액 등)를 함께 내려준다.
 - **`dayTypeSourceStatus`:** 데이터에 `WEEKDAY`/`WEEKEND`가 있으면 `VERIFIED`로 반환한다.
 - **`grid`:** `grid_spec` 행이 없으면 `null`을 반환한다.
+- **추천 응답(4.6):** 초안의 `targetShare`, `sameLocationCount`, `populationAggregationStatus`는 내려주지 않는다. `scoreBreakdown`은 v2 형태(`baseline`·`lift`·`normalized`, `percentile` 없음)이고, 점수는 프론트가 쓰던 `contribution` 이름을 유지한다. `notice`·`dataNotice`를 추가했다.
 - **`GET /cells` (4장에 없는 데모 추가 API):** 쿼리 `west`, `south`, `east`, `north`(필수, 지도 화면 범위). 응답 `data`는 `cells`(`cellId`, `latitude`, `longitude` — Cell 중심, 인구값 없음), `cellCount`, `truncated`, `limit`. 범위 안 Cell이 `limit`(3000, 임시값)을 넘으면 `cells=[]`, `truncated=true`를 돌려주고 프론트는 확대 안내를 띄운다. 사각형은 프론트가 Cell 중심 ±125m(미터 기준) 근사로 그리며, 격자 검증 여부와 관계없다. 잘못된 범위는 400 `VALIDATION_ERROR`.
 - **게시대 데이터:** 실제 공공데이터(안양·군포·시흥 445개)를 `build` 1단계에서 표준 `board.csv`로 변환한다. `name`은 게시대위치명, `address`는 지번주소(없으면 도로명주소), `dong`은 지번주소의 동(없으면 `null`). 현수막규격·관리기관 등 `board` 테이블에 없는 컬럼은 쓰지 않는다. 유동인구는 아직 가짜 데이터이며 `build fake`가 게시대 3×3 주변 Cell만 만든다(`data/generated_fake/`).
