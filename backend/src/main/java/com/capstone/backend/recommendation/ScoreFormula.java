@@ -1,6 +1,7 @@
 package com.capstone.backend.recommendation;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
@@ -113,50 +114,78 @@ public final class ScoreFormula {
             return List.of();
         }
         boolean useFlow = !"ALL".equals(flowType);
+        // 유형 ALL이면 C를 빼고 A·B를 같은 비율로 키워 합이 100점이 되게 한다
         double scale = useFlow ? 1 : (params.sizePoints() + params.sharePoints() + params.flowPoints())
                 / (params.sizePoints() + params.sharePoints());
+        Baselines base = Baselines.of(valid, params);
 
-        double minLog = Double.POSITIVE_INFINITY;
-        double maxLog = Double.NEGATIVE_INFINITY;
-        double sumN = 0;
-        double sumT = 0;
-        double sumTf = 0;
+        List<Result> results = new ArrayList<>(valid.size());
         for (Input in : valid) {
-            double log = Math.log(in.n());
-            minLog = Math.min(minLog, log);
-            maxLog = Math.max(maxLog, log);
-            sumN += in.n();
-            sumT += in.t();
-            sumTf += in.tf();
-        }
-        double baseShare = sumT / sumN;
-        double baseFlow = sumT > 0 ? sumTf / sumT : 0;
-        double kN = params.ratioShrink() * median(valid.stream().mapToDouble(Input::n).toArray());
-        double kT = params.ratioShrink() * median(valid.stream().mapToDouble(Input::t).toArray());
-
-        List<Result> results = new ArrayList<>();
-        for (Input in : valid) {
-            List<Component> parts = new ArrayList<>();
-            double logRange = Math.max(maxLog - minLog, Math.log(params.sizeMinSpan()));
-            double sizeNorm = 1 - (maxLog - Math.log(in.n())) / logRange;
-            parts.add(component("A", "유동 규모", in.n(), null, null, sizeNorm, params.sizePoints() * scale));
-
-            double share = in.t() / in.n();
-            double shareAdj = (in.t() + kN * baseShare) / (in.n() + kN);
-            parts.add(ratioComponent("B", "타깃 비율", share, shareAdj, baseShare, params.sharePoints() * scale,
-                    params.liftSpan()));
-
+            List<Component> parts = new ArrayList<>(3);
+            parts.add(sizeComponent(in, base, params.sizePoints() * scale));
+            parts.add(ratioComponent("B", "타깃 비율", in.t(), in.n(), base.share(), base.kN(),
+                    params.sharePoints() * scale, params.liftSpan()));
             if (useFlow) {
-                double flow = in.t() > 0 ? in.tf() / in.t() : 0;
-                double flowAdj = in.t() + kT > 0 ? (in.tf() + kT * baseFlow) / (in.t() + kT) : 0;
-                parts.add(ratioComponent("C", "유형 비중", flow, flowAdj, baseFlow, params.flowPoints(),
-                        params.liftSpan()));
+                parts.add(ratioComponent("C", "유형 비중", in.tf(), in.t(), base.flow(), base.kT(),
+                        params.flowPoints(), params.liftSpan()));
             }
             double score = parts.stream().mapToDouble(Component::points).sum();
             results.add(new Result(in, score, List.copyOf(parts)));
         }
         results.sort(ORDER);
         return results;
+    }
+
+    /**
+     * 후보 전체에서 한 번만 구하는 기준값.
+     *
+     * @param maxLog   가장 큰 log(N). A 만점 기준
+     * @param logRange A의 log 척도 범위: max(최대-최소, log(sizeMinSpan))
+     * @param share    후보 전체 타깃 비율 ΣT/ΣN (B 기준)
+     * @param flow     후보 전체 유형 비중 ΣTf/ΣT (C 기준). 타깃이 없으면 0
+     * @param kN       B 비율 보정 세기 = ratioShrink × N 중앙값
+     * @param kT       C 비율 보정 세기 = ratioShrink × T 중앙값
+     */
+    private record Baselines(double maxLog, double logRange, double share, double flow, double kN, double kT) {
+
+        static Baselines of(List<Input> valid, Params params) {
+            double minLog = Double.POSITIVE_INFINITY;
+            double maxLog = Double.NEGATIVE_INFINITY;
+            double sumN = 0;
+            double sumT = 0;
+            double sumTf = 0;
+            for (Input in : valid) {
+                double log = Math.log(in.n());
+                minLog = Math.min(minLog, log);
+                maxLog = Math.max(maxLog, log);
+                sumN += in.n();
+                sumT += in.t();
+                sumTf += in.tf();
+            }
+            return new Baselines(maxLog, Math.max(maxLog - minLog, Math.log(params.sizeMinSpan())),
+                    sumT / sumN, sumT > 0 ? sumTf / sumT : 0,
+                    params.ratioShrink() * median(valid.stream().mapToDouble(Input::n).toArray()),
+                    params.ratioShrink() * median(valid.stream().mapToDouble(Input::t).toArray()));
+        }
+    }
+
+    /** A 유동 규모: 가장 큰 게시대 = 1, log 척도로 logRange만큼 작으면 0 */
+    private static Component sizeComponent(Input in, Baselines base, double weight) {
+        double norm = 1 - (base.maxLog() - Math.log(in.n())) / base.logRange();
+        return new Component("A", "유동 규모", in.n(), null, null, norm, weight, norm * weight);
+    }
+
+    /**
+     * B·C 비율 지표 (part ÷ whole). 화면에는 실제 비율(rawValue)을, 점수에는 평균 쪽으로 k만큼 당긴 비율을 쓴다:
+     * (part + k·baseline) / (whole + k).
+     */
+    private static Component ratioComponent(String key, String label, double part, double whole, double baseline,
+                                            double k, double weight, double span) {
+        double raw = whole > 0 ? part / whole : 0;
+        double adjusted = whole + k > 0 ? (part + k * baseline) / (whole + k) : 0;
+        Double lift = baseline > 0 ? adjusted / baseline : null;
+        double norm = liftScore(adjusted, baseline, span);
+        return new Component(key, label, raw, baseline, lift, norm, weight, norm * weight);
     }
 
     /** 명세 4.6 정렬. 게시면수가 없으면 가장 적은 것으로, 부착금액이 없으면 가장 뒤로. */
@@ -178,22 +207,11 @@ public final class ScoreFormula {
         return Math.max(0, Math.min(1, value));
     }
 
-    /** raw: 화면용 실제 비율, adjusted: 평균 쪽으로 보정해 점수에 쓰는 비율 */
-    private static Component ratioComponent(String key, String label, double raw, double adjusted, double baseline,
-                                            double weight, double span) {
-        Double lift = baseline > 0 ? adjusted / baseline : null;
-        return component(key, label, raw, baseline, lift, liftScore(adjusted, baseline, span), weight);
-    }
-
+    /** 중앙값 (개수가 짝수면 가운데 두 값의 평균) */
     static double median(double[] values) {
         double[] sorted = values.clone();
-        java.util.Arrays.sort(sorted);
+        Arrays.sort(sorted);
         int mid = sorted.length / 2;
         return sorted.length % 2 == 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-    }
-
-    private static Component component(String key, String label, double raw, Double baseline, Double lift,
-                                       double norm, double weight) {
-        return new Component(key, label, raw, baseline, lift, norm, weight, norm * weight);
     }
 }
