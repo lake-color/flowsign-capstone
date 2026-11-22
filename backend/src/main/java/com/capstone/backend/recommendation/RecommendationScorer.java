@@ -107,12 +107,8 @@ public class RecommendationScorer {
         if (f == null) {
             throw ApiException.badRequest("추천 조건이 없습니다.");
         }
-        if (f.ageGroups() == null || f.ageGroups().isEmpty()) {
-            throw ApiException.badRequest("ageGroups를 하나 이상 선택해 주세요.");
-        }
-        if (f.timeBands() == null || f.timeBands().isEmpty()) {
-            throw ApiException.badRequest("timeBands를 하나 이상 선택해 주세요.");
-        }
+        requireValues(f.ageGroups(), "ageGroups");
+        requireValues(f.timeBands(), "timeBands");
         Map<String, String> q = new HashMap<>();
         putIfPresent(q, "gender", f.gender());
         q.put("ageGroups", String.join(",", f.ageGroups()));
@@ -123,6 +119,21 @@ public class RecommendationScorer {
         putIfPresent(q, "month", f.month() == null ? null : String.valueOf(f.month()));
         putIfPresent(q, "dayType", f.dayType());
         return PopulationFilter.from(q);
+    }
+
+    /**
+     * 비어 있거나 빈 문자열이 섞인 목록은 400. 쿼리 형태로 바꾸면 [""]가 "값 없음"이 되어
+     * 조회 API 기본값(전체 선택)으로 조용히 바뀌기 때문에 여기서 먼저 막는다.
+     */
+    private static void requireValues(List<String> values, String field) {
+        if (values == null || values.isEmpty()) {
+            throw ApiException.badRequest(field + "를 하나 이상 선택해 주세요.");
+        }
+        for (String v : values) {
+            if (v == null || v.isBlank()) {
+                throw ApiException.badRequest(field + "에 빈 값이 있습니다.");
+            }
+        }
     }
 
     private static void putIfPresent(Map<String, String> q, String key, String value) {
@@ -238,7 +249,8 @@ public class RecommendationScorer {
         return checked(cities, Codes.CITIES, "cities").stream().map(Codes.CITY_TO_DB::get).toList();
     }
 
-    private static List<String> checked(List<String> values, List<String> allowed, String field) {
+    /** 허용 목록 검사 후 중복을 뺀다. 같은 값을 많이 보내도 SQL 파라미터가 늘지 않게 한다. */
+    static List<String> checked(List<String> values, List<String> allowed, String field) {
         if (values == null || values.isEmpty()) {
             throw ApiException.badRequest(field + "를 하나 이상 선택해 주세요.");
         }
@@ -247,6 +259,6 @@ public class RecommendationScorer {
                 throw ApiException.badRequest(field + " 값이 올바르지 않습니다: " + v);
             }
         }
-        return values;
+        return values.stream().distinct().toList();
     }
 }

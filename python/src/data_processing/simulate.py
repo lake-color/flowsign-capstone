@@ -40,6 +40,8 @@ from data_processing.scoring import (
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 TOP = 5
+REAL_WARNING = ("> **실제 데이터에서 나온 결과입니다.** 깃허브·메신저·AI 도구 등 팀 밖으로 공유하지 않습니다 "
+                "(README '데이터와 보안').")
 METHODS = ["percentile", "minmax", "hybrid"]
 
 SCENARIOS = {
@@ -337,7 +339,7 @@ def main() -> None:
     d, fact, board_cell, boards = load_set(mode)
     # 조건마다 칸 값·게시대 입력을 한 번만 계산해 모든 실험이 같이 쓴다 (앞 2개가 시나리오 S1·S2)
     preps = [prepare(fact, board_cell, boards, c) for c in REPRESENTATIVE]
-    out = [f"# 추천 점수 시뮬레이션 ({mode})", "",
+    out = [f"# 추천 점수 시뮬레이션 ({mode})", "", *([REAL_WARNING, ""] if mode == "real" else []),
            f"후보 게시대 {len(boards)}개, Cell {fact['cell_id'].nunique():,}개, 인구 행 {len(fact):,}행.",
            ("정규화: percentile = 모든 지표 후보 내 백분위 / minmax = 최소·최대 / "
             "hybrid(채택) = A는 log 척도 최소·최대, B·C는 후보 평균 대비 배수(log, 평균=0.5, 2배=1, 절반=0)"), ""]
@@ -359,11 +361,15 @@ def main() -> None:
             "### E7 N17 배점 민감도 (통과 기준: TOP 10 중 평균 7개 이상 유지)", "",
             md_table(e7_sensitivity(preps, boards)), "",
             "### E8 비율 보정 세기 (채택 0.5)", "", md_table(e8_shrink(preps, boards)), "",
-            "### E9 타깃 값이 없는 칸 (실제 데이터 점검용, 비율이 높으면 공유)", "", md_table(e9_sparse(preps)), ""]
+            "### E9 타깃 값이 없는 칸 (실제 데이터 점검용, 비율이 높으면 팀 내부에 알림)", "", md_table(e9_sparse(preps)), ""]
     target = d / "simulation"
     target.mkdir(exist_ok=True)
     (target / "report.md").write_text("\n".join(out), encoding="utf-8")
-    print("\n".join(out))
+    if mode == "real":
+        # 실제 데이터 결과(행 수·비율·Cell ID 등)가 터미널 출력으로 복사·공유되지 않도록 화면에는 내지 않는다
+        print("실제 데이터 결과는 화면에 출력하지 않습니다. 보고서 파일을 직접 열어 확인하고 팀 밖으로 공유하지 마세요.")
+    else:
+        print("\n".join(out))
     print(f"\n저장: {target / 'report.md'}")
 
 

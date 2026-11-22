@@ -126,6 +126,23 @@ class RecommendationScorerTest {
     }
 
     @Test
+    void blankEntryIsValidationErrorNotWholeAxis() {
+        // [""]를 그대로 넘기면 조회 API 기본값(전체 선택)으로 바뀌어 다른 조건으로 계산된다
+        assertValidationError(new PopulationFilter("ALL", List.of(""), "ALL", ALL_TIMES, "YEAR", null, null, "ALL"));
+        assertValidationError(new PopulationFilter("ALL", ALL_AGES, "ALL", List.of(" "), "YEAR", null, null, "ALL"));
+        assertValidationError(new PopulationFilter("ALL", List.of("AGE_20S", ""), "ALL", ALL_TIMES, "YEAR",
+                null, null, "ALL"));
+    }
+
+    @Test
+    void duplicatedCitiesAndPurposesAreCollapsed() {
+        assertThat(RecommendationScorer.checked(List.of("COMMERCIAL", "MIXED", "COMMERCIAL"), Codes.PURPOSES,
+                "purposes")).containsExactly("COMMERCIAL", "MIXED");
+        assertThat(RecommendationScorer.checked(List.of("ANYANG", "ANYANG"), Codes.CITIES, "cities"))
+                .containsExactly("ANYANG");
+    }
+
+    @Test
     void validFilterIsKeptAndNormalized() {
         PopulationFilter f = RecommendationScorer.validated(new PopulationFilter("FEMALE",
                 List.of("AGE_30S", "AGE_20S"), "WALK", ALL_TIMES, "SEASON", "SUMMER", null, "WEEKEND"));
