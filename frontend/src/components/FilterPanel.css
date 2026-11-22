@@ -192,14 +192,6 @@
   cursor: not-allowed;
 }
 
-.soon {
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--card);
-  font-size: 10px;
-  font-weight: 700;
-}
-
 .btn:focus-visible,
 .link:focus-visible {
   outline: 2px solid var(--accent);

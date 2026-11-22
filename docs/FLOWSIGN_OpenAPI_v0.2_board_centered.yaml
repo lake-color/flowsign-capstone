@@ -150,7 +150,7 @@ paths:
       tags: [Recommendations]
       operationId: searchRecommendations
       summary: 조건 기반 게시대 추천
-      description: 추천 점수는 Spring이 board_population(3×3 Cell 합계)을 읽어 요청 시 계산. 가중치·산식은 임시값(PROVISIONAL).
+      description: 추천 점수는 Spring이 후보 게시대 3×3 Cell의 population_fact를 가중 합해 요청 시 계산(provisional-v2). 목록 인구(targetPopulation)는 상세와 같은 board_population 3×3 합계. 가중치·산식은 임시값(PROVISIONAL).
       requestBody:
         required: true
         content:
@@ -604,17 +604,19 @@ components:
         pageSize: {type: integer, default: 10, minimum: 1, maximum: 50}
     ScoreComponent:
       type: object
-      required: [key, label, rawValue, percentile, weight, contribution]
+      required: [key, label, rawValue, baseline, lift, normalized, weight, contribution]
       properties:
-        key: {type: string, enum: [A, B, C, D]}
+        key: {type: string, enum: [A, B, C]}
         label: {type: string}
-        rawValue: {type: number, nullable: true}
-        percentile: {type: number, nullable: true, minimum: 0, maximum: 1}
-        weight: {type: number, minimum: 0, maximum: 1}
-        contribution: {type: number, nullable: true}
+        rawValue: {type: number, description: 'A는 가중 유동(명/일), B·C는 보정 전 비율'}
+        baseline: {type: number, nullable: true, description: 'B·C 비교 기준(후보 전체 비율). A는 null'}
+        lift: {type: number, nullable: true, description: '보정 비율 / baseline. A는 null'}
+        normalized: {type: number, minimum: 0, maximum: 1}
+        weight: {type: number, minimum: 0, description: 최대 배점}
+        contribution: {type: number, minimum: 0, description: 받은 점수}
     RecommendationItem:
       type: object
-      required: [rank, boardId, name, city, latitude, longitude, purpose, canInquire, score, displayScore, targetPopulation, targetShare, reason, scoreBreakdown, sameLocationCount]
+      required: [rank, boardId, name, city, latitude, longitude, purpose, canInquire, score, displayScore, targetPopulation, reason, scoreBreakdown]
       properties:
         rank: {type: integer, minimum: 1}
         boardId: {type: string}
@@ -628,15 +630,13 @@ components:
         score: {type: number, minimum: 0, maximum: 100}
         displayScore: {type: integer, minimum: 0, maximum: 100}
         targetPopulation: {$ref: '#/components/schemas/PopulationValue'}
-        targetShare: {type: number, nullable: true, minimum: 0, maximum: 1}
         reason: {type: string}
         scoreBreakdown:
           type: array
           items: {$ref: '#/components/schemas/ScoreComponent'}
-        sameLocationCount: {type: integer, minimum: 1}
     RecommendationResult:
       type: object
-      required: [criteria, items, page, pageSize, totalItems, hasNext, algorithmVersion, algorithmStatus, populationAggregationStatus]
+      required: [criteria, items, page, pageSize, totalItems, hasNext, algorithmVersion, algorithmStatus, notice, dataNotice]
       properties:
         criteria: {$ref: '#/components/schemas/Criteria'}
         items:
@@ -648,7 +648,8 @@ components:
         hasNext: {type: boolean}
         algorithmVersion: {type: string}
         algorithmStatus: {type: string, enum: [PROVISIONAL, CONFIRMED]}
-        populationAggregationStatus: {type: string, enum: [VERIFIED, UNVERIFIED, PARTIAL]}
+        notice: {type: string, description: 유동인구 기반 비교 지표이며 실제 광고 노출 인원이 아니라는 안내}
+        dataNotice: {type: string, description: 데이터 종류(가짜/실제)·단위 안내}
     RecommendationResponse:
       type: object
       required: [data, meta]

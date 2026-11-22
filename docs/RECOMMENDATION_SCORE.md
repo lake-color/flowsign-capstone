@@ -142,7 +142,7 @@ List<ScoreFormula.Result> ranked = recommendationScorer.score(cities, purposes, 
   - 추천 이유 예: "20~30대 여성 비율이 후보 평균의 1.3배(B lift)", "보행 비중이 평균보다 높음(C lift > 1)", "유동 규모가 후보 상위권(A normalized)".
 - `Result.input().matchedCellCount() < expectedCellCount()`이면 일부 칸 데이터 없이 계산된 것(PARTIAL 표시용).
 - 지금 적용 중인 배점 등은 `recommendationScorer.params()`로 읽을 수 있다(응답의 `weight`와 같은 값).
-- 알고리즘 버전은 `ScoreFormula.VERSION`(`provisional-v2`), 상태는 `PROVISIONAL`. `/meta`의 `algorithmVersion`(현재 `provisional-v1`)도 이 값으로 맞추면 된다.
+- 알고리즘 버전은 `ScoreFormula.VERSION`(`provisional-v2`), 상태는 `PROVISIONAL`. `/meta`의 `algorithmVersion`도 `provisional-v2`로 맞췄다(문자열이라 산식 버전을 올리면 함께 고친다).
 - 추천 API가 먼저 할 검사: 데이터 미적재 → 503 `DATA_NOT_READY`, 없는 요일 구분 → 400 `UNSUPPORTED_FILTER` (조회 API와 같은 기준, `DayTypeReader`).
 
 ## 7. 남은 일·한계

@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -32,6 +33,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorBody> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         return body(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", e.getName() + " 값이 올바르지 않습니다: " + e.getValue());
+    }
+
+    /** 추천 API처럼 JSON 본문을 받을 때 형식이 틀리거나(문법 오류, 숫자 자리에 문자 등) 읽을 수 없는 경우. 500이 아니라 400 */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorBody> handleUnreadableBody(HttpMessageNotReadableException e) {
+        return body(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "요청 본문 형식이 올바르지 않습니다.");
     }
 
     /** 없는 URL. 아래 Exception 처리에 잡혀 500이 되지 않도록 404로 돌려준다 (BOARD_NOT_FOUND와 구분, PR #5 리뷰 합의). */
