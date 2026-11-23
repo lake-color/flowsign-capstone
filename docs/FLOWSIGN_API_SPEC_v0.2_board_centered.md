@@ -181,7 +181,7 @@ interface Criteria {
 | P0 | `POST` | `/api/v1/recommendations/search` | **추천 분석하기** 클릭 | E `board_population` (+ C `board`) |
 | P0 | `POST` | `/api/v1/inquiries` | **광고 신청 문의** 전송 | `inquiry` |
 
-**제거:** `POST /api/v1/map/population`, `GET /api/v1/cells/population` 등 **게시대와 무관한 전역 Cell 조회 API**. 기본 화면에서 Cell 자동 조회하지 않는다. 지도 전체 격자선은 `/meta`의 `grid` 기준값만으로 그리므로 별도 Cell API가 필요 없다. 전체 격자 인구 조회는 확장 기능으로 남기며 MVP에서 정의하지 않는다.
+**제거:** `POST /api/v1/map/population`, `GET /api/v1/cells/population` 등 **게시대와 무관한 전역 Cell 조회 API**. 기본 화면에서 Cell 자동 조회하지 않는다. 지도 전체 격자선은 `/meta`의 `grid` 기준값만으로 그리므로 별도 Cell API가 필요 없다. (지도 Cell 사각형 레이어용 데모 API `/cells`·`/board-cells`는 인구값이 없고, 레이어를 켰을 때만 호출한다. 11장 참고) 전체 격자 인구 조회는 확장 기능으로 남기며 MVP에서 정의하지 않는다.
 
 ## 4. 엔드포인트 상세
 
@@ -704,6 +704,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 - OpenAPI 초안: `FLOWSIGN_OpenAPI_v0.2_board_centered.yaml`
 - A~D 기본 테이블 및 E `board_population`: 팀 설계. F `grid250_population`은 팀 결정으로 제외.
 - v0.2.1(2026-11-07): 영향권을 반경 100m에서 소속 Cell 기준 3×3으로 변경, `radiusMeters` 제거, 격자선 옵션·`grid` 추가, PostGIS 미사용, 점수 Spring 계산, 원본 컬럼 매핑 반영. 같은 날 원본 Cell 크기를 50m → **250m**로 정정(3×3 유지, Cell = 중심 ±125m). 원본 값 처리 규칙(소수 인구값, 분류 컬럼 NULL → `UNKNOWN`) 반영.
+- 2026-11-23: 지도 '통신사 Cell' 레이어를 메뉴에서 빼고(코드·`/cells`는 유지) '게시대 Cell' 레이어와 `GET /board-cells` 추가. 격자 간격을 250m 고정값으로 계산하고, `NOT_VERIFIED`여도 격자선을 근사로 표시.
 
 ## 11. 데모 구현 현황 (2026-11-07)
 
