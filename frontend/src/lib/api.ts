@@ -90,6 +90,12 @@ export const api = {
       `/cells?${new URLSearchParams({ west: String(b.west), south: String(b.south), east: String(b.east), north: String(b.north) })}`,
       signal,
     ),
+  /** 화면 범위 안에서 어느 게시대든 그 3×3에 속한 Cell. 응답 모양은 cellsInView와 같다 */
+  boardCellsInView: (b: Bounds, signal?: AbortSignal) =>
+    get<{ cells: MapCell[]; truncated: boolean; limit: number }>(
+      `/board-cells?${new URLSearchParams({ west: String(b.west), south: String(b.south), east: String(b.east), north: String(b.north) })}`,
+      signal,
+    ),
   /** 추천 결과 한 페이지(10개). page는 0부터 */
   recommend: (q: PopulationQuery, page: number, signal?: AbortSignal) =>
     post<RecommendationResult>('/recommendations/search', { criteria: toCriteria(q), page, pageSize: RECOMMEND_PAGE_SIZE }, signal),

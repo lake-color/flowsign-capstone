@@ -17,7 +17,8 @@
 | 영향권 | **게시대 위경도가 속한 Cell(가장 가까운 Cell 중심) 1개 + 주변 8칸 = 3×3, 최대 9 Cell(약 750m × 750m)**; `board_cell`에서 조회. 반경(`radiusMeters`) 개념 제거 | 확정 (2026-11-07, 250m Cell 기준 유지) |
 | 게시대 마커 위치 | Cell 중심이 아닌 **게시대 자체 위경도** | 확정 |
 | 250m 격자선 | 지도 전체에 격자선 표시, 체크박스로 켜고 끔. 인구값 없음 | 확정 |
-| 통신사 Cell 레이어 | 데이터에 있는 Cell을 지도 전체에 사각형으로 표시(화면 범위만 조회), 체크박스로 켜고 끔. **인구값 없음**. 인구는 선택 게시대와 그 3×3칸에만 표시 | 확정 (2026-11-10) |
+| 게시대 Cell 레이어 | 화면 범위 안 모든 게시대의 3×3 Cell을 사각형으로 표시(`GET /board-cells`), 체크박스로 켜고 끔. **인구값 없음**. 인구는 선택 게시대와 그 3×3칸에만 표시 | 확정 (2026-11-23) |
+| 통신사 Cell 레이어 | 데이터에 있는 Cell 전체를 사각형으로 표시(`GET /cells`). 2026-11-23 가시성 메뉴에서 빼고 코드는 남김(URL `allcells=1`로만 켬) | 보류 (2026-11-23) |
 | 주변 업종 | 소상공인시장진흥공단 상가(상권)정보(공공데이터)로 선택 게시대 3×3 Cell 안 상가를 업종 묶음 15개로 세어 상세에 표시, 지도 '주변 업종' 레이어로 점 표시. 추천 점수에는 반영하지 않음 | 확정 (2026-11-17), 4.8 |
 | E 분석 테이블 | `board_population`: 게시대별 3×3 Cell 집계 | 설계 완료, 적재 전 검증 필요 |
 | F 전역 분포 | `grid250_population` 관련 화면/서비스 API | **MVP 제외**; DB 잔존 시 즉시 삭제 필요 없음 |
@@ -102,7 +103,7 @@
 - **3×3:** 소속 Cell 중심에서 상하좌우(250m)와 대각선(약 354m) 이웃까지 포함한다. 다음 바깥 칸은 500m부터이므로 그 사이 거리로 구분한다. 영향권 전체는 약 750m × 750m이다.
 - **데이터가 없는 Cell:** 9칸 중 데이터가 없는 칸(중심 Cell 포함)은 집계·점수 계산에서 빼고 나머지 칸으로 계산한다. `expectedCellCount`/`matchedCellCount`로 표시한다. 9칸 모두 없으면 해당 게시대는 `hasPopulationData=false`로 추천에서 제외한다.
 - **같은 Cell의 여러 게시대:** 같은 9칸을 공유하므로 점수가 같다. 250m Cell이므로 같은 Cell을 공유하는 게시대가 흔할 수 있다. 4.6의 동점 정렬 규칙을 따른다.
-- **격자 정합성 검증:** Python 배치가 모든 Cell 중심이 `grid_spec` 격자 위에 있는지 검증한다. 허용 오차를 넘으면 `grid_spec.status=NOT_VERIFIED`가 되고, 프론트는 격자선 옵션을 비활성화한다. 허용 오차 값은 실데이터 확인 후 정한다. 격자 검증은 **격자선 표시에만** 쓰이며, Cell 사각형 표시와 매핑·집계에는 영향이 없다(아래 지오메트리 계약).
+- **격자 정합성 검증:** Python 배치가 모든 Cell 중심이 `grid_spec` 격자 위에 있는지 검증한다. 격자 간격은 250m를 위도·경도로 바꾼 값으로 고정하고(경도는 Cell 평균 위도 기준), 원점은 Cell 중심이 칸 가운데에 가장 잘 오도록 고른다. 허용 오차를 넘으면 `grid_spec.status=NOT_VERIFIED`가 되지만, 프론트는 격자선을 **근사로 계속 표시**한다(2026-11-23). 허용 오차 값은 실데이터 확인 후 정한다. 격자 검증은 **격자선 표시 안내에만** 쓰이며, Cell 사각형 표시와 매핑·집계에는 영향이 없다(아래 지오메트리 계약).
 - 공간 계산은 모두 Python 배치에서 한 번 수행하며 PostGIS를 사용하지 않는다. DB에는 위경도를 `double precision` 컬럼으로 저장한다.
 - 광고 신청 문의: `inquiry`에 Spring 트랜잭션으로 저장. 조회용 관리자 API 없음.
 - `grid250_population`은 더 이상 새로 만들 필요 없음. 이미 만들어졌다면 이후 삭제 여부 별도 판단.
@@ -223,7 +224,7 @@ interface Criteria {
 
 *중요:* 이 응답의 `availableDayTypes`/`recommendationAvailable`은 **예시 상태**일 뿐이며, 수령된 실제 데이터 상태에 따라 결정한다. 프론트는 사용할 수 없는 시간/주중 필터를 실제 값인 것처럼 보여주지 않는다.
 
-**`grid` (지도 격자선 기준값):** Python 배치가 Cell 데이터에서 계산해 `grid_spec`에 저장한 값이다. `originLatitude/originLongitude`는 기준 Cell의 남서쪽 모서리, `latitudeStepDeg/longitudeStepDeg`는 250m에 해당하는 위도·경도 간격이다(예시 숫자는 가상값). 프론트는 이 값으로 현재 지도 화면 범위의 격자선만 계산해 그린다. `status=NOT_VERIFIED`이면 격자선 체크박스를 비활성화한다.
+**`grid` (지도 격자선 기준값):** Python 배치가 Cell 데이터에서 계산해 `grid_spec`에 저장한 값이다. `originLatitude/originLongitude`는 기준 Cell의 남서쪽 모서리, `latitudeStepDeg/longitudeStepDeg`는 250m에 해당하는 위도·경도 간격이다(예시 숫자는 가상값). 프론트는 이 값으로 현재 지도 화면 범위의 격자선만 계산해 그린다. `status=NOT_VERIFIED`이어도 근사로 그리고 '(근사)'로 안내한다.
 
 ### 4.2 `GET /api/v1/boards`
 
@@ -602,7 +603,7 @@ interface Criteria {
 ## 6. React 비동기 호출 규칙
 
 1. 첫 진입: `GET /meta` + `GET /boards` 동시 또는 각각 호출. **전역 인구 지도 API는 호출하지 않는다.** 초기 지도에 게시대 마커(행정용 포함)만 게시대 위경도에 표시.
-2. **250m 격자선 체크박스:** 켜면 `/meta.grid` 기준값으로 현재 화면 범위의 격자선만 계산해 그린다(서버 호출 없음). 지도 이동·확대 시 다시 계산한다. 화면에서 250m가 일정 픽셀 이상일 때만 표시하며, 기준 픽셀 값은 구현 시 화면을 보고 정한다. `grid.status=NOT_VERIFIED`이면 체크박스를 비활성화한다.
+2. **250m 격자선 체크박스:** 켜면 `/meta.grid` 기준값으로 현재 화면 범위의 격자선만 계산해 그린다(서버 호출 없음). 지도 이동·확대 시 다시 계산한다. 화면에서 250m가 일정 픽셀 이상일 때만 표시하며, 기준 픽셀 값은 구현 시 화면을 보고 정한다. `grid`가 없을 때만 체크박스를 비활성화하고, `grid.status=NOT_VERIFIED`이면 근사로 그린다.
 3. 마커 선택: `GET /boards/{boardId}` + `GET /boards/{boardId}/population` 병렬 호출. 로딩 중 상세 스켈레톤, 선택 마커 강조.
 4. '3×3 Cell 보기' 클릭: 그때만 `GET /boards/{boardId}/cells` 호출해 9칸 경계(검증된 경우)와 Cell별 인구 표시. 해제 시 레이어만 제거, 상세 유지.
 5. 추천 조건 UI에서는 **draftCriteria** 수정만 반영. `추천 분석하기` 클릭 시 `POST /recommendations/search`, 서버 성공 시 **appliedCriteria** 갱신. 요청 중 최신 요청만 결과 반영. 페이지 추가 로딩은 같은 appliedCriteria로 `page=1,2...`.
@@ -708,7 +709,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 
 가짜 데이터로 동작하는 데모 초안 기준이다. 실행 방법은 README의 "빠른 시작 (데모)"를 참고한다.
 
-**구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`, `GET /boards/{boardId}/stores`(4.8), `GET /cells`(통신사 Cell 레이어, 아래 참고), `POST /recommendations/search`(4.6, 2026-11-21).
+**구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`, `GET /boards/{boardId}/stores`(4.8), `GET /cells`(통신사 Cell 레이어)·`GET /board-cells`(게시대 Cell 레이어, 아래 참고), `POST /recommendations/search`(4.6, 2026-11-21).
 **미구현:** `POST /inquiries`(및 `inquiry` 테이블).
 
 **데모에서 임시로 정한 규칙** (팀 확정 전, 바뀔 수 있음):
@@ -735,4 +736,5 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 - **`grid`:** `grid_spec` 행이 없으면 `null`을 반환한다.
 - **추천 응답(4.6):** 초안의 `targetShare`, `sameLocationCount`, `populationAggregationStatus`는 내려주지 않는다. `scoreBreakdown`은 v2 형태(`baseline`·`lift`·`normalized`, `percentile` 없음)이고, 점수는 프론트가 쓰던 `contribution` 이름을 유지한다. `notice`·`dataNotice`를 추가했다.
 - **`GET /cells` (4장에 없는 데모 추가 API):** 쿼리 `west`, `south`, `east`, `north`(필수, 지도 화면 범위). 응답 `data`는 `cells`(`cellId`, `latitude`, `longitude` — Cell 중심, 인구값 없음), `cellCount`, `truncated`, `limit`. 범위 안 Cell이 `limit`(3000, 임시값)을 넘으면 `cells=[]`, `truncated=true`를 돌려주고 프론트는 확대 안내를 띄운다. 사각형은 프론트가 Cell 중심 ±125m(미터 기준) 근사로 그리며, 격자 검증 여부와 관계없다. 잘못된 범위는 400 `VALIDATION_ERROR`.
+- **`GET /board-cells` (데모 추가 API, 2026-11-23):** 쿼리·응답·제한·오류는 `/cells`와 같다. 어느 게시대든 그 3×3에 속한 Cell(`board_cell` 기준)만 중복 없이 돌려준다. 지도 '게시대 Cell' 레이어용이며 인구값은 없다.
 - **게시대 데이터:** 실제 공공데이터(안양·군포·시흥 445개)를 `build` 1단계에서 표준 `board.csv`로 변환한다. `name`은 게시대위치명, `address`는 지번주소(없으면 도로명주소), `dong`은 지번주소의 동(없으면 `null`). 현수막규격·관리기관 등 `board` 테이블에 없는 컬럼은 쓰지 않는다. 유동인구는 아직 가짜 데이터이며 `build fake`가 게시대 3×3 주변 Cell만 만든다(`data/generated_fake/`).

@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { PURPOSE_LABEL } from '../lib/constants'
-import type { Purpose } from '../lib/types'
+import type { GridSpec, Purpose } from '../lib/types'
 import { PURPOSE_COLOR } from '../map/common'
 import './LayerMenu.css'
 
 interface Props {
-  /** 250m 격자선. 격자 검증이 끝나지 않았으면(gridReady=false) 켤 수 없다. */
+  /** 250m 격자선. 격자 정보(/meta.grid)가 없으면 켤 수 없다. 검증 전(NOT_VERIFIED)이면 근사로 그린다. */
   showGrid: boolean
   onShowGridChange: (v: boolean) => void
-  gridReady: boolean
-  /** 통신사 Cell 전체 (화면 범위, 인구값 없음) */
-  showAllCells: boolean
-  onShowAllCellsChange: (v: boolean) => void
+  grid: GridSpec | null
+  /** 게시대 Cell: 화면 범위 안 모든 게시대의 3×3 Cell (인구값 없음) */
+  showBoardCells: boolean
+  onShowBoardCellsChange: (v: boolean) => void
   /** 선택 게시대의 3×3 Cell. 게시대를 고르지 않았으면(hasSelectedBoard=false) 켤 수 없다. */
   showCells: boolean
   onShowCellsChange: (v: boolean) => void
@@ -52,11 +52,11 @@ function SwitchRow(props: {
 }
 
 /**
- * 왼쪽 탭 아래의 '가시성' 버튼과 팝오버. 지도에 겹쳐 그리는 레이어(격자선·통신사 Cell·3×3 Cell·주변 업종)와
+ * 왼쪽 탭 아래의 '가시성' 버튼과 팝오버. 지도에 겹쳐 그리는 레이어(격자선·게시대 Cell·3×3 Cell·주변 업종)와
  * 상업용·겸용·행정용 게시대 마커 표시를 켜고 끈다. 바깥을 누르거나 Esc를 누르면 닫힌다.
  */
 function LayerMenu({
-  showGrid, onShowGridChange, gridReady, showAllCells, onShowAllCellsChange,
+  showGrid, onShowGridChange, grid, showBoardCells, onShowBoardCellsChange,
   showCells, onShowCellsChange, hasSelectedBoard, showStores, onShowStoresChange, purposeVisible, onPurposeVisibleChange,
 }: Props) {
   const [open, setOpen] = useState(false)
@@ -79,6 +79,7 @@ function LayerMenu({
   }, [open])
 
   const hiddenCount = PURPOSES.filter((p) => !purposeVisible[p]).length
+  const gridHint = !grid ? '격자 정보가 없습니다.' : grid.status === 'VERIFIED' ? '화면 범위의 격자선' : '화면 범위의 격자선 (근사)'
 
   return (
     <div className="layer-wrap" ref={wrapRef}>
@@ -97,10 +98,9 @@ function LayerMenu({
           <h3>지도 가시성</h3>
 
           <p className="layer-title">레이어</p>
-          <SwitchRow label="250m 격자선" hint={gridReady ? '화면 범위의 격자선' : '격자 검증 전에는 사용할 수 없습니다.'}
-            checked={showGrid} disabled={!gridReady} onChange={onShowGridChange} />
-          <SwitchRow label="통신사 Cell" hint="화면 범위의 Cell 전체"
-            checked={showAllCells} onChange={onShowAllCellsChange} />
+          <SwitchRow label="250m 격자선" hint={gridHint} checked={showGrid} disabled={!grid} onChange={onShowGridChange} />
+          <SwitchRow label="게시대 Cell" hint="화면 범위 모든 게시대의 3×3 Cell"
+            checked={showBoardCells} onChange={onShowBoardCellsChange} />
           <SwitchRow label="3×3 Cell" hint={hasSelectedBoard ? '선택한 게시대의 영향권' : '게시대를 먼저 선택하세요.'}
             checked={showCells} disabled={!hasSelectedBoard} onChange={onShowCellsChange} />
           <SwitchRow label="주변 업종" hint={hasSelectedBoard ? '선택한 게시대 3×3 Cell 안의 상가' : '게시대를 먼저 선택하세요.'}

@@ -94,26 +94,35 @@ def aggregate_board_population(population_fact_csv: Path, board_cell: pd.DataFra
 
 
 def compute_grid_spec(cells: pd.DataFrame) -> dict:
-    """Cell 중심 좌표에서 격자 원점(남서쪽 모서리)과 간격을 구하고 모든 중심이 격자 위에 있는지 검증한다."""
+    """지도 격자선 기준값(원점·간격)을 근사로 정하고, 모든 Cell 중심이 그 격자 위에 있는지 검증한다.
+
+    간격은 250m를 위도·경도로 바꾼 값으로 고정한다(경도는 Cell 평균 위도 기준).
+    Cell 중심 좌표끼리의 최소 차이로 간격을 잡으면, 중심이 위경도 격자에 정확히 놓이지 않은 데이터에서
+    수 m짜리 엉뚱한 간격이 나오기 때문이다. 원점은 Cell 중심들이 칸 가운데에 가장 잘 오도록 고른다.
+    status는 이 근사 격자와 Cell 중심이 허용 오차 안에서 맞는지만 알려 주고, 격자선 표시를 막지 않는다.
+    """
     cells = cells.dropna(subset=["latitude", "longitude"])
+    lats = cells["latitude"].to_numpy(dtype=float)
+    lngs = cells["longitude"].to_numpy(dtype=float)
+    lat_step = CELL_SIZE_METERS / METERS_PER_DEG_LAT
+    lng_step = float(CELL_SIZE_METERS / (METERS_PER_DEG_LAT * np.cos(np.radians(lats.mean()))))
 
-    def step_and_origin(values: np.ndarray) -> tuple[float, float]:
-        unique = np.unique(np.round(values, 7))
-        diffs = np.diff(unique)
-        step = float(np.min(diffs[diffs > 1e-6])) if len(diffs) else 0.0
-        return step, float(unique.min() - step / 2)
+    def best_origin(values: np.ndarray, step: float) -> float:
+        # 중심 = 원점 + (k + 0.5) × 간격이 되도록, 칸 안 위치(0~1)의 원형 평균으로 어긋남을 구한다.
+        # 원점은 가장 남쪽·서쪽 Cell의 모서리 쪽(최솟값 이하)에 둔다.
+        t = values / step - 0.5
+        angle = 2 * np.pi * (t - np.floor(t))
+        phase = float(np.arctan2(np.sin(angle).mean(), np.cos(angle).mean()) / (2 * np.pi)) % 1.0
+        return float((phase + np.floor(t.min() - phase)) * step)
 
-    lat_step, origin_lat = step_and_origin(cells["latitude"].to_numpy())
-    lng_step, origin_lng = step_and_origin(cells["longitude"].to_numpy())
+    origin_lat = best_origin(lats, lat_step)
+    origin_lng = best_origin(lngs, lng_step)
 
     def on_grid(values: np.ndarray, origin: float, step: float) -> bool:
-        if step <= 0:
-            return False
         pos = (values - origin) / step - 0.5
         return bool(np.all(np.abs(pos - np.round(pos)) <= GRID_TOLERANCE))
 
-    verified = (on_grid(cells["latitude"].to_numpy(), origin_lat, lat_step)
-                and on_grid(cells["longitude"].to_numpy(), origin_lng, lng_step))
+    verified = len(cells) > 0 and on_grid(lats, origin_lat, lat_step) and on_grid(lngs, origin_lng, lng_step)
     return {
         "id": 1,
         "cell_size_meters": CELL_SIZE_METERS,

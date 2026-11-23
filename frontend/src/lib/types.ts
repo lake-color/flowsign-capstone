@@ -131,7 +131,7 @@ export interface MapProps {
   grid: GridSpec | null
   showGrid: boolean
   cells: CellItem[] | null
-  /** 화면 범위 안의 통신사 Cell 전체 (레이어를 껐으면 null) */
+  /** 화면 범위 안의 Cell 레이어: 게시대 Cell 또는 통신사 Cell 전체 (레이어를 껐으면 null) */
   allCells: MapCell[] | null
   /** 지도 이동·확대가 끝날 때마다 화면 범위를 알린다 */
   onViewChange: (bounds: Bounds) => void

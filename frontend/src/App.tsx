@@ -42,7 +42,8 @@ function initialPalette(): Palette {
   return 'coral'
 }
 
-// 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1&allcells=1&stores=1
+// 데모 링크용 초기 상태: ?map=naver|leaflet&board=3&grid=1&cells=1&boardcells=1&stores=1
+// allcells=1은 메뉴에서 뺀 '통신사 Cell 전체' 레이어를 켠다 (코드는 남겨 둠, 켜져 있으면 게시대 Cell 대신 전체를 그린다)
 const params = new URLSearchParams(window.location.search)
 const envProvider: MapProvider =
   import.meta.env.VITE_MAP_PROVIDER === 'naver' && import.meta.env.VITE_NAVER_MAP_CLIENT_ID ? 'naver' : 'leaflet'
@@ -57,7 +58,8 @@ function App() {
   const [provider, setProvider] = useState<MapProvider>(INITIAL_PROVIDER)
   const [showGrid, setShowGrid] = useState(params.get('grid') === '1')
   const [showCells, setShowCells] = useState(params.get('cells') === '1')
-  const [showAllCells, setShowAllCells] = useState(params.get('allcells') === '1')
+  const [showAllCells] = useState(params.get('allcells') === '1')
+  const [showBoardCells, setShowBoardCells] = useState(params.get('boardcells') === '1')
   const [showStores, setShowStores] = useState(params.get('stores') === '1')
   // 상세 패널에서 고른 업종 (지도에서 강조). 같은 업종을 다시 누르면 해제한다.
   const [highlightCategory, setHighlightCategory] = useState<StoreCategory | null>(null)
@@ -192,20 +194,23 @@ function App() {
   }, [request, showCells])
   const cellsError = showCells && cellsFailure?.request === request ? cellsFailure.message : null
 
-  // 통신사 Cell 레이어: 켜져 있으면 지도 이동이 끝날 때마다 화면 범위의 Cell만 다시 조회
+  // 지도 Cell 레이어: 켜져 있으면 지도 이동이 끝날 때마다 화면 범위의 Cell만 다시 조회한다.
+  // 게시대 Cell(모든 게시대의 3×3)을 쓰고, URL의 allcells=1이면 통신사 Cell 전체를 쓴다.
   useEffect(() => {
-    if (!showAllCells || !view) return
+    if ((!showAllCells && !showBoardCells) || !view) return
     const ctrl = new AbortController()
-    api.cellsInView(view, ctrl.signal)
+    const label = showAllCells ? '통신사 Cell' : '게시대 Cell'
+    const load = showAllCells ? api.cellsInView : api.boardCellsInView
+    load(view, ctrl.signal)
       .then((r) => {
         setAllCells(r.cells)
         setAllCellsNotice(r.truncated ? `화면 범위의 Cell이 ${r.limit.toLocaleString()}개를 넘습니다. 지도를 확대하면 표시됩니다.` : null)
       })
       .catch((e: Error) => {
-        if (!ctrl.signal.aborted) setAllCellsNotice(`통신사 Cell을 불러오지 못했습니다: ${e.message}`)
+        if (!ctrl.signal.aborted) setAllCellsNotice(`${label}을 불러오지 못했습니다: ${e.message}`)
       })
     return () => ctrl.abort()
-  }, [showAllCells, view])
+  }, [showAllCells, showBoardCells, view])
 
   // 오른쪽 상세 패널을 접었는지. 게시대를 새로 고르면 다시 펼친다.
   const [rightOpen, setRightOpen] = useState(true)
@@ -283,13 +288,13 @@ function App() {
     setShowCells(on)
     if (!on) setCells(null)
   }, [])
-  const toggleAllCells = useCallback((on: boolean) => {
-    setShowAllCells(on)
-    if (!on) {
+  const toggleBoardCells = useCallback((on: boolean) => {
+    setShowBoardCells(on)
+    if (!on && !showAllCells) {
       setAllCells(null)
       setAllCellsNotice(null)
     }
-  }, [])
+  }, [showAllCells])
 
   return (
     <div className="app">
@@ -316,9 +321,9 @@ function App() {
           <LayerMenu
             showGrid={showGrid}
             onShowGridChange={setShowGrid}
-            gridReady={meta?.grid?.status === 'VERIFIED'}
-            showAllCells={showAllCells}
-            onShowAllCellsChange={toggleAllCells}
+            grid={meta?.grid ?? null}
+            showBoardCells={showBoardCells}
+            onShowBoardCellsChange={toggleBoardCells}
             showCells={showCells}
             onShowCellsChange={toggleCells}
             hasSelectedBoard={selectedId !== null}

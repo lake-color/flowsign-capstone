@@ -118,7 +118,7 @@ function LeafletMap({
     if (!map || !group) return
     const draw = () => {
       group.clearLayers()
-      if (!showGrid || !grid || grid.status !== 'VERIFIED') return
+      if (!showGrid || !grid) return // 검증 전(NOT_VERIFIED)이어도 /meta.grid 값으로 근사해 그린다
       const c = map.getCenter()
       const px = map.latLngToContainerPoint([c.lat + grid.latitudeStepDeg, c.lng]).distanceTo(map.latLngToContainerPoint(c))
       if (px < GRID_MIN_PIXELS) return
