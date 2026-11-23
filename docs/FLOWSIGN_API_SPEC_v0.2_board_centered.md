@@ -710,8 +710,15 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 
 가짜 데이터로 동작하는 데모 초안 기준이다. 실행 방법은 README의 "빠른 시작 (데모)"를 참고한다.
 
-**구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`, `GET /boards/{boardId}/stores`(4.8), `GET /cells`(통신사 Cell 레이어)·`GET /board-cells`(게시대 Cell 레이어, 아래 참고), `POST /recommendations/search`(4.6, 2026-11-21).
-**미구현:** `POST /inquiries`(및 `inquiry` 테이블).
+**구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`, `GET /boards/{boardId}/stores`(4.8), `GET /cells`(통신사 Cell 레이어)·`GET /board-cells`(게시대 Cell 레이어, 아래 참고), `POST /recommendations/search`(4.6, 2026-11-21), `POST /inquiries`(4.7, 2026-11-24).
+**미구현:** 문의 화면.
+
+**문의 API(4.7) 구현 메모:**
+- `inquiry` 테이블(V4)은 `board_id`에 외래키를 걸지 않는다. 데이터 적재가 `board`를 TRUNCATE로 다시 채우기 때문이며, 게시대 존재(404)·행정용(403)은 서버가 저장 전에 검사한다. 문의 기록은 재적재해도 남는다.
+- `industry`는 업종 목록이 미확정이라 빈 값·길이만 검사한다. 목록이 정해지면 검사를 추가한다.
+- `contact`는 전화번호(0으로 시작, 하이픈 선택) 또는 이메일 형식만 받는다. 응답·오류 메시지에 넣지 않는다.
+- 길이 상한: `message` 300자(명세), `industry` 50자·`businessName` 100자·`contact` 100자·`privacyConsentVersion` 50자(저장 상한). 넘으면 400.
+- `desiredPosting.year`는 2026 이상(OpenAPI `DesiredPosting`). `Idempotency-Key`는 UUID v4만 받는다.
 
 **데모에서 임시로 정한 규칙** (팀 확정 전, 바뀔 수 있음):
 
