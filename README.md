@@ -191,7 +191,7 @@ uv sync
    | `data/generated_real/preprocess_report.json` | 기간, NULL 수 등 |
 
    - 마지막 번호 파일이 빠진 것은 자동으로 알 수 없으니 개수를 직접 봅니다.
-   - 격자 검증이 `NOT_VERIFIED`여도 `250m 격자선`만 안 나옵니다. Cell 사각형과 매핑·집계에는 영향이 없습니다.
+   - 격자 검증이 `NOT_VERIFIED`여도 `250m 격자선`은 근사로 표시됩니다(Cell과 조금 어긋날 수 있음). Cell 사각형과 매핑·집계에는 영향이 없습니다.
 
 3. 문제없으면 적재합니다.
 
@@ -223,7 +223,7 @@ http://localhost:5173 을 엽니다.
 | 상단 `Naver` / `Leaflet` 버튼 | 지도 전환 |
 | 게시대 마커 클릭 | 오른쪽에 상세 정보와 3×3 영향권 인구 차트 |
 | `250m 격자선` 체크 | 격자선 표시 |
-| `통신사 Cell` 체크 | 화면 범위의 데이터 Cell을 사각형으로 표시 (인구값 없음) |
+| `게시대 Cell` 체크 | 화면 범위 모든 게시대의 3×3 Cell을 사각형으로 표시 (인구값 없음) |
 | `3×3 Cell 보기` 체크 | 선택한 게시대의 3×3 Cell 표시 |
 | `주변 업종` 체크 | 선택한 게시대 3×3 Cell 안의 상가를 점으로 표시 (같은 건물 상가는 점 하나로 묶고 툴팁에 상가 수) |
 | 상세 `주변 업종` 탭의 업종별 막대 클릭 | 지도에서 그 업종만 강조 (레이어가 꺼져 있으면 켬). 다시 누르면 해제 |
@@ -232,10 +232,11 @@ http://localhost:5173 을 엽니다.
 **데모 링크**
 
 ```text
-http://localhost:5173/?board=3&grid=1&cells=1&allcells=1&stores=1
+http://localhost:5173/?board=3&grid=1&cells=1&boardcells=1&stores=1
 ```
 
-- 게시대 선택·격자선·3×3·통신사 Cell·주변 업종을 켠 상태로 시작합니다.
+- 게시대 선택·격자선·3×3·게시대 Cell·주변 업종을 켠 상태로 시작합니다.
+- 메뉴에서 뺀 `통신사 Cell`(데이터 Cell 전체)은 `&allcells=1`로만 켤 수 있습니다. 켜면 게시대 Cell 대신 전체를 그립니다.
 - `&map=naver`를 붙이면 Naver 지도로 시작합니다.
 
 ---
@@ -333,7 +334,7 @@ flowsign/
 │       │   ├── common/             # 공통 응답 {data, meta}·오류 {error}, 코드값
 │       │   ├── meta/               # GET /meta
 │       │   ├── board/              # GET /boards, /boards/{id}, /boards/{id}/population, /boards/{id}/cells, /boards/{id}/stores
-│       │   ├── cell/               # GET /cells (지도 통신사 Cell 레이어)
+│       │   ├── cell/               # GET /cells, /board-cells (지도 Cell 레이어)
 │       │   ├── recommendation/     # POST /recommendations/search, 추천 점수 계산 (ScoreFormula·CellWeights·RecommendationScorer)
 │       │   └── inquiry/            # /inquiries (자리만 있음)
 │       └── resources/
@@ -419,7 +420,7 @@ data/
 **지도 표시**
 
 - Cell 사각형은 원본 경계가 아니라 **중심 ±125m 근사**로 그립니다. 격자 검증 여부와 관계없이 사각형으로 보입니다.
-- `250m 격자선`은 격자 검증이 `VERIFIED`일 때만 표시됩니다.
+- `250m 격자선`은 간격을 250m로 고정한 근사 격자입니다. 격자 검증이 `NOT_VERIFIED`(Cell 중심이 이 격자에 정확히 맞지 않음)여도 표시되며, 이때 메뉴에 '(근사)'가 붙습니다.
 
 </details>
 
@@ -494,6 +495,7 @@ gradlew.bat test
 | GET | `/api/v1/boards/{id}/cells` | 3×3 Cell 중심·사각형(GeoJSON)·Cell별 인구 |
 | GET | `/api/v1/boards/{id}/stores` | 3×3 Cell 안 상가 목록과 업종별 개수 (명세 4.8) |
 | GET | `/api/v1/cells` | 화면 범위(`west`, `south`, `east`, `north`) 안 통신사 Cell 중심 (인구값 없음, 최대 3000개) |
+| GET | `/api/v1/board-cells` | `/cells`와 같은 쿼리·응답. 어느 게시대든 그 3×3에 속한 Cell만 (지도 '게시대 Cell' 레이어) |
 | POST | `/api/v1/recommendations/search` | 조건에 맞는 게시대 추천 순위 (10개씩 `page`), 추천 이유·점수 구성·안내 문구 (명세 4.6) |
 
 `population`·`cells`가 받는 조건 쿼리: `gender`, `ageGroups`, `flowType`, `timeBands`, `periodKind`(+`season`/`month`), `dayType`

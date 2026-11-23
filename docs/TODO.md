@@ -67,11 +67,14 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 ## 5. React 지도·필터·추천·상세·문의 UI 구현
 
 - [x] Naver Maps SDK 연동 코드 및 API 키 환경변수 분리 (`VITE_NAVER_MAP_CLIENT_ID`)
-- [ ] Naver Maps 실제 키로 동작 확인 (NCP 웹 서비스 URL 등록)
+- [x] Naver Maps 실제 키로 동작 확인 (NCP 웹 서비스 URL 등록)
 - [x] 지도 렌더링과 게시대 마커 표시 (게시대 위경도 위치, Naver / Leaflet 전환)
-- [x] 250m 격자선 표시와 체크박스 켜기/끄기 (픽셀 기준은 임시값)
+- [x] 250m 격자선 표시와 체크박스 켜기/끄기 (픽셀 기준은 임시값, 2026-11-23부터 `NOT_VERIFIED`여도 근사 표시)
 - [x] 선택 게시대의 3×3 Cell 표시
-- [x] 통신사 Cell 전체 레이어 (`GET /cells`, 화면 범위만 조회, 인구값 없음)
+- [x] 통신사 Cell 전체 레이어 (`GET /cells`, 화면 범위만 조회, 인구값 없음) — 2026-11-23 메뉴에서 빼고 URL `allcells=1`로만
+- [x] 게시대 Cell 레이어 (`GET /board-cells`, 모든 게시대의 3×3, 인구값 없음)
+- [x] Naver 지도 Cell 레이어 렉 개선 (Cell 사각형을 Polygon 하나로 그림)
+- [x] Naver 지도에서 게시대 Cell·근사 격자선 화면 확인
 - [x] 실제 원본 Cell로 레이어 표시 확인 (Cell은 중심 ±125m 근사 사각형으로 그림)
 - [x] `FilterPanel.tsx` 조건 입력 폼과 draft/적용 상태 관리 (데모: 상세 인구 조회 조건)
 - [x] 추천 결과 목록 (추천 API 연결, 10개씩 더 보기)

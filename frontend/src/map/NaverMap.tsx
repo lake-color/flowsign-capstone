@@ -88,17 +88,24 @@ function NaverMap({
   }, [naver, onViewChange])
 
   // 통신사 Cell 전체 (화면 범위만, 인구값 없음). 다른 레이어보다 아래(zIndex)에 둔다.
+  // Cell마다 Rectangle을 만들면 최대 수천 개의 오버레이가 이동·확대 때마다 각각 다시 그려져 지도가 끊긴다.
+  // 그래서 모든 Cell 사각형을 경로(paths)로 가진 Polygon 하나로 그린다. 사각형끼리 겹치지 않으므로 전부 채워진다.
   useEffect(() => {
     const map = mapRef.current
     if (!naver || !map) return
     clear('allCells')
-    const style = { map, strokeColor: ALL_CELL_COLOR, strokeWeight: 1, strokeOpacity: 0.7, fillColor: ALL_CELL_COLOR,
-      fillOpacity: 0.06, clickable: false, zIndex: 0 }
-    for (const cell of allCells ?? []) {
+    if (!allCells || allCells.length === 0) return
+    const paths = allCells.map((cell) => {
       const b = cellBounds(cell)
-      overlays.current.allCells.push(new naver.maps.Rectangle({ ...style, bounds: new naver.maps.LatLngBounds(
-        new naver.maps.LatLng(b.south, b.west), new naver.maps.LatLng(b.north, b.east)) }))
-    }
+      return [
+        new naver.maps.LatLng(b.south, b.west), new naver.maps.LatLng(b.south, b.east),
+        new naver.maps.LatLng(b.north, b.east), new naver.maps.LatLng(b.north, b.west),
+      ]
+    })
+    overlays.current.allCells.push(new naver.maps.Polygon({
+      map, paths, strokeColor: ALL_CELL_COLOR, strokeWeight: 1, strokeOpacity: 0.7, fillColor: ALL_CELL_COLOR,
+      fillOpacity: 0.06, clickable: false, zIndex: 0,
+    }))
   }, [naver, allCells])
 
   // 게시대 마커 (게시대 자체 위경도). 행정용은 회색 사각형.
@@ -142,7 +149,7 @@ function NaverMap({
     if (!naver || !map) return
     const draw = () => {
       clear('grid')
-      if (!showGrid || !grid || grid.status !== 'VERIFIED') return
+      if (!showGrid || !grid) return // 검증 전(NOT_VERIFIED)이어도 /meta.grid 값으로 근사해 그린다
       const proj = map.getProjection()
       const c = map.getCenter()
       const p1 = proj.fromCoordToOffset(c)

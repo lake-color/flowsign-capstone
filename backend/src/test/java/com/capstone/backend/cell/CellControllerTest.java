@@ -2,6 +2,8 @@ package com.capstone.backend.cell;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -26,7 +28,7 @@ import com.capstone.backend.common.DatasetInfo;
 import com.capstone.backend.common.DatasetInfoReader;
 
 /**
- * GET /api/v1/cells (명세 11장 데모 추가 API)의 범위 검사와 개수 제한을 DB 없이 검증한다.
+ * GET /api/v1/cells, /api/v1/board-cells (명세 11장 데모 추가 API)의 범위 검사와 개수 제한을 DB 없이 검증한다.
  */
 @WebMvcTest(CellController.class)
 class CellControllerTest {
@@ -127,6 +129,35 @@ class CellControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.truncated").value(false))
                 .andExpect(jsonPath("$.data.cellCount").value(CellController.MAX_CELLS));
+    }
+
+    @Test
+    void boardCellsUseBoardCellAndSameResponseShape() throws Exception {
+        dbReturns(List.of(new CellController.CellCenter("c1", 37.39, 126.96)));
+
+        mockMvc.perform(get("/api/v1/board-cells")
+                        .param("west", "126.9").param("south", "37.3")
+                        .param("east", "127.0").param("north", "37.5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cellCount").value(1))
+                .andExpect(jsonPath("$.data.truncated").value(false))
+                .andExpect(jsonPath("$.data.limit").value(CellController.MAX_CELLS))
+                .andExpect(jsonPath("$.data.cells[0].cellId").value("c1"));
+
+        // 게시대 3×3에 속한 Cell만 찾는지 (board_cell 조건)
+        verify(jdbc).query(contains("board_cell"), any(SqlParameterSource.class),
+                ArgumentMatchers.<RowMapper<CellController.CellCenter>>any());
+    }
+
+    @Test
+    void boardCellsReversedBoundsAreValidationError() throws Exception {
+        mockMvc.perform(get("/api/v1/board-cells")
+                        .param("west", "127.0").param("south", "37.3")
+                        .param("east", "126.9").param("north", "37.5"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+        verifyNoInteractions(jdbc);
     }
 
     @Test
