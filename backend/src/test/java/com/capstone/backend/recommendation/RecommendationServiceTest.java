@@ -75,6 +75,8 @@ class RecommendationServiceTest {
         assertValidationError(() -> service.search(new RecommendationRequest(criteria, -1, 10)));
         assertValidationError(() -> service.search(new RecommendationRequest(criteria, 0, 0)));
         assertValidationError(() -> service.search(new RecommendationRequest(criteria, 0, 51)));
+        assertValidationError(() -> service.search(new RecommendationRequest(criteria, 0, 10, -0.1)));
+        assertValidationError(() -> service.search(new RecommendationRequest(criteria, 0, 10, 1.5)));
         // 빈 연령 배열은 조회 API와 같은 검사로 400
         RecommendationRequest.Criteria noAges = new RecommendationRequest.Criteria(List.of("ANYANG"), null,
                 List.of(), null, List.of("08_10"), null, null, List.of("COMMERCIAL"));

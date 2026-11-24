@@ -81,11 +81,16 @@ public class RecommendationService {
         if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
             throw ApiException.badRequest("pageSize는 1~" + MAX_PAGE_SIZE + " 사이여야 합니다.");
         }
+        Double sizeWeight = request.sizeWeight();
+        if (sizeWeight != null && !(sizeWeight >= 0 && sizeWeight <= 1)) {
+            throw ApiException.badRequest("sizeWeight는 0~1 사이여야 합니다.");
+        }
         PopulationFilter filter = RecommendationScorer.validated(toFilter(c));
         ensureReady();
         ensureDayTypeSupported(filter);
 
-        List<ScoreFormula.Result> ranked = scorer.score(c.cities(), c.purposes(), filter);
+        ScoreFormula.Params params = sizeWeight == null ? scorer.params() : scorer.params().withSizeWeight(sizeWeight);
+        List<ScoreFormula.Result> ranked = scorer.score(c.cities(), c.purposes(), filter, params);
         int from = (int) Math.min((long) page * pageSize, ranked.size());
         int to = Math.min(from + pageSize, ranked.size());
         List<ScoreFormula.Result> pageResults = ranked.subList(from, to);
@@ -178,6 +183,10 @@ public class RecommendationService {
         String target = targetText(f);
         boolean largeFlow = false;
         for (ScoreFormula.Component part : r.components()) {
+            // 비율 슬라이더로 배점이 0이 된 항목은 점수에 영향이 없으므로 이유에도 쓰지 않는다
+            if (part.weight() <= 0) {
+                continue;
+            }
             switch (part.key()) {
                 case "A" -> largeFlow = part.normalized() >= REASON_MIN_SIZE;
                 case "B" -> {

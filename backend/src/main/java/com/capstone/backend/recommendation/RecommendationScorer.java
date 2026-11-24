@@ -85,6 +85,12 @@ public class RecommendationScorer {
      * @return 점수 내림차순(명세 4.6 정렬). 조건에 맞는 인구 데이터가 하나도 없는 게시대는 빠진다.
      */
     public List<ScoreFormula.Result> score(List<String> cities, List<String> purposes, PopulationFilter filter) {
+        return score(cities, purposes, filter, params);
+    }
+
+    /** 배점만 요청마다 바꿀 때 (추천 API의 sizeWeight). 나머지 규칙은 위와 같다. */
+    public List<ScoreFormula.Result> score(List<String> cities, List<String> purposes, PopulationFilter filter,
+                                           ScoreFormula.Params scoreParams) {
         PopulationFilter f = validated(filter);
         MapSqlParameterSource p = new MapSqlParameterSource()
                 .addValue("cities", dbCities(cities))
@@ -95,7 +101,7 @@ public class RecommendationScorer {
                 rs.getDouble("distance_meters"), rs.getObject("n", Double.class),
                 rs.getObject("t", Double.class), rs.getObject("tf", Double.class)));
         return ScoreFormula.scoreAndRank(inputs(rows, f.days(), centerWeight, neighborSigmaMeters), f.flowType(),
-                params);
+                scoreParams);
     }
 
     /**

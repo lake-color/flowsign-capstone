@@ -602,6 +602,11 @@ components:
         criteria: {$ref: '#/components/schemas/Criteria'}
         page: {type: integer, default: 0, minimum: 0}
         pageSize: {type: integer, default: 10, minimum: 1, maximum: 50}
+        sizeWeight:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: '유동 규모(A)·타깃 비율(B) 배점 합 중 A의 몫. 없으면 서버 설정(40:40). 유형 ALL이면 100점 기준'
     ScoreComponent:
       type: object
       required: [key, label, rawValue, baseline, lift, normalized, weight, contribution]

@@ -8,13 +8,13 @@ interface Props {
   tab: LeftTab | null
   /** 탭 클릭. 열려 있는 탭을 다시 누르면 패널을 닫는다(부모가 처리). */
   onChange: (tab: LeftTab) => void
-  /** 탭 아래에 구분선과 함께 놓을 버튼 (지도 가시성 메뉴) */
+  /** 탭 아래에 구분선과 함께 놓을 버튼 (설정 메뉴: 지도 표시·추천 점수 비율) */
   children?: ReactNode
 }
 
 /**
  * 왼쪽 가장자리의 세로 메뉴. 위쪽 탭은 옆 패널에 조건 설정과 추천 결과 중 무엇을 보여줄지 고르고(선택된 탭을 다시 누르면 패널이 닫힌다),
- * 구분선 아래에는 패널과 무관한 버튼(지도 가시성)을 둔다.
+ * 구분선 아래에는 패널과 무관한 버튼(설정)을 둔다.
  */
 function SideTabs({ tab, onChange, children }: Props) {
   return (

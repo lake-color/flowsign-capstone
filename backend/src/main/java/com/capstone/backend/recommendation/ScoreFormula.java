@@ -68,6 +68,19 @@ public final class ScoreFormula {
                 throw new IllegalArgumentException("sizeMinSpan은 1보다 커야 합니다: " + sizeMinSpan);
             }
         }
+
+        /**
+         * A·B 배점 합(기본 80)은 그대로 두고 sizeWeight 비율로 다시 나눈다. C 배점은 바뀌지 않는다.
+         * 예: 0.65 → A 52 / B 28. 유동 유형 ALL이면 기존대로 A·B를 100점으로 키우므로 A 65 / B 35가 된다.
+         */
+        public Params withSizeWeight(double sizeWeight) {
+            if (!(sizeWeight >= 0 && sizeWeight <= 1)) {
+                throw new IllegalArgumentException("sizeWeight는 0~1이어야 합니다: " + sizeWeight);
+            }
+            double total = sizePoints + sharePoints;
+            return new Params(total * sizeWeight, total * (1 - sizeWeight), flowPoints, liftSpan, minTargetPerDay,
+                    ratioShrink, sizeMinSpan);
+        }
     }
 
     /**

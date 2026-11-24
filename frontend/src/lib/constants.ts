@@ -20,6 +20,9 @@ export const DEFAULT_QUERY: PopulationQuery = {
   dayType: 'ALL',
 }
 
+/** 추천 점수 비율 슬라이더 기본값: 유동 규모 5 : 타깃 비율 5 (서버 기본 배점 40:40과 같음) */
+export const DEFAULT_SIZE_WEIGHT = 0.5
+
 export const PURPOSE_LABEL: Record<Purpose, string> = {
   COMMERCIAL: '상업용',
   MIXED: '겸용',

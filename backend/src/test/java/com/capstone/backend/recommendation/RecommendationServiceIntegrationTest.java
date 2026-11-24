@@ -128,6 +128,22 @@ class RecommendationServiceIntegrationTest {
         assertThat((List<?>) first.get("scoreBreakdown")).hasSize(3);
     }
 
+    @SuppressWarnings("unchecked")
+    private static List<Double> weights(Map<String, Object> item) {
+        return ((List<Map<String, Object>>) item.get("scoreBreakdown")).stream()
+                .map(m -> (Double) m.get("weight")).toList();
+    }
+
+    @Test
+    void sizeWeightSplitsSizeAndShareWeights() {
+        RecommendationRequest.Criteria c = januaryWeekdayWomen20sWalking("WEEKDAY");
+
+        assertThat(weights(items(service.search(new RecommendationRequest(c, null, null))).getFirst()))
+                .containsExactly(40.0, 40.0, 20.0);
+        assertThat(weights(items(service.search(new RecommendationRequest(c, null, null, 0.65))).getFirst()))
+                .containsExactly(52.0, 28.0, 20.0);
+    }
+
     @Test
     void pagesThroughRankedResults() {
         Map<String, Object> firstPage = service.search(request(0, 1));
