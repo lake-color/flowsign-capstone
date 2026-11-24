@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { ApiError, api } from '../lib/api'
-import type { Board, InquiryRequest, InquiryResult } from '../lib/types'
-import { PURPOSE_LABEL } from '../lib/constants'
+import type { Board, InquiryRequest, InquiryResult, StoreCategory } from '../lib/types'
+import { PURPOSE_LABEL, STORE_CATEGORY_LABEL } from '../lib/constants'
 import './InquiryModal.css'
 
 interface Props {
@@ -13,13 +13,15 @@ interface Props {
 
 /** 명세 4.7 서버 검사와 같은 기준 */
 const MAX_MESSAGE = 300
-const MAX_INDUSTRY = 50
 const MAX_BUSINESS_NAME = 100
 const MIN_YEAR = 2026
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const PHONE = /^0[0-9]{1,2}-?[0-9]{3,4}-?[0-9]{4}$/
 
-// 동의 문구·업종 선택지는 명세에서 미확정이다(11장). 확정되면 이 문구와 버전 값을 바꾼다.
+// 업종 선택지는 주변 업종 묶음 15개 코드(명세 4.8)를 쓴다 (PR #21 리뷰에서 결정).
+const INDUSTRIES = Object.entries(STORE_CATEGORY_LABEL) as [StoreCategory, string][]
+
+// 동의 문구는 명세에서 미확정이다. 확정되면 이 문구와 버전 값을 바꾼다.
 const CONSENT_VERSION = 'demo-v1'
 const CONSENT_TEXT = '문의 처리를 위해 업종, 상호, 연락처, 문의 내용을 수집합니다. (시연용 임시 문구 — 수집 목적·보관 기간은 확정 후 안내)'
 
@@ -42,7 +44,7 @@ interface Form {
   year: number
   month: number
   half: 'FIRST' | 'SECOND'
-  industry: string
+  industry: StoreCategory | ''
   businessName: string
   contact: string
   productionAssistanceRequired: boolean
@@ -65,9 +67,7 @@ type Errors = Partial<Record<'industry' | 'contact' | 'message' | 'privacyConsen
 
 function validate(f: Form): Errors {
   const e: Errors = {}
-  const industry = f.industry.trim()
-  if (!industry) e.industry = '업종을 입력하세요.'
-  else if (charCount(industry) > MAX_INDUSTRY) e.industry = `업종은 ${MAX_INDUSTRY}자 이하로 입력하세요.`
+  if (!f.industry) e.industry = '업종을 선택하세요.'
   const contact = f.contact.trim()
   if (!contact) e.contact = '연락처를 입력하세요.'
   else if (!EMAIL.test(contact) && !PHONE.test(contact)) e.contact = '전화번호(예: 010-1234-5678) 또는 이메일 형식으로 입력하세요.'
@@ -82,7 +82,7 @@ function toRequest(boardId: string, f: Form): InquiryRequest {
   return {
     boardId,
     desiredPosting: { year: f.year, month: f.month, half: f.half },
-    industry: f.industry.trim(),
+    industry: f.industry,
     ...(businessName ? { businessName } : {}),
     contact: f.contact.trim(),
     productionAssistanceRequired: f.productionAssistanceRequired,
@@ -97,6 +97,7 @@ function errorText(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.code === 'INQUIRY_NOT_ALLOWED') return '행정용 게시대는 광고 문의를 받지 않습니다.'
     if (err.code === 'BOARD_NOT_FOUND') return '게시대 정보를 찾을 수 없습니다. 지도에서 다시 선택하세요.'
+    if (err.code === 'CONSENT_REQUIRED') return '개인정보 수집·이용에 동의해야 문의할 수 있습니다.'
     if (err.code === 'IDEMPOTENCY_CONFLICT') return '이전에 보낸 문의와 내용이 달라 접수하지 못했습니다. 내용을 확인하고 다시 제출하세요.'
     if (err.status === 400) return err.message
     if (err.status < 500) return `문의를 접수하지 못했습니다: ${err.message}`
@@ -117,6 +118,8 @@ function InquiryModal({ board, onClose }: Props) {
   const [showErrors, setShowErrors] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // 서버가 400 CONSENT_REQUIRED를 주면 동의 체크박스를 강조한다 (명세 5장)
+  const [consentRequired, setConsentRequired] = useState(false)
   const [result, setResult] = useState<InquiryResult | null>(null)
   const keyRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -140,6 +143,7 @@ function InquiryModal({ board, onClose }: Props) {
     setForm((f) => ({ ...f, [key]: value }))
     keyRef.current = null
     setSubmitError(null)
+    if (key === 'privacyConsent') setConsentRequired(false)
   }
 
   async function submit(e: FormEvent) {
@@ -158,6 +162,7 @@ function InquiryModal({ board, onClose }: Props) {
     } catch (err) {
       if (controller.signal.aborted) return
       if (err instanceof ApiError && err.code === 'IDEMPOTENCY_CONFLICT') keyRef.current = null
+      if (err instanceof ApiError && err.code === 'CONSENT_REQUIRED') setConsentRequired(true)
       setSubmitError(errorText(err))
     } finally {
       if (!controller.signal.aborted) setSubmitting(false)
@@ -212,8 +217,11 @@ function InquiryModal({ board, onClose }: Props) {
 
             <label>
               <span>업종 <em>*</em></span>
-              <input type="text" value={form.industry} maxLength={MAX_INDUSTRY} placeholder="예: 학원·교육" autoFocus
-                onChange={(e) => update('industry', e.target.value)} aria-invalid={showErrors && !!errors.industry} />
+              <select value={form.industry} autoFocus onChange={(e) => update('industry', e.target.value as Form['industry'])}
+                aria-invalid={showErrors && !!errors.industry}>
+                <option value="" disabled>업종을 선택하세요</option>
+                {INDUSTRIES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+              </select>
               {showErrors && errors.industry && <small className="error">{errors.industry}</small>}
             </label>
 
@@ -244,11 +252,11 @@ function InquiryModal({ board, onClose }: Props) {
               {showErrors && errors.message && <small className="error">{errors.message}</small>}
             </label>
 
-            <div className="inquiry-consent">
+            <div className={`inquiry-consent${consentRequired || (showErrors && errors.privacyConsent) ? ' invalid' : ''}`}>
               <p>{CONSENT_TEXT}</p>
               <label className="inquiry-check">
                 <input type="checkbox" checked={form.privacyConsent} onChange={(e) => update('privacyConsent', e.target.checked)}
-                  aria-invalid={showErrors && !!errors.privacyConsent} />
+                  aria-invalid={consentRequired || (showErrors && !!errors.privacyConsent)} />
                 <span>개인정보 수집·이용에 동의합니다 <em>*</em></span>
               </label>
               {showErrors && errors.privacyConsent && <small className="error">{errors.privacyConsent}</small>}

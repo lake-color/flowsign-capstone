@@ -188,6 +188,12 @@
   border-radius: 10px;
 }
 
+/* 동의하지 않고 제출했거나 서버가 CONSENT_REQUIRED를 줬을 때 */
+.inquiry-consent.invalid {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
 .inquiry-consent p {
   margin: 0;
   font-size: 12px;
