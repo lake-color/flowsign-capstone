@@ -37,7 +37,7 @@ import com.capstone.backend.common.Codes;
  * 동시에 같은 키가 두 번 와도 UNIQUE 제약 + ON CONFLICT DO NOTHING으로 한 건만 저장된다.
  *
  * contact(개인정보)는 응답·오류 메시지·로그에 넣지 않는다.
- * industry 목록은 명세에서 미확정이라 빈 값·길이만 검사한다(목록이 정해지면 검사 추가).
+ * industry는 주변 업종 묶음 15개 코드(명세 4.8)만 받는다. 개인정보 동의가 없으면 400 CONSENT_REQUIRED.
  */
 @Service
 public class InquiryService {
@@ -158,6 +158,9 @@ public class InquiryService {
         }
 
         String industry = required(r.industry(), "industry", MAX_INDUSTRY_LENGTH);
+        if (!Codes.STORE_CATEGORIES.contains(industry)) {
+            throw ApiException.badRequest("industry는 업종 코드(" + String.join(", ", Codes.STORE_CATEGORIES) + ") 중 하나여야 합니다.");
+        }
         String businessName = optional(r.businessName(), "businessName", MAX_BUSINESS_NAME_LENGTH);
 
         // contact 값은 개인정보라 오류 메시지에 넣지 않는다
@@ -170,7 +173,8 @@ public class InquiryService {
         String message = optional(r.message(), "message", MAX_MESSAGE_LENGTH);
 
         if (!Boolean.TRUE.equals(r.privacyConsent())) {
-            throw ApiException.badRequest("개인정보 수집·이용에 동의해야 문의를 접수할 수 있습니다.");
+            // 명세 5장: 프론트가 이 코드로 동의 체크박스를 강조한다
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CONSENT_REQUIRED", "개인정보 수집·이용에 동의해야 문의를 접수할 수 있습니다.");
         }
         String consentVersion = required(r.privacyConsentVersion(), "privacyConsentVersion", MAX_CONSENT_VERSION_LENGTH);
 

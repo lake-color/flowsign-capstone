@@ -93,7 +93,7 @@ FLOWSIGN 개발 작업 목록입니다. 실제로 구현을 끝낸 항목만 체
 - [x] 조회 쿼리 작성 (데모: JdbcTemplate, `/meta`·`/boards`·`/population`·`/cells`)
 - [x] 게시대 목록·상세·인구·3×3 Cell API (`/meta`, `/boards` 계열)
 - [x] 추천 목록 API 구현 (`POST /recommendations/search`)
-- [x] 문의 등록 API 구현 (`POST /inquiries`, `inquiry` 테이블 V4, 업종 목록은 미확정이라 빈 값만 검사)
+- [x] 문의 등록 API 구현 (`POST /inquiries`, `inquiry` 테이블 V4, 업종은 주변 업종 15개 코드, 동의 없음은 `CONSENT_REQUIRED`)
 - [ ] 요청 값 검증(`spring-boot-starter-validation`)과 에러 응답 처리
 - [ ] 각 API에 대한 테스트 작성
 

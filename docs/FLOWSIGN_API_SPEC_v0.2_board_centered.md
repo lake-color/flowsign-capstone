@@ -482,12 +482,12 @@ interface Criteria {
 
 - `boardId`: **한 게시대만** 지정(MVP). 여러 게시대 일괄 문의는 비교 기능 확장 단계.
 - `desiredPosting`: 연·월 + `FIRST|SECOND`(상반월/하반월), 필수. 날짜는 데이터 분석 연도(2025)와 무관하게 미래 게시 희망 시기 지정 가능.
-- `industry`: 필수. 업종 enum 목록은 미확정이므로 최종 검증 및 코드 테이블 합의 필요.
+- `industry`: 필수. **주변 업종 묶음 15개 코드(4.8, `store.category`)** 중 하나(예: `EDUCATION`). 그 외 값은 `400 VALIDATION_ERROR`.
 - `businessName`: 선택.
 - `contact`: 필수, 전화 또는 이메일 형식. 프론트/서버 모두 검증.
 - `productionAssistanceRequired`: 선택 boolean(기본 false).
 - `message`: 선택, 최대 300자.
-- `privacyConsent=true`, `privacyConsentVersion` 필수. 수집 항목·목적·삭제기한 동의문은 팀의 실제 운영 정책을 반영해 확정. 서버에서 동의 시간 기록.
+- `privacyConsent=true`, `privacyConsentVersion` 필수. `privacyConsent`가 `false`이거나 없으면 `400 CONSENT_REQUIRED`(5장, 프론트는 동의 체크박스 강조). 수집 항목·목적·삭제기한 동의문은 팀의 실제 운영 정책을 반영해 확정. 서버에서 동의 시간 기록.
 - `ADMINISTRATIVE`는 프론트 문의 버튼 숨김 **+ 서버에서도 `403 INQUIRY_NOT_ALLOWED`**.
 - 신청 저장 중 새로고침/중복 클릭/타임아웃 재요청 시 동일 키로 중복 저장 금지.
 
@@ -697,7 +697,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 | 게시대 가격/원본 ID 등 | 원본에 고유 ID 없음 → `board_id`는 순번. 부착금액 "무료" → 0, 빈 값 → `null`(106개) | 원본이 갱신되면 순번이 바뀔 수 있음 |
 | 상세 차트 라이브러리 | 차트 구성은 확정(0장), 라이브러리 미정 | 데모는 SVG·CSS로 직접 그림. 4.4 응답 필드는 그대로 사용 |
 | `population_fact` 적재 범위 | 전체 Cell vs 게시대 3×3 Cell만. 250m 기준이면 전체도 수백만 행 수준 | 확장 기능(전체 격자 인구) 일정과 함께 결정 |
-| 문의 업종 선택지·개인정보 동의 문구/보관 종료일 | 미확정 | 필드/저장 동작만 제안, 실제 동의문은 별도 합의 |
+| 개인정보 동의 문구/보관 종료일 | 미확정 | 서버는 `privacyConsentVersion`만 받는다. 실제 동의문은 별도 합의 (문의 업종은 4.8 업종 묶음 15개 코드로 확정, 2026-11-24) |
 
 ## 10. 관련 문서
 
@@ -705,6 +705,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 - A~D 기본 테이블 및 E `board_population`: 팀 설계. F `grid250_population`은 팀 결정으로 제외.
 - v0.2.1(2026-11-07): 영향권을 반경 100m에서 소속 Cell 기준 3×3으로 변경, `radiusMeters` 제거, 격자선 옵션·`grid` 추가, PostGIS 미사용, 점수 Spring 계산, 원본 컬럼 매핑 반영. 같은 날 원본 Cell 크기를 50m → **250m**로 정정(3×3 유지, Cell = 중심 ±125m). 원본 값 처리 규칙(소수 인구값, 분류 컬럼 NULL → `UNKNOWN`) 반영.
 - 2026-11-23: 지도 '통신사 Cell' 레이어를 메뉴에서 빼고(코드·`/cells`는 유지) '게시대 Cell' 레이어와 `GET /board-cells` 추가. 격자 간격을 250m 고정값으로 계산하고, `NOT_VERIFIED`여도 격자선을 근사로 표시.
+- 2026-11-24: 문의 업종(`industry`)을 주변 업종 묶음 15개 코드로 확정, 개인정보 동의 없음은 `400 CONSENT_REQUIRED`(4.7).
 
 ## 11. 데모 구현 현황 (2026-11-07)
 
@@ -715,7 +716,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 
 **문의 API(4.7) 구현 메모:**
 - `inquiry` 테이블(V4)은 `board_id`에 외래키를 걸지 않는다. 데이터 적재가 `board`를 TRUNCATE로 다시 채우기 때문이며, 게시대 존재(404)·행정용(403)은 서버가 저장 전에 검사한다. 문의 기록은 재적재해도 남는다.
-- `industry`는 업종 목록이 미확정이라 빈 값·길이만 검사한다. 목록이 정해지면 검사를 추가한다.
+- `industry`는 주변 업종 묶음 15개 코드(`Codes.STORE_CATEGORIES`)만 받는다. 동의 없음은 `VALIDATION_ERROR`가 아니라 `CONSENT_REQUIRED`.
 - `contact`는 전화번호(0으로 시작, 하이픈 선택) 또는 이메일 형식만 받는다. 응답·오류 메시지에 넣지 않는다.
 - 길이 상한: `message` 300자(명세), `industry` 50자·`businessName` 100자·`contact` 100자·`privacyConsentVersion` 50자(저장 상한). 넘으면 400.
 - `desiredPosting.year`는 2026 이상(OpenAPI `DesiredPosting`). `Idempotency-Key`는 UUID v4만 받는다.

@@ -209,11 +209,11 @@ class InquiryIntegrationTest {
                 Arguments.of("half 잘못됨", copy(r, "1", new InquiryRequest.DesiredPosting(2026, 12, "MIDDLE"), r.industry(), r.contact(), r.message(), r.privacyConsent(), r.privacyConsentVersion())),
                 Arguments.of("업종 빈 값", copy(r, "1", p, " ", r.contact(), r.message(), r.privacyConsent(), r.privacyConsentVersion())),
                 Arguments.of("업종 51자", copy(r, "1", p, "가".repeat(51), r.contact(), r.message(), r.privacyConsent(), r.privacyConsentVersion())),
+                Arguments.of("업종 코드 아님", copy(r, "1", p, "학원", r.contact(), r.message(), r.privacyConsent(), r.privacyConsentVersion())),
+                Arguments.of("업종 소문자", copy(r, "1", p, "education", r.contact(), r.message(), r.privacyConsent(), r.privacyConsentVersion())),
                 Arguments.of("연락처 없음", copy(r, "1", p, r.industry(), null, r.message(), r.privacyConsent(), r.privacyConsentVersion())),
                 Arguments.of("연락처 형식 아님", copy(r, "1", p, r.industry(), "연락주세요", r.message(), r.privacyConsent(), r.privacyConsentVersion())),
                 Arguments.of("메시지 301자", copy(r, "1", p, r.industry(), r.contact(), "가".repeat(301), r.privacyConsent(), r.privacyConsentVersion())),
-                Arguments.of("동의 안 함", copy(r, "1", p, r.industry(), r.contact(), r.message(), false, r.privacyConsentVersion())),
-                Arguments.of("동의 값 없음", copy(r, "1", p, r.industry(), r.contact(), r.message(), null, r.privacyConsentVersion())),
                 Arguments.of("동의 버전 없음", copy(r, "1", p, r.industry(), r.contact(), r.message(), r.privacyConsent(), "")));
     }
 
@@ -221,6 +221,34 @@ class InquiryIntegrationTest {
     @MethodSource("invalidRequests")
     void invalidRequestIsValidationError(String name, InquiryRequest request) {
         assertValidationError(newKey(), request);
+    }
+
+    static Stream<Arguments> missingConsent() {
+        InquiryRequest r = request();
+        return Stream.of(
+                Arguments.of("동의 안 함", copy(r, "1", r.desiredPosting(), r.industry(), r.contact(), r.message(), false, r.privacyConsentVersion())),
+                Arguments.of("동의 값 없음", copy(r, "1", r.desiredPosting(), r.industry(), r.contact(), r.message(), null, r.privacyConsentVersion())));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("missingConsent")
+    void missingConsentIsConsentRequired(String name, InquiryRequest request) {
+        assertThatThrownBy(() -> controller.create(newKey(), request))
+                .isInstanceOfSatisfying(ApiException.class, e -> {
+                    assertThat(e.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(e.code()).isEqualTo("CONSENT_REQUIRED");
+                });
+        assertThat(count()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"RESTAURANT", "EDUCATION", "LODGING"})
+    void storeCategoryCodesAreAcceptedAsIndustry(String industry) {
+        InquiryRequest r = request();
+        InquiryRequest withIndustry = copy(r, "1", r.desiredPosting(), industry, r.contact(), r.message(),
+                r.privacyConsent(), r.privacyConsentVersion());
+
+        assertThat(controller.create(newKey(), withIndustry).getStatusCode()).isEqualTo(HttpStatus.CREATED);
     }
 
     @Test
