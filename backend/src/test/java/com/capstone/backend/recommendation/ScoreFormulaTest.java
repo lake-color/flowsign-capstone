@@ -27,6 +27,27 @@ class ScoreFormulaTest {
     }
 
     @Test
+    void sizeWeightSplitsSizeAndSharePointsKeepingFlowPoints() {
+        ScoreFormula.Params p = ScoreFormula.Params.DEFAULT.withSizeWeight(0.65);
+
+        assertThat(p.sizePoints()).isCloseTo(52, within(EPS));
+        assertThat(p.sharePoints()).isCloseTo(28, within(EPS));
+        assertThat(p.flowPoints()).isCloseTo(20, within(EPS));
+        assertThat(ScoreFormula.Params.DEFAULT.withSizeWeight(0.5)).isEqualTo(ScoreFormula.Params.DEFAULT);
+        assertThatThrownBy(() -> ScoreFormula.Params.DEFAULT.withSizeWeight(1.1)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ScoreFormula.Params.DEFAULT.withSizeWeight(Double.NaN)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void sizeWeightAppliesToHundredPointsWhenFlowTypeIsAll() {
+        List<Result> r = ScoreFormula.scoreAndRank(List.of(input(1, 100, 20, 5), input(2, 10000, 2000, 500)), "ALL",
+                ScoreFormula.Params.DEFAULT.withSizeWeight(0.6));
+
+        assertThat(r.getFirst().components()).extracting(ScoreFormula.Component::weight)
+                .containsExactly(60.0, 40.0);
+    }
+
+    @Test
     void liftScoreIsHalfAtBaselineAndFullAtDouble() {
         assertThat(ScoreFormula.liftScore(0.2, 0.2, 2)).isCloseTo(0.5, within(EPS));
         assertThat(ScoreFormula.liftScore(0.4, 0.2, 2)).isCloseTo(1.0, within(EPS));
