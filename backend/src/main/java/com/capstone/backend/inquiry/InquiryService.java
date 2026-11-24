@@ -37,7 +37,7 @@ import com.capstone.backend.common.Codes;
  * 동시에 같은 키가 두 번 와도 UNIQUE 제약 + ON CONFLICT DO NOTHING으로 한 건만 저장된다.
  *
  * contact(개인정보)는 응답·오류 메시지·로그에 넣지 않는다.
- * industry는 주변 업종 묶음 15개 코드(명세 4.8)만 받는다. 개인정보 동의가 없으면 400 CONSENT_REQUIRED.
+ * industry는 주변 업종 묶음 15개 코드(명세 4.8)와 기타(OTHER)만 받는다. 개인정보 동의가 없으면 400 CONSENT_REQUIRED.
  */
 @Service
 public class InquiryService {
@@ -158,8 +158,8 @@ public class InquiryService {
         }
 
         String industry = required(r.industry(), "industry", MAX_INDUSTRY_LENGTH);
-        if (!Codes.STORE_CATEGORIES.contains(industry)) {
-            throw ApiException.badRequest("industry는 업종 코드(" + String.join(", ", Codes.STORE_CATEGORIES) + ") 중 하나여야 합니다.");
+        if (!Codes.INQUIRY_INDUSTRIES.contains(industry)) {
+            throw ApiException.badRequest("industry는 업종 코드(" + String.join(", ", Codes.INQUIRY_INDUSTRIES) + ") 중 하나여야 합니다.");
         }
         String businessName = optional(r.businessName(), "businessName", MAX_BUSINESS_NAME_LENGTH);
 
