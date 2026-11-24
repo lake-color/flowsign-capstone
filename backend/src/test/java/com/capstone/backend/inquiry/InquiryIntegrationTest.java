@@ -243,7 +243,7 @@ class InquiryIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"RESTAURANT", "EDUCATION", "LODGING", "OTHER"})
-    void storeCategoryCodesAreAcceptedAsIndustry(String industry) {
+    void industryCodesAndOtherAreAccepted(String industry) {
         InquiryRequest r = request();
         InquiryRequest withIndustry = copy(r, "1", r.desiredPosting(), industry, r.contact(), r.message(),
                 r.privacyConsent(), r.privacyConsentVersion());
