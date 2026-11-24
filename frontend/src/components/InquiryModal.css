@@ -1,0 +1,221 @@
+/* 광고 신청 문의 모달. body에 붙으므로 지도·패널(z-index 5~10)보다 위에 둔다. */
+.inquiry-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(20, 16, 14, 0.45);
+}
+
+.inquiry-modal {
+  position: relative;
+  width: min(460px, 100%);
+  max-height: calc(100vh - 32px);
+  padding: 22px 22px 20px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+
+.inquiry-modal h2 {
+  padding-right: 32px;
+}
+
+.inquiry-close {
+  position: absolute;
+  top: 16px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.inquiry-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.inquiry-close:hover:not(:disabled) {
+  background: var(--card);
+  color: var(--text-h);
+}
+
+.inquiry-close:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.inquiry-board {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--text-h);
+}
+
+.inquiry-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--card);
+  font-size: 12px;
+}
+
+.inquiry-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.inquiry-form fieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.inquiry-form legend,
+.inquiry-form label > span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.inquiry-form em {
+  color: var(--danger);
+  font-style: normal;
+}
+
+.inquiry-form label > span small {
+  color: var(--text);
+  font-weight: 400;
+}
+
+.inquiry-form label {
+  display: grid;
+}
+
+.inquiry-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+
+.inquiry-form input[type='text'],
+.inquiry-form select,
+.inquiry-form textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 14px;
+}
+
+.inquiry-form textarea {
+  resize: vertical;
+}
+
+.inquiry-form input:focus-visible,
+.inquiry-form select:focus-visible,
+.inquiry-form textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.inquiry-form [aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.inquiry-form small.error {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.inquiry-count {
+  margin-top: 2px;
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.inquiry-count.over {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* 체크박스 줄: 체크박스와 글을 한 줄에 */
+.inquiry-form label.inquiry-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.inquiry-form label.inquiry-check > span {
+  margin: 0;
+  font-weight: 500;
+}
+
+.inquiry-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.inquiry-consent {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.inquiry-consent p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.inquiry-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 8px;
+}
+
+.inquiry-done {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.inquiry-done h3 {
+  margin: 0;
+  color: var(--text-h);
+}
+
+.inquiry-done .info {
+  margin: 0;
+  grid-template-columns: 72px 1fr;
+}
+
+/* 상세 패널의 문의 버튼 */
+.inquiry-open {
+  margin-top: 12px;
+}
