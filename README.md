@@ -14,7 +14,7 @@
 ```
 
 > [!NOTE]
-> 현재는 **데모 초안 단계**입니다. 게시대는 실제 공공데이터, 유동인구는 가짜 또는 실제 데이터로 동작하며, 추천 점수 산식은 임시(provisional-v2)이고 문의 API는 아직 없습니다.
+> 현재는 **데모 초안 단계**입니다. 게시대는 실제 공공데이터, 유동인구는 가짜 또는 실제 데이터로 동작하며, 추천 점수 산식은 임시(provisional-v2)입니다. 문의 API(`POST /inquiries`)는 있고 문의 화면은 아직 없습니다.
 
 **문서**
 
@@ -336,7 +336,7 @@ flowsign/
 │       │   ├── board/              # GET /boards, /boards/{id}, /boards/{id}/population, /boards/{id}/cells, /boards/{id}/stores
 │       │   ├── cell/               # GET /cells, /board-cells (지도 Cell 레이어)
 │       │   ├── recommendation/     # POST /recommendations/search, 추천 점수 계산 (ScoreFormula·CellWeights·RecommendationScorer)
-│       │   └── inquiry/            # /inquiries (자리만 있음)
+│       │   └── inquiry/            # /inquiries (광고 신청 문의 접수)
 │       └── resources/
 │           ├── application*.yml
 │           └── db/migration/       # Flyway migration (테이블은 여기서만 생성)
