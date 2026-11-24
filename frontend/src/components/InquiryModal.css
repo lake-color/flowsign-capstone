@@ -75,6 +75,10 @@
   font-size: 12px;
 }
 
+.inquiry-sentences {
+  white-space: pre-line;
+}
+
 .inquiry-form {
   display: grid;
   gap: 14px;

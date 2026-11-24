@@ -194,7 +194,8 @@ function InquiryModal({ board, onClose }: Props) {
               <dt>희망 시기</dt><dd>{result.desiredPosting.year}년 {result.desiredPosting.month}월 {HALF_LABEL[result.desiredPosting.half]}</dd>
               <dt>접수 시각</dt><dd>{new Date(result.receivedAt).toLocaleString('ko-KR')}</dd>
             </dl>
-            <p className="inquiry-note">{result.notice}</p>
+            {/* 서버 안내 문구는 문장마다 줄을 바꾼다 */}
+            <p className="inquiry-note inquiry-sentences">{result.notice.replace(/([.!?])\s+/g, '$1\n')}</p>
             <p className="inquiry-note">예약이나 결제가 확정된 것이 아니라 문의만 접수된 상태입니다.</p>
             <button type="button" className="btn primary" onClick={onClose} autoFocus>닫기</button>
           </div>
