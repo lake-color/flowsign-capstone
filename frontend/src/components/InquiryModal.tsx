@@ -18,14 +18,18 @@ const MIN_YEAR = 2026
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const PHONE = /^0[0-9]{1,2}-?[0-9]{3,4}-?[0-9]{4}$/
 
-// 업종 선택지는 주변 업종 묶음 15개 코드(명세 4.8)를 쓴다 (PR #21 리뷰에서 결정).
-const INDUSTRIES = Object.entries(STORE_CATEGORY_LABEL) as [StoreCategory, string][]
+// 업종 선택지: 주변 업종 묶음 15개 코드(명세 4.8) + 기타(OTHER)
+type Industry = StoreCategory | 'OTHER'
+const INDUSTRIES: [Industry, string][] = [...(Object.entries(STORE_CATEGORY_LABEL) as [StoreCategory, string][]), ['OTHER', '기타']]
 
 // 동의 문구는 명세에서 미확정이다. 확정되면 이 문구와 버전 값을 바꾼다.
 const CONSENT_VERSION = 'demo-v1'
-const CONSENT_TEXT = '문의 처리를 위해 업종, 상호, 연락처, 문의 내용을 수집합니다. (시연용 임시 문구 — 수집 목적·보관 기간은 확정 후 안내)'
+const CONSENT_TEXT = '문의 처리를 위해 업종, 상호, 연락처, 문의 내용을 수집합니다.'
+const CONSENT_NOTE = '(시연용 임시 문구 — 수집 목적·보관 기간은 확정 후 안내)'
 
-const HALF_LABEL = { FIRST: '상반월', SECOND: '하반월' } as const
+const HALF_LABEL = { FIRST: '상반월(1~15일)', SECOND: '하반월(16일~말일)' } as const
+/** 연도 선택지: 기본 연도부터 3년 뒤까지 */
+const YEAR_SPAN = 3
 
 /** 문자 수(이모지 등도 1자). 서버도 code point 기준으로 센다. */
 const charCount = (s: string) => [...s].length
@@ -44,7 +48,7 @@ interface Form {
   year: number
   month: number
   half: 'FIRST' | 'SECOND'
-  industry: StoreCategory | ''
+  industry: Industry | ''
   businessName: string
   contact: string
   productionAssistanceRequired: boolean
@@ -113,8 +117,7 @@ function errorText(err: unknown): string {
  */
 function InquiryModal({ board, onClose }: Props) {
   const [form, setForm] = useState<Form>(initialForm)
-  // 연도 선택지: 처음 기본 연도와 그다음 해
-  const [years] = useState(() => [form.year, form.year + 1])
+  const [years] = useState(() => Array.from({ length: YEAR_SPAN + 1 }, (_, i) => form.year + i))
   const [showErrors, setShowErrors] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -197,7 +200,7 @@ function InquiryModal({ board, onClose }: Props) {
           </div>
         ) : (
           <form className="inquiry-form" onSubmit={submit} noValidate>
-            <p className="inquiry-note">게시대 예약·결제가 아닌 <b>광고 신청 문의</b>입니다. 게시는 지자체 절차에 따라 정해집니다.</p>
+            <p className="inquiry-note">게시대 예약·결제가 아닌 <b>광고 신청 문의</b>입니다.<br />게시는 지자체 절차에 따라 정해집니다.</p>
 
             <fieldset>
               <legend>희망 게시 시기 <em>*</em></legend>
@@ -253,7 +256,7 @@ function InquiryModal({ board, onClose }: Props) {
             </label>
 
             <div className={`inquiry-consent${consentRequired || (showErrors && errors.privacyConsent) ? ' invalid' : ''}`}>
-              <p>{CONSENT_TEXT}</p>
+              <p>{CONSENT_TEXT}<br />{CONSENT_NOTE}</p>
               <label className="inquiry-check">
                 <input type="checkbox" checked={form.privacyConsent} onChange={(e) => update('privacyConsent', e.target.checked)}
                   aria-invalid={consentRequired || (showErrors && !!errors.privacyConsent)} />

@@ -68,6 +68,7 @@
 
 .inquiry-note {
   margin: 0;
+  word-break: keep-all; /* 한글 단어 중간에서 줄이 바뀌지 않게 */
   padding: 8px 12px;
   border-radius: 10px;
   background: var(--card);
@@ -111,7 +112,7 @@
 
 .inquiry-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1.6fr;
   gap: 6px;
 }
 
@@ -196,6 +197,7 @@
 
 .inquiry-consent p {
   margin: 0;
+  word-break: keep-all;
   font-size: 12px;
 }
 

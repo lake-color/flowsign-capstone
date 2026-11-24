@@ -2,6 +2,7 @@ package com.capstone.backend.common;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * API 코드값 목록과 DB 값 변환 (API 명세 2장).
@@ -23,10 +24,13 @@ public final class Codes {
     public static final List<String> TIME_BANDS = List.of(
             "06_08", "08_10", "10_12", "12_14", "14_16", "16_18", "18_20");
     public static final List<String> PURPOSES = List.of("COMMERCIAL", "MIXED", "ADMINISTRATIVE");
-    /** 주변 업종 묶음 15개 (명세 4.8, V3 store.category). 광고 문의 업종(명세 4.7)도 이 코드만 받는다. */
+    /** 주변 업종 묶음 15개 (명세 4.8, V3 store.category) */
     public static final List<String> STORE_CATEGORIES = List.of(
             "RESTAURANT", "CAFE", "BAR", "RETAIL", "PHARMACY", "LIVING_SERVICE", "EDUCATION", "MEDICAL",
             "VETERINARY", "STUDY_ROOM", "SCIENCE_TECH", "ARTS_SPORTS", "REAL_ESTATE", "FACILITY_RENTAL", "LODGING");
+    /** 광고 문의 업종(명세 4.7): 주변 업종 15개 + 기타(OTHER) */
+    public static final List<String> INQUIRY_INDUSTRIES =
+            Stream.concat(STORE_CATEGORIES.stream(), Stream.of("OTHER")).toList();
     public static final int DATA_YEAR = 2025;
 
     public static String cityFromDb(String dbCity) {
