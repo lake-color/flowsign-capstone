@@ -60,7 +60,8 @@ const RATIO_STEP = 0.5
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1))
 
 /**
- * 추천 점수 비율 슬라이더. 왼쪽 끝은 타깃 비율, 오른쪽 끝은 유동 규모 쪽이고, 두 값의 합은 항상 10이다.
+ * 추천 점수 비율 슬라이더. 왼쪽 끝으로 갈수록 유동 규모, 오른쪽 끝으로 갈수록 타깃 비율 쪽이고(라벨 위치와 같음),
+ * 두 값의 합은 항상 10이다.
  * 끄는 동안은 숫자만 바꾸고, 놓았을 때(포인터·키보드) 한 번만 알린다.
  */
 function ScoreRatio({ value, onChange }: { value: number; onChange: (w: number) => void }) {
