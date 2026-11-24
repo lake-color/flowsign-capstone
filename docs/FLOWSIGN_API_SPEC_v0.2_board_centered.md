@@ -709,6 +709,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 - v0.2.1(2026-11-07): 영향권을 반경 100m에서 소속 Cell 기준 3×3으로 변경, `radiusMeters` 제거, 격자선 옵션·`grid` 추가, PostGIS 미사용, 점수 Spring 계산, 원본 컬럼 매핑 반영. 같은 날 원본 Cell 크기를 50m → **250m**로 정정(3×3 유지, Cell = 중심 ±125m). 원본 값 처리 규칙(소수 인구값, 분류 컬럼 NULL → `UNKNOWN`) 반영.
 - 2026-11-23: 지도 '통신사 Cell' 레이어를 메뉴에서 빼고(코드·`/cells`는 유지) '게시대 Cell' 레이어와 `GET /board-cells` 추가. 격자 간격을 250m 고정값으로 계산하고, `NOT_VERIFIED`여도 격자선을 근사로 표시.
 - 2026-11-24: 문의 업종(`industry`)을 주변 업종 묶음 15개 코드 + 기타(`OTHER`)로 확정, 개인정보 동의 없음은 `400 CONSENT_REQUIRED`(4.7).
+- 2026-11-24: 추천 요청에 `sizeWeight`(유동 규모:타깃 비율) 추가. 화면 '가시성' 메뉴를 '설정'으로 바꾸고 맨 아래 비율 슬라이더를 둔다. 슬라이더를 놓으면 결과가 있을 때 다시 계산(4.6).
 
 ## 11. 데모 구현 현황 (2026-11-07)
 
