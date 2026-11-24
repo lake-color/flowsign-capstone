@@ -712,7 +712,7 @@ export async function loadBoardCells(boardId: string, signal?: AbortSignal) {
 가짜 데이터로 동작하는 데모 초안 기준이다. 실행 방법은 README의 "빠른 시작 (데모)"를 참고한다.
 
 **구현된 API:** `GET /meta`, `GET /boards`, `GET /boards/{boardId}`, `GET /boards/{boardId}/population`, `GET /boards/{boardId}/cells`, `GET /boards/{boardId}/stores`(4.8), `GET /cells`(통신사 Cell 레이어)·`GET /board-cells`(게시대 Cell 레이어, 아래 참고), `POST /recommendations/search`(4.6, 2026-11-21), `POST /inquiries`(4.7, 2026-11-24).
-**미구현:** 문의 화면.
+**문의 화면(4.7):** 상세 패널의 '광고 문의하기'(상업용·겸용만) → 문의 모달(`frontend/src/components/InquiryModal.tsx`). 업종은 15개 코드 선택, `Idempotency-Key`는 제출 시작 시 만들고 재시도에도 유지(내용을 고치면 새 키), `CONSENT_REQUIRED`면 동의 체크박스 강조. 동의 문구는 시연용 임시 문구(`privacyConsentVersion: demo-v1`).
 
 **문의 API(4.7) 구현 메모:**
 - `inquiry` 테이블(V4)은 `board_id`에 외래키를 걸지 않는다. 데이터 적재가 `board`를 TRUNCATE로 다시 채우기 때문이며, 게시대 존재(404)·행정용(403)은 서버가 저장 전에 검사한다. 문의 기록은 재적재해도 남는다.
