@@ -170,3 +170,27 @@ export interface RecommendationResult {
   notice: string
   dataNotice: string
 }
+
+/** POST /inquiries 요청 본문 (API 명세 4.7) */
+export interface InquiryRequest {
+  boardId: string
+  /** half: FIRST(상반월) / SECOND(하반월) */
+  desiredPosting: { year: number; month: number; half: 'FIRST' | 'SECOND' }
+  industry: string
+  businessName?: string
+  contact: string
+  productionAssistanceRequired: boolean
+  message?: string
+  privacyConsent: boolean
+  privacyConsentVersion: string
+}
+
+/** POST /inquiries 응답 (연락처는 돌려주지 않는다) */
+export interface InquiryResult {
+  inquiryId: string
+  status: 'RECEIVED'
+  boardId: string
+  desiredPosting: InquiryRequest['desiredPosting']
+  receivedAt: string
+  notice: string
+}

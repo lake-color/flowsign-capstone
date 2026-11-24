@@ -4,6 +4,7 @@ import type {
 } from '../lib/types'
 import { AGE_LABEL, CITY_LABEL, PURPOSE_LABEL, STORE_CATEGORY_LABEL, formatValue, timeLabel } from '../lib/constants'
 import { ChartUnit, ColumnChart, LineChart, PieChart, type PieItem } from './Charts'
+import InquiryModal from './InquiryModal'
 
 interface Props {
   /** 선택한 게시대의 상세. 아직 불러오는 중이거나 실패했으면 null */
@@ -171,6 +172,8 @@ function BoardDetail({
   recommendation, hidden, onCollapse,
 }: Props) {
   const [tab, setTab] = useState<Tab>('time')
+  // 문의 모달을 연 게시대. 다른 게시대를 고르면 모달은 보이지 않는다.
+  const [inquiryBoardId, setInquiryBoardId] = useState<string | null>(null)
   // 인구값 단위. 서버가 주는 값(현재 '명/일' = 선택 기간 하루 평균)을 그대로 쓴다.
   const unit = population?.population.totalFlow.unitLabel ?? '명/일'
   const dailyAverage = `${unit} · 선택 기간 하루 평균`
@@ -200,6 +203,16 @@ function BoardDetail({
         <dt>게시면</dt><dd>{board.faceCount ?? '-'}</dd>
         <dt>부착금액</dt><dd>{board.postingFee === null ? '정보 없음' : `${board.postingFee.toLocaleString('ko-KR')}원`}</dd>
       </dl>
+
+      {/* 행정용(canInquire=false)은 문의 버튼을 숨긴다 (명세 4.7, 서버도 403) */}
+      {board.canInquire && (
+        <button type="button" className="btn primary inquiry-open" onClick={() => setInquiryBoardId(board.boardId)}>
+          광고 문의하기
+        </button>
+      )}
+      {board.canInquire && inquiryBoardId === board.boardId && (
+        <InquiryModal board={board} onClose={() => setInquiryBoardId(null)} />
+      )}
 
       {recommendation && (
         <div className="score-box">
