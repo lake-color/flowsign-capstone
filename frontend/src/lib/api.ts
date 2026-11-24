@@ -97,9 +97,13 @@ export const api = {
       `/board-cells?${new URLSearchParams({ west: String(b.west), south: String(b.south), east: String(b.east), north: String(b.north) })}`,
       signal,
     ),
-  /** 추천 결과 한 페이지(10개). page는 0부터 */
-  recommend: (q: PopulationQuery, page: number, signal?: AbortSignal) =>
-    post<RecommendationResult>('/recommendations/search', { criteria: toCriteria(q), page, pageSize: RECOMMEND_PAGE_SIZE }, signal),
+  /**
+   * 추천 결과 한 페이지(10개). page는 0부터.
+   * sizeWeight는 유동 규모:타깃 비율 배점 중 유동 규모의 몫(0~1)이고, 점수는 서버가 계산한다.
+   */
+  recommend: (q: PopulationQuery, page: number, sizeWeight: number, signal?: AbortSignal) =>
+    post<RecommendationResult>('/recommendations/search',
+      { criteria: toCriteria(q), page, pageSize: RECOMMEND_PAGE_SIZE, sizeWeight }, signal),
   /**
    * 광고 신청 문의 접수 (명세 4.7). idempotencyKey는 제출을 시작할 때 만든 UUID v4이고,
    * 타임아웃 뒤 재시도할 때도 같은 키를 보내야 서버가 한 건으로 처리한다.

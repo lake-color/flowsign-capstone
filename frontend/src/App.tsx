@@ -8,7 +8,7 @@ import RightPanel from './components/RightPanel'
 import SideTabs, { type LeftTab } from './components/SideTabs'
 import PaletteSelect from './components/PaletteSelect'
 import ThemeToggle, { type Theme } from './components/ThemeToggle'
-import { DEFAULT_QUERY, PALETTES, type Palette } from './lib/constants'
+import { DEFAULT_QUERY, DEFAULT_SIZE_WEIGHT, PALETTES, type Palette } from './lib/constants'
 import MapView, { type MapProvider } from './map/MapView'
 import type {
   Board, BoardPopulation, BoardStores, Bounds, CellItem, MapCell, Meta, PopulationError, PopulationQuery, Purpose,
@@ -63,7 +63,7 @@ function App() {
   const [showStores, setShowStores] = useState(params.get('stores') === '1')
   // 상세 패널에서 고른 업종 (지도에서 강조). 같은 업종을 다시 누르면 해제한다.
   const [highlightCategory, setHighlightCategory] = useState<StoreCategory | null>(null)
-  // 용도별 게시대 마커 표시 (가시성 메뉴). 지도 마커만 거르고 추천 결과 목록에는 영향이 없다.
+  // 용도별 게시대 마커 표시 (설정 메뉴). 지도 마커만 거르고 추천 결과 목록에는 영향이 없다.
   const [purposeVisible, setPurposeVisible] = useState<Record<Purpose, boolean>>({ COMMERCIAL: true, MIXED: true, ADMINISTRATIVE: true })
   const changePurposeVisible = useCallback((purpose: Purpose, visible: boolean) => {
     setPurposeVisible((current) => ({ ...current, [purpose]: visible }))
@@ -231,23 +231,28 @@ function App() {
   const [recommendLoading, setRecommendLoading] = useState<'analyze' | 'more' | null>(null)
   const [recommendError, setRecommendError] = useState<string | null>(null)
   const recommendRequest = useRef<AbortController | null>(null)
+  // 설정 메뉴의 점수 비율 슬라이더: 유동 규모:타깃 비율 배점 중 유동 규모의 몫 (기본 5:5)
+  const [sizeWeight, setSizeWeight] = useState(DEFAULT_SIZE_WEIGHT)
+  // 지금 보이는 추천 결과를 만든 비율. '더 보기'도 같은 비율로 요청한다.
+  const recommendWeight = useRef(DEFAULT_SIZE_WEIGHT)
   const [focus, setFocus] = useState<{ latitude: number; longitude: number } | null>(null)
 
   /**
    * page 0이면 새로 분석하고, 그 뒤 페이지는 기존 결과에 이어 붙인다. 진행 중인 이전 요청은 취소한다.
    * 조건과 결과는 응답이 성공했을 때만 바꾼다(명세 6장). 실패하면 이전 결과와 조건을 그대로 두고 오류만 보여준다.
    */
-  const fetchRecommendations = useCallback((q: PopulationQuery, page: number) => {
+  const fetchRecommendations = useCallback((q: PopulationQuery, page: number, weight: number) => {
     recommendRequest.current?.abort()
     const ctrl = new AbortController()
     recommendRequest.current = ctrl
     setRecommendLoading(page === 0 ? 'analyze' : 'more')
     setRecommendError(null)
-    api.recommend(q, page, ctrl.signal)
+    api.recommend(q, page, weight, ctrl.signal)
       .then((r) => {
         if (page === 0) {
           setQuery(q)
           setRecommendQuery(q)
+          recommendWeight.current = weight
         }
         setRecommendation((prev) => (page > 0 && prev ? { ...r, items: [...prev.items, ...r.items] } : r))
       })
@@ -262,12 +267,18 @@ function App() {
   // '추천 분석하기' 클릭 때만 호출한다 (명세 4.6: 조건 편집 중 자동 호출 금지)
   const recommend = useCallback((q: PopulationQuery) => {
     setLeftTab('result')
-    fetchRecommendations(q, 0)
-  }, [fetchRecommendations])
+    fetchRecommendations(q, 0, sizeWeight)
+  }, [fetchRecommendations, sizeWeight])
 
   const recommendMore = useCallback(() => {
-    if (recommendation && recommendQuery) fetchRecommendations(recommendQuery, recommendation.page + 1)
+    if (recommendation && recommendQuery) fetchRecommendations(recommendQuery, recommendation.page + 1, recommendWeight.current)
   }, [fetchRecommendations, recommendation, recommendQuery])
+
+  // 슬라이더를 놓으면 비율을 바꾸고, 추천 결과가 떠 있으면 같은 조건으로 바로 다시 계산한다 (사용자 결정 2026-11-24).
+  const changeSizeWeight = useCallback((w: number) => {
+    setSizeWeight(w)
+    if (recommendQuery) fetchRecommendations(recommendQuery, 0, w)
+  }, [fetchRecommendations, recommendQuery])
   // 추천 카드를 고르면 게시대를 선택하고 지도를 그 위치로 옮긴다.
   const selectRecommended = useCallback((id: string) => {
     setSelectedId(id)
@@ -331,6 +342,8 @@ function App() {
             onShowStoresChange={setShowStores}
             purposeVisible={purposeVisible}
             onPurposeVisibleChange={changePurposeVisible}
+            sizeWeight={sizeWeight}
+            onSizeWeightChange={changeSizeWeight}
           />
         </SideTabs>
         <FilterPanel applied={query} onApply={setQuery} onRecommend={recommend} hidden={leftTab !== 'filter'}
